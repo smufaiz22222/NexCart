@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+enum Role {
+  CUSTOMER
+  WHOLESALER
+  SUPER_ADMIN
+}
+
+enum InventoryChangeReason {
+  SALE
+  REFUND
+  OCR_UPDATE
+  MANUAL_ADJUSTMENT
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+// --- CORE USERS (GLOBAL MARKETPLACE) ---
+model User {
+  id        String   @id @default(uuid())
+  name      String   @default("User")
+  email     String   @unique
+  password  String   // Hashed via bcrypt
+  role      Role     @default(CUSTOMER)
+  
+  // Only exists if they register as a Seller/Wholesaler
+  wholesalerProfile Wholesaler? 
+
+  // ANY user can buy from the marketplace (Global Customers OR Wholesalers)
+  ordersPlaced  Order[]       @relation("BuyerOrders")
+  ledgerEntries LedgerEntry[] @relation("UserLedger")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Wholesaler {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  businessName String
+  
+  // The Shop's Data
+  products      Product[]
+  orders        Order[]        @relation("SellerOrders")
+  invoices      Invoice[]
+  ledgerEntries LedgerEntry[]  @relation("WholesalerLedger")
+  inventoryLogs InventoryLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// NOTE: The Customer model has been DELETED. All buyers are now global Users!
+
+// --- E-COMMERCE & INVENTORY ---
+model Product {
+  id           String     @id @default(uuid())
+  wholesalerId String
+  wholesaler   Wholesaler @relation(fields: [wholesalerId], references: [id])
+  
+  name         String
+  description  String?
+  price        Float    
+  costPrice    Float      @default(0)
+  sku          String?
+  imageUrl     String?    
+  
+  currentStock Int        @default(0) 
+  minStock     Int        @default(10)
+  
+  inventoryLogs InventoryLog[]
+  orderItems    OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryLog {
+  id           String     @id @default(uuid())
+  wholesalerId String
+  wholesaler   Wholesaler @relation(fields: [wholesalerId], references: [id])
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  
+  changeAmount Int        
+  reason       InventoryChangeReason
+  
+  createdAt    DateTime   @default(now())
+}
+
+// --- ORDERS & TRANSACTIONS (MARKETPLACE ROUTING) ---
+model Order {
+  id           String      @id @default(uuid())
+  
+  // WHO IS SELLING?
+  sellerId     String
+  seller       Wholesaler  @relation("SellerOrders", fields: [sellerId], references: [id])
+  
+  // WHO IS BUYING? (Now points to the global User table)
+  buyerId      String
+  buyer        User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  
+  status       OrderStatus @default(PENDING)
+  totalAmount  Decimal     @db.Decimal(10, 2)
+  
+  items        OrderItem[]
+  invoice      Invoice?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2) 
+}
+
+// --- IMMUTABLE ACCOUNTING ---
+model Invoice {
+  id           String     @id @default(uuid())
+  wholesalerId String
+  wholesaler   Wholesaler @relation(fields: [wholesalerId], references: [id])
+  orderId      String     @unique
+  order        Order      @relation(fields: [orderId], references: [id])
+  
+  amount       Decimal    @db.Decimal(10, 2)
+  ocrReference String?    
+  
+  createdAt    DateTime   @default(now())
+}
+
+model LedgerEntry {
+  id           String     @id @default(uuid())
+  
+  // The Shop
+  wholesalerId String
+  wholesaler   Wholesaler @relation("WholesalerLedger", fields: [wholesalerId], references: [id])
+  
+  // The Buyer (Global User)
+  userId       String?    
+  user         User?      @relation("UserLedger", fields: [userId], references: [id])
+  
+  amount       Decimal    @db.Decimal(10, 2) 
+  description  String
+  referenceId  String?    
+  
+  createdAt    DateTime   @default(now())
+}
