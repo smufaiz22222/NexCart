@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './store/authStore';
 
-import Login from './pages/Login';
+import Login from './pages/login';
 import Register from './pages/Register';
 import Products from './pages/Products';
 import WholesalerLayout from './layouts/WholesalerLayout';
@@ -14,9 +14,8 @@ import Ledger from './pages/Ledger';
 import AiKhatta from './pages/AiKhatta';
 import Storefront from './pages/Storefront';
 import Cart from './pages/Cart';
-// ==========================================
-// 1. ROLE-BASED ROUTE GUARD
-// ==========================================
+import ProductDetails from './pages/ProductDetails';
+
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuthStore();
 
@@ -31,18 +30,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
-// ==========================================
-// 2. TEMPORARY PLACEHOLDER PAGES
-// ==========================================
 const Unauthorized = () => <div className="p-10 text-2xl font-bold text-red-600">403 - Unauthorized Access</div>;
 
-const CustomerStore = () => <div className="p-10 text-2xl font-bold">🛒 Customer Storefront</div>;
-// const WholesalerDashboard = () => <div className="p-10 text-2xl font-bold">🏢 Wholesaler ERP Dashboard</div>;
-const SuperAdminPanel = () => <div className="p-10 text-2xl font-bold">👑 Super Admin Global View</div>;
+const CustomerStore = () => <div className="p-10 text-2xl font-bold">Customer Storefront</div>;
+const SuperAdminPanel = () => <div className="p-10 text-2xl font-bold">Super Admin Global View</div>;
 
-// ==========================================
-// 3. MAIN APP ROUTER
-// ==========================================
 function App() {
   const { isAuthenticated, user } = useAuthStore();
 
@@ -54,7 +46,6 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
-        {/* Dynamic Home Route based on Role */}
         <Route
           path="/"
           element={
@@ -65,7 +56,6 @@ function App() {
           }
         />
 
-        {/* Protected Customer Routes */}
         <Route
           path="/store/*"
           element={
@@ -75,11 +65,11 @@ function App() {
           }
         >
           <Route index element={<Storefront />} />
+          <Route path="cart" element={<Cart />} />
+          <Route path="product/:id" element={<ProductDetails />} />
+          <Route path="orders" element={<Orders />} />
         </Route>
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/orders" element={<Orders />} />
 
-        {/* Protected Wholesaler Routes */}
         <Route
           path="/wholesaler/*"
           element={
@@ -97,7 +87,6 @@ function App() {
           <Route path="khatta" element={<AiKhatta />} />
         </Route>
 
-        {/* Protected Super Admin Routes */}
         <Route
           path="/admin/*"
           element={

@@ -30,8 +30,6 @@ export const processKhattaImage = async (req, res) => {
     res.status(500).json({ error: 'AI Error' });
   }
 };
-
-// --- THE NEW "CREATE" FUNCTION ---
 export const saveKhattaEntries = async (req, res) => {
   try {
     const { entries } = req.body;
@@ -40,7 +38,6 @@ export const saveKhattaEntries = async (req, res) => {
     const savedEntries = await prisma.$transaction(async (tx) => {
       const results = [];
       for (const entry of entries) {
-        // Try to find the customer in YOUR database
         const customer = await tx.customer.findFirst({
           where: { user: { email: entry.customerEmail } }
         });

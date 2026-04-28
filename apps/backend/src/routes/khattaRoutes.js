@@ -4,11 +4,9 @@ import { authenticate, requireWholesaler } from '../middlewares/authMiddleware.j
 
 const router = express.Router();
 
-// Only logged-in Wholesalers can use the AI feature
 router.use(authenticate);
 router.use(requireWholesaler);
 
-// 🟢 POST: Send image to Gemini AI
 router.post('/process', processKhattaImage);
 router.post('/save', saveKhattaEntries);
 
