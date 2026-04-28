@@ -2,7 +2,8 @@ import { prisma } from '../config/db.js';
 
 export const createProduct = async (req, res) => {
   try {
-    const { name, sku, price, costPrice, currentStock, minStock, description, imageUrl } = req.body;
+    // 1. UPDATED: Extracted 'category' from the frontend request
+    const { name, sku, category, price, costPrice, currentStock, minStock, description, imageUrl } = req.body;
     const wholesalerId = req.user.wholesalerId;
 
     const newProduct = await prisma.product.create({
@@ -12,6 +13,8 @@ export const createProduct = async (req, res) => {
         sku,
         description,
         imageUrl,
+        // 2. UPDATED: Save the category. If it's blank, send undefined so Prisma uses @default("General")
+        category: category || undefined, 
         price: parseFloat(price),
         costPrice: parseFloat(costPrice || 0),
         currentStock: parseInt(currentStock || 0),
