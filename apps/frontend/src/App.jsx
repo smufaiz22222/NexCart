@@ -41,7 +41,6 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
@@ -78,7 +77,6 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* These render INSIDE the <Outlet /> of the WholesalerLayout */}
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
           <Route path="inventory" element={<Inventory />} />

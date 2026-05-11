@@ -28,7 +28,7 @@ export default function Cart() {
       
       alert('Order placed successfully!');
       clearCart();
-      navigate('/orders');
+      navigate('/store/orders');
     } catch (error) {
       alert(error.response?.data?.error || 'Checkout failed');
     } finally {
