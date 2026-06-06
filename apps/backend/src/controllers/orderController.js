@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { createPurchaseInteractions } from '../services/interactionService.js';
 
 export const checkout = async (req, res) => {
   try {
@@ -56,6 +57,13 @@ export const checkout = async (req, res) => {
             shippingAddress,
             items: { create: data.orderItems }
           }
+        });
+
+        await createPurchaseInteractions({
+          tx,
+          buyerId,
+          orderItems: data.orderItems,
+          source: 'checkout'
         });
 
         const invoice = await tx.invoice.create({

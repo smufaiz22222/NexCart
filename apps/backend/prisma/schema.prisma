@@ -29,6 +29,26 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum InteractionAction {
+  view
+  wishlist
+  cart
+  purchase
+  review
+}
+
+enum SimilarityMethod {
+  CONTENT
+  COLLABORATIVE
+}
+
+enum RecommendationEventType {
+  impression
+  click
+  cart
+  purchase
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String   @default("User")
@@ -36,6 +56,9 @@ model User {
   password  String
   role      Role     @default(CUSTOMER)
   reviews   Review[]
+  interactions RecommendationInteraction[]
+  recommendationLogs RecommendationLog[]
+  recommendationEvents RecommendationEvent[]
 
   wholesalerProfile Wholesaler? 
 
@@ -83,6 +106,11 @@ model Product {
   
   inventoryLogs InventoryLog[]
   orderItems    OrderItem[]
+  interactions  RecommendationInteraction[]
+  feature       ProductFeature?
+  similaritiesFrom ProductSimilarity[] @relation("ProductSimilaritySource")
+  similaritiesTo   ProductSimilarity[] @relation("ProductSimilarityTarget")
+  recommendationEvents RecommendationEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -171,4 +199,88 @@ model Review {
   comment   String?
   
   createdAt DateTime @default(now())
+}
+
+model RecommendationInteraction {
+  id               String            @id @default(uuid())
+  userId           String?
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId        String?
+  productId        String
+  product          Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  action           InteractionAction
+  quantity         Int               @default(1)
+  source           String            @default("unknown")
+  recommendationId String?
+  recommendation   RecommendationLog? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+  metadata         Json              @default("{}")
+  createdAt        DateTime          @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([productId, action, createdAt])
+}
+
+model ProductFeature {
+  productId   String   @id
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  textCorpus  String
+  tfidfVector Json
+  embedding   Json?
+  version     Int      @default(1)
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductSimilarity {
+  id               String           @id @default(uuid())
+  productId        String
+  product          Product          @relation("ProductSimilaritySource", fields: [productId], references: [id], onDelete: Cascade)
+  similarProductId String
+  similarProduct   Product          @relation("ProductSimilarityTarget", fields: [similarProductId], references: [id], onDelete: Cascade)
+  method           SimilarityMethod
+  score            Float
+  rank             Int
+  computedAt       DateTime         @default(now())
+
+  @@unique([productId, similarProductId, method])
+  @@index([productId, method, rank])
+  @@index([similarProductId])
+}
+
+model RecommendationLog {
+  id           String   @id @default(uuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId    String?
+  surface      String
+  algorithm    String
+  productIds   Json
+  createdAt    DateTime @default(now())
+
+  interactions RecommendationInteraction[]
+  events       RecommendationEvent[]
+
+  @@index([userId])
+  @@index([surface])
+  @@index([algorithm])
+  @@index([createdAt])
+}
+
+model RecommendationEvent {
+  id                  String                  @id @default(uuid())
+  recommendationLogId String
+  recommendationLog   RecommendationLog       @relation(fields: [recommendationLogId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId              String?
+  user                User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId           String?
+  eventType           RecommendationEventType
+  createdAt           DateTime                @default(now())
+
+  @@index([recommendationLogId])
+  @@index([productId, eventType, createdAt])
+  @@index([userId])
 }

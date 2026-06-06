@@ -44,6 +44,7 @@ export const getProducts = async (req, res) => {
   }
 };
 export const getMarketplaceProducts = async (req, res) => {
+  console.log('Fetching marketplace products...');
   try {
     const products = await prisma.product.findMany({
       where: { currentStock: { gt: 0 } },
@@ -54,10 +55,10 @@ export const getMarketplaceProducts = async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-
+    console.log('Marketplace products:', products);
     res.status(200).json({ count: products.length, products });
   } catch (error) {
-    console.error('Marketplace Products Error:', error);
+    
     res.status(500).json({ error: 'Failed to fetch marketplace products' });
   }
 };

@@ -6,7 +6,10 @@ import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 
 export default function Storefront() {
-  const [products, setProducts] = useState([]);
+  const [marketplaceProducts, setMarketplaceProducts] = useState([]);
+  const [trendingProducts, setTrendingProducts] = useState([]);
+  const [recommendedProductIds, setRecommendedProductIds] = useState(new Set());
+  const [recommendationId, setRecommendationId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -14,14 +17,36 @@ export default function Storefront() {
   const navigate = useNavigate();
   const { logout } = useAuthStore();
   const totalItems = useCartStore((state) => state.getTotalItems());
-
+  
   useEffect(() => {
     const fetchMarketplace = async () => {
       try {
-        const response = await apiClient.get('/products/marketplace');
-        setProducts(response.data.products);
+        const [marketplaceResponse, recommendationResponse] = await Promise.all([
+          apiClient.get('/products/marketplace'),
+          apiClient.get('/recommendations/popular?scope=trending&limit=100')
+        ]);
+
+        const marketplaceProducts = marketplaceResponse.data.products || [];
+        const recommendationItems = recommendationResponse.data.recommendations || [];
+        const recommendedProducts = recommendationItems.map((item) => item.product).slice(0, 24);
+        const recommendedIds = new Set(recommendedProducts.map((product) => product.id));
+
+        setMarketplaceProducts(marketplaceProducts);
+        setTrendingProducts(recommendedProducts);
+        setRecommendedProductIds(recommendedIds);
+        setRecommendationId(recommendationResponse.data.recommendationId || null);
       } catch (error) {
-        console.error('Failed to load marketplace:', error);
+        console.error('Failed to load marketplace with recommendations:', error);
+        try {
+          const fallbackResponse = await apiClient.get('/products/marketplace');
+          const fallbackProducts = fallbackResponse.data.products || [];
+          setMarketplaceProducts(fallbackProducts);
+          setTrendingProducts(fallbackProducts.slice(0, 24));
+          setRecommendedProductIds(new Set());
+          setRecommendationId(null);
+        } catch (fallbackError) {
+          console.error('Failed to load marketplace:', fallbackError);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -34,9 +59,23 @@ export default function Storefront() {
     navigate('/login');
   };
 
-  const categories = ['All', ...new Set(products.map(p => p.category || 'General'))];
+  const handleProductClick = (product) => {
+    if (recommendationId && recommendedProductIds.has(product.id)) {
+      apiClient.post('/interactions/recommendation-event', {
+        recommendationId,
+        productId: product.id,
+        eventType: 'click'
+      }).catch((error) => console.error('Failed to log recommendation click:', error));
+    }
+    navigate(`/store/product/${product.id}`);
+  };
 
-  const filteredProducts = products.filter(p => {
+  const isSearchingOrFiltering = searchTerm.trim().length > 0 || selectedCategory !== 'All';
+  const productsToDisplay = isSearchingOrFiltering ? marketplaceProducts : trendingProducts;
+
+  const categories = ['All', ...new Set(marketplaceProducts.map(p => p.category || 'General'))];
+
+  const filteredProducts = productsToDisplay.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.wholesaler?.businessName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || (p.category || 'General') === selectedCategory;
@@ -161,7 +200,11 @@ export default function Storefront() {
         <main className="flex-1">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
             <h2 className="text-xl font-semibold text-white flex items-center gap-3 tracking-wide">
-              {selectedCategory === 'All' ? 'Trending Today' : `${selectedCategory}`}
+              {searchTerm.trim()
+                ? 'Search Results'
+                : selectedCategory === 'All'
+                  ? 'Trending Today'
+                  : selectedCategory}
               <span className="text-xs font-medium text-amber-900 bg-amber-400 px-2 py-0.5 rounded-md shadow-sm">
                 {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
               </span>
@@ -203,7 +246,7 @@ export default function Storefront() {
               {filteredProducts.map((product) => (
                 <div 
                   key={product.id} 
-                  onClick={() => navigate(`/store/product/${product.id}`)}
+                  onClick={() => handleProductClick(product)}
                   className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden hover:shadow-2xl hover:border-amber-500/50 transition-all duration-300 group cursor-pointer flex flex-col"
                 >
                   {/* Image Container - Using a soft beige/white backdrop to make product images pop against the dark theme */}

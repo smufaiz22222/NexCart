@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Star, Store, ArrowLeft, MessageSquare, Package } from 'lucide-react';
+import { ShoppingCart, Star, Store, ArrowLeft, MessageSquare, Package, Sparkles } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
 
@@ -10,7 +10,10 @@ export default function ProductDetails() {
   const addToCart = useCartStore((state) => state.addToCart);
   
   const [product, setProduct] = useState(null);
+  const [similarProducts, setSimilarProducts] = useState([]);
+  const [recommendationId, setRecommendationId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingSimilar, setIsLoadingSimilar] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
   
   const [rating, setRating] = useState(5);
@@ -25,6 +28,11 @@ export default function ProductDetails() {
         if (response.data.sizes && response.data.sizes.length > 0) {
           setSelectedSize(response.data.sizes[0]);
         }
+        apiClient.post('/interactions', {
+          productId: id,
+          action: 'view',
+          source: 'product_detail'
+        }).catch((error) => console.error('Failed to log product view:', error));
       } catch (error) {
         console.error('Failed to load product:', error);
       } finally {
@@ -34,13 +42,49 @@ export default function ProductDetails() {
     fetchProduct();
   }, [id]);
 
+  useEffect(() => {
+    const fetchSimilarProducts = async () => {
+      setIsLoadingSimilar(true);
+      try {
+        const response = await apiClient.get(`/recommendations/products/${id}/similar?limit=8`);
+        setSimilarProducts(response.data.recommendations || []);
+        setRecommendationId(response.data.recommendationId || null);
+      } catch (error) {
+        console.error('Failed to load similar products:', error);
+        setSimilarProducts([]);
+      } finally {
+        setIsLoadingSimilar(false);
+      }
+    };
+
+    fetchSimilarProducts();
+  }, [id]);
+
   const handleAddToCart = () => {
     if (product.sizes?.length > 0 && !selectedSize) {
       return alert("Please select a size first!");
     }
     
     addToCart({ ...product, selectedSize });
+    apiClient.post('/interactions', {
+      productId: product.id,
+      action: 'cart',
+      quantity: 1,
+      source: 'product_detail',
+      recommendationId
+    }).catch((error) => console.error('Failed to log cart interaction:', error));
     alert("Added to cart!");
+  };
+
+  const handleRecommendationClick = (recommendedProduct) => {
+    if (recommendationId) {
+      apiClient.post('/interactions/recommendation-event', {
+        recommendationId,
+        productId: recommendedProduct.id,
+        eventType: 'click'
+      }).catch((error) => console.error('Failed to log recommendation click:', error));
+    }
+    navigate(`/store/product/${recommendedProduct.id}`);
   };
 
   const handleReviewSubmit = async (e) => {
@@ -165,6 +209,70 @@ export default function ProductDetails() {
               Add to Cart
             </button>
           </div>
+        </div>
+
+        <div className="mt-8 bg-[#1c1c1c] rounded-xl shadow-2xl border border-zinc-800 p-6 md:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white flex items-center tracking-wide">
+              <Sparkles className="h-5 w-5 mr-3 text-amber-500" />
+              Similar Products
+            </h2>
+          </div>
+
+          {isLoadingSimilar ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((item) => (
+                <div key={item} className="bg-[#0a0a0a] border border-zinc-800 rounded-lg p-4 animate-pulse">
+                  <div className="h-28 bg-zinc-800 rounded-md mb-4"></div>
+                  <div className="h-4 bg-zinc-800 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-zinc-800 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : similarProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {similarProducts.map((item) => {
+                const recommendedProduct = item.product;
+                return (
+                  <button
+                    key={recommendedProduct.id}
+                    onClick={() => handleRecommendationClick(recommendedProduct)}
+                    className="text-left bg-[#0a0a0a] border border-zinc-800 rounded-lg overflow-hidden hover:border-amber-500/60 hover:bg-zinc-900 transition-all group"
+                  >
+                    <div className="h-32 bg-[#F5F5F0] flex items-center justify-center p-3">
+                      {recommendedProduct.imageUrl ? (
+                        <img
+                          src={recommendedProduct.imageUrl}
+                          alt={recommendedProduct.name}
+                          className="h-full w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                        />
+                      ) : (
+                        <Store className="h-8 w-8 text-zinc-400" />
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">
+                        {recommendedProduct.category || 'General'}
+                      </p>
+                      <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-amber-400 transition-colors">
+                        {recommendedProduct.name}
+                      </h3>
+                      <p className="mt-2 text-base font-black text-amber-500">
+                        ₹{parseFloat(recommendedProduct.price).toFixed(2)}
+                      </p>
+                      {item.reasons?.[0] && (
+                        <p className="mt-2 text-xs text-zinc-500 line-clamp-1">{item.reasons[0]}</p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-zinc-500 bg-[#0a0a0a] rounded-lg border border-dashed border-zinc-800">
+              Similar products will appear after recommendation jobs are built.
+            </div>
+          )}
         </div>
 
         <div className="mt-8 bg-[#1c1c1c] rounded-xl shadow-2xl border border-zinc-800 p-8 md:p-12">

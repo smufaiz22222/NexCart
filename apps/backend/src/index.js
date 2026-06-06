@@ -13,6 +13,8 @@ import ledgerRoutes from './routes/ledgerRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import khattaRoutes from './routes/khattaRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
+import interactionRoutes from './routes/interactionRoutes.js';
+import recommendationRoutes from './routes/recommendationRoutes.js';
 
 dotenv.config({
   path: path.resolve(process.cwd(), '.env')
@@ -43,6 +45,8 @@ app.use('/api/ledger', ledgerRoutes);
 app.use('/api/admin', superAdminRoutes);
 app.use('/api/khatta', khattaRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/interactions', interactionRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);

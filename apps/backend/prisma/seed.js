@@ -5,7 +5,7 @@ async function main() {
   console.log('🌱 Starting database seed with hardcoded data...');
 
   const hashedPassword = await bcrypt.hash('1234', 10);
-
+ 
   console.log('Sweeping old data...');
   await prisma.inventoryLog.deleteMany();
   await prisma.ledgerEntry.deleteMany();

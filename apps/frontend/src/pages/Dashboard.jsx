@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, AlertCircle, DollarSign, Wallet, Activity } from 'lucide-react';
+import { Package, AlertCircle, DollarSign, Wallet, Activity, MousePointerClick, ShoppingCart, Target, RadioTower } from 'lucide-react';
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import apiClient from '../api/axios';
 
@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [ledgerStats, setLedgerStats] = useState({ totalDebt: 0, totalCollection: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [advancedData, setAdvancedData] = useState({ chartData: [], topProducts: [] });
+  const [recommendationAnalytics, setRecommendationAnalytics] = useState(null);
   const [timeframe, setTimeframe] = useState('monthly'); // Default to monthly
 
   // Update the useEffect to watch for timeframe changes
@@ -15,15 +16,17 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
-        const [prodRes, ledgerRes, advRes] = await Promise.all([
+        const [prodRes, ledgerRes, advRes, recRes] = await Promise.all([
           apiClient.get('/products'),
           apiClient.get('/stats/wholesaler-summary'),
-          apiClient.get(`/stats/advanced-summary?timeframe=${timeframe}`) // Pass timeframe here!
+          apiClient.get(`/stats/advanced-summary?timeframe=${timeframe}`), // Pass timeframe here!
+          apiClient.get('/recommendations/analytics')
         ]);
         
         setProducts(prodRes.data.products);
         setLedgerStats(ledgerRes.data);
         setAdvancedData(advRes.data);
+        setRecommendationAnalytics(recRes.data);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -96,6 +99,41 @@ export default function Dashboard() {
           color="text-zinc-300"
           bg="bg-zinc-800/50 border-zinc-700"
           desc="Unique SKUs"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Reco CTR"
+          value={`${(((recommendationAnalytics?.recommendationCtr || 0) * 100)).toFixed(1)}%`}
+          icon={MousePointerClick}
+          color="text-sky-400"
+          bg="bg-sky-500/10 border-sky-500/20"
+          desc="Clicks from recommendations"
+        />
+        <StatCard
+          title="Reco Cart Rate"
+          value={`${(((recommendationAnalytics?.recommendationCartRate || 0) * 100)).toFixed(1)}%`}
+          icon={ShoppingCart}
+          color="text-violet-400"
+          bg="bg-violet-500/10 border-violet-500/20"
+          desc="Recommendation to cart"
+        />
+        <StatCard
+          title="Reco Conversion"
+          value={`${(((recommendationAnalytics?.recommendationConversionRate || 0) * 100)).toFixed(1)}%`}
+          icon={Target}
+          color="text-emerald-400"
+          bg="bg-emerald-500/10 border-emerald-500/20"
+          desc="Recommendation to purchase"
+        />
+        <StatCard
+          title="Coverage"
+          value={`${(((recommendationAnalytics?.coverage || 0) * 100)).toFixed(1)}%`}
+          icon={RadioTower}
+          color="text-amber-500"
+          bg="bg-amber-500/10 border-amber-500/20"
+          desc="Catalog recommended"
         />
       </div>
 
