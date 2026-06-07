@@ -11,7 +11,11 @@ const useCartStore = create((set, get) => ({
       set({ 
         cart: currentCart.map(item => 
           item.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 } 
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+                recommendationContext: item.recommendationContext || product.recommendationContext
+              } 
             : item
         ) 
       });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, AlertCircle, DollarSign, Wallet, Activity, MousePointerClick, ShoppingCart, Target, RadioTower } from 'lucide-react';
+import { Package, AlertCircle, DollarSign, Wallet, Activity, MousePointerClick, ShoppingCart, Target, RadioTower, ShieldCheck, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import apiClient from '../api/axios';
 
@@ -49,6 +49,14 @@ export default function Dashboard() {
     stock: p.currentStock,
     value: p.price * p.currentStock
   }));
+  const funnelData = recommendationAnalytics?.funnel
+    ? [
+        { name: 'Impression', count: recommendationAnalytics.funnel.impression || 0 },
+        { name: 'Click', count: recommendationAnalytics.funnel.click || 0 },
+        { name: 'Cart', count: recommendationAnalytics.funnel.cart || 0 },
+        { name: 'Purchase', count: recommendationAnalytics.funnel.purchase || 0 }
+      ]
+    : [];
 
   if (isLoading) {
     return (
@@ -134,6 +142,74 @@ export default function Dashboard() {
           color="text-amber-500"
           bg="bg-amber-500/10 border-amber-500/20"
           desc="Catalog recommended"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-6">
+          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6">Recommendation Funnel</h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={funnelData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#a1a1aa', fontSize: 12}} />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{fill: '#a1a1aa', fontSize: 12}} />
+                <Tooltip
+                  cursor={{ fill: '#27272a', opacity: 0.4 }}
+                  contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #3f3f46', borderRadius: '8px', color: '#fff' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Events" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-6">
+          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6 flex items-center">
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            Recommendation Health
+          </h3>
+          <div className="space-y-3">
+            <div className={`rounded-lg border p-4 ${
+              recommendationAnalytics?.health?.status === 'healthy'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+            }`}>
+              <p className="text-sm font-bold capitalize">{recommendationAnalytics?.health?.status || 'unknown'}</p>
+              <p className="text-xs mt-1 text-zinc-400">
+                {recommendationAnalytics?.health?.trackedImpressions || 0} impressions tracked across {((recommendationAnalytics?.health?.coverage || 0) * 100).toFixed(1)}% coverage.
+              </p>
+            </div>
+            {(recommendationAnalytics?.health?.warnings || []).length > 0 ? (
+              recommendationAnalytics.health.warnings.map((warning) => (
+                <div key={warning} className="bg-[#0a0a0a] border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400">
+                  {warning}
+                </div>
+              ))
+            ) : (
+              <div className="bg-[#0a0a0a] border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400">
+                No recommendation health warnings.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RecommendationTable
+          title="Top Recommended Products"
+          icon={RadioTower}
+          rows={recommendationAnalytics?.topRecommendedProducts || []}
+          valueLabel="Impressions"
+          getValue={(row) => row.impressions || 0}
+        />
+        <RecommendationTable
+          title="Top Converting Recommendations"
+          icon={TrendingUp}
+          rows={recommendationAnalytics?.topConvertingRecommendations || []}
+          valueLabel="Purchases"
+          getValue={(row) => `${row.purchases || 0} (${((row.conversionRate || 0) * 100).toFixed(1)}%)`}
         />
       </div>
 
@@ -303,6 +379,45 @@ function StatCard({ title, value, icon: Icon, color, bg, desc }) {
       </div>
       <p className={`text-2xl font-black text-white tracking-wide`}>{value}</p>
       <p className="text-xs text-zinc-400 mt-1.5 font-medium">{desc}</p>
+    </div>
+  );
+}
+
+function RecommendationTable({ title, icon: Icon, rows, valueLabel, getValue }) {
+  return (
+    <div className="bg-[#1c1c1c] p-6 rounded-xl shadow-xl border border-zinc-800">
+      <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6 flex items-center">
+        <Icon className="h-4 w-4 mr-2" />
+        {title}
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="text-zinc-500 text-[10px] uppercase tracking-widest border-b border-zinc-800">
+              <th className="pb-3 font-bold">Product</th>
+              <th className="pb-3 font-bold">Category</th>
+              <th className="pb-3 font-bold text-right">{valueLabel}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-800/50">
+            {rows.length > 0 ? (
+              rows.map((row) => (
+                <tr key={row.product?.id || row.product?.name} className="hover:bg-zinc-800/30 transition-colors">
+                  <td className="py-3.5 pr-2 font-semibold text-white text-sm">{row.product?.name || 'Unknown product'}</td>
+                  <td className="py-3.5 pr-2 text-zinc-400 text-sm">{row.product?.category || 'General'}</td>
+                  <td className="py-3.5 pl-2 text-right font-bold text-amber-400 text-sm">{getValue(row)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="3" className="py-10 text-center text-sm text-zinc-500">
+                  No recommendation data available yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

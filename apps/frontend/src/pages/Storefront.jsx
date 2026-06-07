@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShoppingCart, Search, Store, Package, LogOut, Filter, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
@@ -17,6 +17,7 @@ export default function Storefront() {
   const navigate = useNavigate();
   const { logout } = useAuthStore();
   const totalItems = useCartStore((state) => state.getTotalItems());
+  const loggedImpressionRecommendationIds = useRef(new Set());
   
   useEffect(() => {
     const fetchMarketplace = async () => {
@@ -54,20 +55,43 @@ export default function Storefront() {
     fetchMarketplace();
   }, []);
 
+  useEffect(() => {
+    if (!recommendationId || trendingProducts.length === 0) return;
+    if (loggedImpressionRecommendationIds.current.has(recommendationId)) return;
+
+    loggedImpressionRecommendationIds.current.add(recommendationId);
+    apiClient.post('/interactions/recommendation-events', {
+      recommendationId,
+      events: trendingProducts.map((product) => ({
+        productId: product.id,
+        eventType: 'impression'
+      }))
+    }).catch((error) => console.error('Failed to log recommendation impressions:', error));
+  }, [recommendationId, trendingProducts]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
   const handleProductClick = (product) => {
+    let recommendationContext = null;
+
     if (recommendationId && recommendedProductIds.has(product.id)) {
+      recommendationContext = {
+        recommendationId,
+        productId: product.id,
+        source: 'storefront_trending'
+      };
+
       apiClient.post('/interactions/recommendation-event', {
         recommendationId,
         productId: product.id,
         eventType: 'click'
       }).catch((error) => console.error('Failed to log recommendation click:', error));
     }
-    navigate(`/store/product/${product.id}`);
+
+    navigate(`/store/product/${product.id}`, recommendationContext ? { state: { recommendationContext } } : undefined);
   };
 
   const isSearchingOrFiltering = searchTerm.trim().length > 0 || selectedCategory !== 'All';

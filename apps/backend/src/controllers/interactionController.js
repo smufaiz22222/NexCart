@@ -1,4 +1,4 @@
-import { logInteraction, logRecommendationEvent } from '../services/interactionService.js';
+import { logInteraction, logRecommendationEvent, logRecommendationEvents } from '../services/interactionService.js';
 
 export const createInteraction = async (req, res) => {
   try {
@@ -34,5 +34,24 @@ export const createRecommendationEvent = async (req, res) => {
   } catch (error) {
     console.error('Recommendation Event Error:', error);
     res.status(error.statusCode || 500).json({ error: error.message || 'Failed to log recommendation event' });
+  }
+};
+
+export const createRecommendationEvents = async (req, res) => {
+  try {
+    const result = await logRecommendationEvents({
+      recommendationId: req.body.recommendationId,
+      events: req.body.events,
+      userId: req.user?.userId,
+      sessionId: req.body.sessionId
+    });
+
+    res.status(201).json({
+      message: 'Recommendation events logged',
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Recommendation Events Error:', error);
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to log recommendation events' });
   }
 };

@@ -220,6 +220,7 @@ model RecommendationInteraction {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@index([recommendationId])
   @@index([productId, action, createdAt])
 }
 
@@ -257,14 +258,17 @@ model RecommendationLog {
   surface      String
   algorithm    String
   productIds   Json
+  isEvaluation Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   interactions RecommendationInteraction[]
   events       RecommendationEvent[]
 
   @@index([userId])
+  @@index([sessionId])
   @@index([surface])
   @@index([algorithm])
+  @@index([isEvaluation])
   @@index([createdAt])
 }
 
@@ -281,6 +285,20 @@ model RecommendationEvent {
   createdAt           DateTime                @default(now())
 
   @@index([recommendationLogId])
+  @@index([recommendationLogId, eventType])
   @@index([productId, eventType, createdAt])
   @@index([userId])
+  @@index([sessionId])
+}
+
+model RecommendationEvaluationReport {
+  id         String   @id @default(uuid())
+  reportType String  @default("offline")
+  k          Int      @default(5)
+  metrics    Json
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@index([reportType])
+  @@index([createdAt])
 }

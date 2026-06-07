@@ -45,7 +45,16 @@ const addReviewScores = async (candidateMap) => {
   }
 };
 
-const finalizeCandidates = async ({ candidates, limit, algorithm, surface, userId, sessionId }) => {
+const finalizeCandidates = async ({
+  candidates,
+  limit,
+  algorithm,
+  surface,
+  userId,
+  sessionId,
+  trackingMode = 'production',
+  isEvaluation = false
+}) => {
   await addReviewScores(candidates);
 
   const ranked = [...candidates.values()]
@@ -66,6 +75,14 @@ const finalizeCandidates = async ({ candidates, limit, algorithm, surface, userI
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
+  if (trackingMode === 'none') {
+    return {
+      recommendationId: null,
+      algorithm,
+      recommendations: ranked
+    };
+  }
+
   const log = await prisma.recommendationLog.create({
     data: {
       userId: userId || null,
@@ -73,14 +90,7 @@ const finalizeCandidates = async ({ candidates, limit, algorithm, surface, userI
       surface,
       algorithm,
       productIds: ranked.map((item) => item.product.id),
-      events: {
-        create: ranked.map((item) => ({
-          productId: item.product.id,
-          userId: userId || null,
-          sessionId: sessionId || null,
-          eventType: 'impression'
-        }))
-      }
+      isEvaluation
     }
   });
 
@@ -95,7 +105,9 @@ export const getSimilarHybridRecommendations = async ({
   productId,
   limit = 8,
   userId,
-  sessionId
+  sessionId,
+  trackingMode = 'production',
+  isEvaluation = false
 }) => {
   const candidates = new Map();
 
@@ -133,11 +145,19 @@ export const getSimilarHybridRecommendations = async ({
     algorithm: 'hybrid_similar_v1',
     surface: 'product_detail_similar',
     userId,
-    sessionId
+    sessionId,
+    trackingMode,
+    isEvaluation
   });
 };
 
-export const getUserHybridRecommendations = async ({ userId, sessionId, limit = 12 }) => {
+export const getUserHybridRecommendations = async ({
+  userId,
+  sessionId,
+  limit = 12,
+  trackingMode = 'production',
+  isEvaluation = false
+}) => {
   const candidates = new Map();
   const recentInteractions = await prisma.recommendationInteraction.findMany({
     where: userId ? { userId } : { sessionId: sessionId || '' },
@@ -182,6 +202,8 @@ export const getUserHybridRecommendations = async ({ userId, sessionId, limit = 
     algorithm: 'hybrid_user_v1',
     surface: 'storefront_personalized',
     userId,
-    sessionId
+    sessionId,
+    trackingMode,
+    isEvaluation
   });
 };

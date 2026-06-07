@@ -34,7 +34,8 @@ export const checkout = async (req, res) => {
       ordersBySeller[sellerId].orderItems.push({
         productId: product.id,
         quantity: item.quantity,
-        price: product.price
+        price: product.price,
+        recommendationId: item.recommendationId || null
       });
       
       ordersBySeller[sellerId].inventoryLogs.push({
@@ -55,7 +56,9 @@ export const checkout = async (req, res) => {
             totalAmount: data.totalAmount,
             status: 'PENDING',
             shippingAddress,
-            items: { create: data.orderItems }
+            items: {
+              create: data.orderItems.map(({ recommendationId, ...orderItem }) => orderItem)
+            }
           }
         });
 

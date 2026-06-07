@@ -21,7 +21,8 @@ export default function Cart() {
     try {
       const orderItems = cart.map(item => ({
         productId: item.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        recommendationId: item.recommendationContext?.recommendationId
       }));
 
       await apiClient.post('/orders/checkout', { items: orderItems, shippingAddress });

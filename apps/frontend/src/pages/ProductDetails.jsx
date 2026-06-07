@@ -1,17 +1,26 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingCart, Star, Store, ArrowLeft, MessageSquare, Package, Sparkles } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
 
+const getAttributionStorageKey = (productId) => `nexcart:recommendationAttribution:${productId}`;
+
+const isValidAttributionContext = (context, productId) => (
+  context?.recommendationId && context?.productId === productId
+);
+
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const addToCart = useCartStore((state) => state.addToCart);
+  const loggedImpressionRecommendationIds = useRef(new Set());
   
   const [product, setProduct] = useState(null);
   const [similarProducts, setSimilarProducts] = useState([]);
-  const [recommendationId, setRecommendationId] = useState(null);
+  const [similarRecommendationId, setSimilarRecommendationId] = useState(null);
+  const [attributionRecommendationContext, setAttributionRecommendationContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingSimilar, setIsLoadingSimilar] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
@@ -43,12 +52,39 @@ export default function ProductDetails() {
   }, [id]);
 
   useEffect(() => {
+    const incomingContext = location.state?.recommendationContext;
+
+    if (isValidAttributionContext(incomingContext, id)) {
+      sessionStorage.setItem(getAttributionStorageKey(id), JSON.stringify(incomingContext));
+      setAttributionRecommendationContext(incomingContext);
+      return;
+    }
+
+    const storedContext = sessionStorage.getItem(getAttributionStorageKey(id));
+    if (!storedContext) {
+      setAttributionRecommendationContext(null);
+      return;
+    }
+
+    try {
+      const parsedContext = JSON.parse(storedContext);
+      setAttributionRecommendationContext(
+        isValidAttributionContext(parsedContext, id) ? parsedContext : null
+      );
+    } catch (error) {
+      console.error('Failed to read recommendation attribution context:', error);
+      sessionStorage.removeItem(getAttributionStorageKey(id));
+      setAttributionRecommendationContext(null);
+    }
+  }, [id, location.state]);
+
+  useEffect(() => {
     const fetchSimilarProducts = async () => {
       setIsLoadingSimilar(true);
       try {
         const response = await apiClient.get(`/recommendations/products/${id}/similar?limit=8`);
         setSimilarProducts(response.data.recommendations || []);
-        setRecommendationId(response.data.recommendationId || null);
+        setSimilarRecommendationId(response.data.recommendationId || null);
       } catch (error) {
         console.error('Failed to load similar products:', error);
         setSimilarProducts([]);
@@ -60,31 +96,65 @@ export default function ProductDetails() {
     fetchSimilarProducts();
   }, [id]);
 
+  useEffect(() => {
+    if (!similarRecommendationId || similarProducts.length === 0) return;
+    if (loggedImpressionRecommendationIds.current.has(similarRecommendationId)) return;
+
+    loggedImpressionRecommendationIds.current.add(similarRecommendationId);
+    apiClient.post('/interactions/recommendation-events', {
+      recommendationId: similarRecommendationId,
+      events: similarProducts.map((item) => ({
+        productId: item.product.id,
+        eventType: 'impression'
+      }))
+    }).catch((error) => console.error('Failed to log similar product impressions:', error));
+  }, [similarRecommendationId, similarProducts]);
+
   const handleAddToCart = () => {
     if (product.sizes?.length > 0 && !selectedSize) {
       return alert("Please select a size first!");
     }
     
-    addToCart({ ...product, selectedSize });
+    addToCart({
+      ...product,
+      selectedSize,
+      recommendationContext: attributionRecommendationContext || undefined
+    });
     apiClient.post('/interactions', {
       productId: product.id,
       action: 'cart',
       quantity: 1,
       source: 'product_detail',
-      recommendationId
+      recommendationId: attributionRecommendationContext?.recommendationId,
+      metadata: attributionRecommendationContext
+        ? { recommendationSource: attributionRecommendationContext.source }
+        : {}
     }).catch((error) => console.error('Failed to log cart interaction:', error));
+    sessionStorage.removeItem(getAttributionStorageKey(product.id));
     alert("Added to cart!");
   };
 
   const handleRecommendationClick = (recommendedProduct) => {
-    if (recommendationId) {
+    let recommendationContext = null;
+
+    if (similarRecommendationId) {
+      recommendationContext = {
+        recommendationId: similarRecommendationId,
+        productId: recommendedProduct.id,
+        source: 'similar_products'
+      };
+
       apiClient.post('/interactions/recommendation-event', {
-        recommendationId,
+        recommendationId: similarRecommendationId,
         productId: recommendedProduct.id,
         eventType: 'click'
       }).catch((error) => console.error('Failed to log recommendation click:', error));
     }
-    navigate(`/store/product/${recommendedProduct.id}`);
+
+    navigate(
+      `/store/product/${recommendedProduct.id}`,
+      recommendationContext ? { state: { recommendationContext } } : undefined
+    );
   };
 
   const handleReviewSubmit = async (e) => {
