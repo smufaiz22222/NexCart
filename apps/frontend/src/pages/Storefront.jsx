@@ -108,11 +108,9 @@ export default function Storefront() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-12 font-sans selection:bg-amber-500/30 selection:text-amber-200">
-      {/* Top Navigation Bar - Dark Glassmorphism */}
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
           
-          {/* Logo */}
           <div 
             className="flex items-center gap-2.5 cursor-pointer group" 
             onClick={() => navigate('/store')}
@@ -125,7 +123,6 @@ export default function Storefront() {
             </h1>
           </div>
           
-          {/* Search Bar - Charcoal background, Gold focus ring */}
           <div className="relative w-full max-w-lg mx-8 hidden md:block group">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-zinc-500 group-focus-within:text-amber-500 transition-colors" />
@@ -139,7 +136,6 @@ export default function Storefront() {
             />
           </div>
 
-          {/* Action Icons */}
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => navigate('/store/orders')} 
@@ -175,7 +171,6 @@ export default function Storefront() {
         </div>
       </div>
 
-      {/* Mobile Search */}
       <div className="md:hidden px-4 py-3 bg-[#1c1c1c] border-b border-zinc-800 shadow-sm">
         <div className="relative w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -191,10 +186,8 @@ export default function Storefront() {
         </div>
       </div>
 
-      {/* Main Layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 flex flex-col md:flex-row gap-8">
         
-        {/* Category Sidebar - Charcoal cards, Gold active states */}
         <aside className="w-full md:w-64 flex-shrink-0">
           <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 p-4 sticky top-24">
             <h3 className="text-xs font-bold text-amber-500/80 uppercase tracking-widest mb-3 flex items-center px-2">
@@ -220,7 +213,6 @@ export default function Storefront() {
           </div>
         </aside>
 
-        {/* Product Grid */}
         <main className="flex-1">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
             <h2 className="text-xl font-semibold text-white flex items-center gap-3 tracking-wide">
@@ -236,7 +228,6 @@ export default function Storefront() {
           </div>
 
           {isLoading ? (
-            /* Dark Skeleton */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <div key={n} className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 p-4 animate-pulse">
@@ -250,7 +241,6 @@ export default function Storefront() {
               ))}
             </div>
           ) : filteredProducts.length === 0 ? (
-            /* Empty State */
             <div className="flex flex-col items-center justify-center py-24 bg-[#1c1c1c] rounded-lg border border-dashed border-zinc-700">
               <div className="bg-[#0a0a0a] p-4 rounded-full mb-4 border border-zinc-800">
                 <Search className="h-6 w-6 text-zinc-600" />
@@ -265,7 +255,6 @@ export default function Storefront() {
               </button>
             </div>
           ) : (
-            /* Populated Grid */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
                 <div 
@@ -273,9 +262,7 @@ export default function Storefront() {
                   onClick={() => handleProductClick(product)}
                   className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden hover:shadow-2xl hover:border-amber-500/50 transition-all duration-300 group cursor-pointer flex flex-col"
                 >
-                  {/* Image Container - Using a soft beige/white backdrop to make product images pop against the dark theme */}
                   <div className="h-48 bg-[#F5F5F0] flex items-center justify-center overflow-hidden relative p-3">
-                    {/* Category Badge - Charcoal on Beige */}
                     <span className="absolute top-3 right-3 bg-[#1c1c1c] border border-zinc-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-400 rounded-sm shadow-md z-10">
                       {product.category || 'General'}
                     </span>
@@ -293,7 +280,6 @@ export default function Storefront() {
                     )}
                   </div>
                   
-                  {/* Content Container */}
                   <div className="p-4 flex flex-col flex-grow">
                     <div className="flex justify-between items-start mb-1.5 gap-2">
                       <h3 className="text-base font-semibold text-white leading-snug group-hover:text-amber-400 transition-colors line-clamp-2">
@@ -315,7 +301,6 @@ export default function Storefront() {
                       {product.description || "No description provided for this item."}
                     </p>
 
-                    {/* Button - Reverses to vibrant Gold on hover */}
                     <button className="w-full bg-[#0a0a0a] border border-zinc-700 text-zinc-300 py-2 rounded-md font-medium text-sm group-hover:bg-amber-500 group-hover:text-[#0a0a0a] group-hover:border-amber-500 transition-all duration-300 flex items-center justify-center gap-2">
                       View Details
                       <ArrowRight className="h-3.5 w-3.5 opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />

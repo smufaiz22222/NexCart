@@ -7,16 +7,17 @@ export default function Products() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // 1. UPDATED: Added new fields to the initial state
+  // 1. UPDATED: Added 'category' to the initial state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    category: '', // <-- Added Category
     price: '',
     costPrice: '',
     sku: '',
     imageUrl: '', 
     currentStock: '',
-    minStock: '10' // Default min stock alert
+    minStock: '10'
   });
 
   const fetchProducts = async () => {
@@ -41,7 +42,6 @@ export default function Products() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // 2. UPDATED: Ensure all numbers are parsed correctly before sending
       await apiClient.post('/products', {
         ...formData,
         price: parseFloat(formData.price),
@@ -52,8 +52,8 @@ export default function Products() {
       
       fetchProducts();
       setIsModalOpen(false);
-      // Reset form
-      setFormData({ name: '', description: '', price: '', costPrice: '', sku: '', imageUrl: '', currentStock: '', minStock: '10' });
+      // 2. UPDATED: Reset form includes category
+      setFormData({ name: '', description: '', category: '', price: '', costPrice: '', sku: '', imageUrl: '', currentStock: '', minStock: '10' });
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to create product');
     }
@@ -98,6 +98,8 @@ export default function Products() {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">Product</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">SKU</th>
+                  {/* 3. UPDATED: Added Category Table Header */}
+                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">Category</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">Price (₹)</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">Stock</th>
                 </tr>
@@ -107,7 +109,6 @@ export default function Products() {
                   <tr key={product.id} className="hover:bg-zinc-800/40 transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {/* Image Container - Beige background to contrast product images */}
                         <div className="flex-shrink-0 h-12 w-12 bg-[#F5F5F0] rounded-md overflow-hidden flex items-center justify-center border border-zinc-700 group-hover:border-amber-500/30 transition-colors">
                           {product.imageUrl ? (
                             <img src={product.imageUrl} alt="" className="h-full w-full object-contain mix-blend-multiply p-1" />
@@ -122,6 +123,18 @@ export default function Products() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400 font-mono">{product.sku}</td>
+                    
+                    {/* 4. UPDATED: Display Category in Table */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.category ? (
+                        <span className="bg-zinc-800 px-2 py-1 rounded text-xs text-zinc-300 border border-zinc-700">
+                          {product.category}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600 text-xs italic">Uncategorized</span>
+                      )}
+                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-500">
                       ₹{parseFloat(product.price).toFixed(2)}
                     </td>
@@ -144,7 +157,7 @@ export default function Products() {
         </div>
       )}
 
-      {/* Add Product Modal - Dark Glassmorphism */}
+      {/* Add Product Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#1c1c1c] rounded-lg shadow-2xl border border-zinc-800 w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
@@ -167,7 +180,18 @@ export default function Products() {
                   <textarea name="description" value={formData.description} onChange={handleChange} rows="3" className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all resize-none"></textarea>
                 </div>
 
-                {/* 3. UPDATED: Price & Cost Price side-by-side */}
+                {/* 5. UPDATED: SKU and Category placed side-by-side */}
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">SKU Code *</label>
+                    <input required type="text" name="sku" value={formData.sku} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Category</label>
+                    <input type="text" name="category" placeholder="Optional" value={formData.category} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all" />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Selling Price (₹) *</label>
@@ -179,7 +203,6 @@ export default function Products() {
                   </div>
                 </div>
 
-                {/* 4. UPDATED: Stock Configuration */}
                 <div className="grid grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Initial Stock</label>
@@ -189,11 +212,6 @@ export default function Products() {
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Min Stock Alert</label>
                     <input type="number" min="0" name="minStock" value={formData.minStock} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all" />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">SKU Code *</label>
-                  <input required type="text" name="sku" value={formData.sku} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all font-mono" />
                 </div>
 
                 <div>

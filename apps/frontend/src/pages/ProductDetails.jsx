@@ -198,6 +198,7 @@ export default function ProductDetails() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-20 font-sans selection:bg-amber-500/30 selection:text-amber-200">
+      {/* Navbar Area */}
       <div className="bg-[#0a0a0a]/80 backdrop-blur-md border-b border-zinc-800 sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center">
           <button 
@@ -212,24 +213,27 @@ export default function ProductDetails() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
         
-        <div className="bg-[#1c1c1c] rounded-xl shadow-2xl border border-zinc-800 overflow-hidden flex flex-col md:flex-row">
+        {/* MAIN PRODUCT CONTAINER - Added items-start and gap-8 */}
+        <div className="bg-[#1c1c1c] rounded-xl shadow-2xl border border-zinc-800 p-6 md:p-8 flex flex-col md:flex-row items-start gap-8 md:gap-12">
           
-          <div className="md:w-1/2 bg-[#F5F5F0] flex items-center justify-center min-h-[400px] p-8 relative">
+          {/* LEFT: Image Box - Now strictly 1/3 width, perfect square, white bg only here */}
+          <div className="w-full md:w-1/3 bg-[#F5F5F0] rounded-xl flex items-center justify-center aspect-square relative shadow-inner overflow-hidden border border-zinc-300 flex-shrink-0 md:sticky md:top-28">
             {product.imageUrl ? (
               <img 
                 src={product.imageUrl} 
                 alt={product.name} 
-                className="w-full h-full max-h-[500px] object-contain mix-blend-multiply drop-shadow-xl" 
+                className="w-full h-full object-contain mix-blend-multiply p-6 drop-shadow-xl" 
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-zinc-400">
-                <Store className="h-24 w-24 mb-4 opacity-50 text-zinc-300" />
-                <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">No Image Available</span>
+                <Store className="h-16 w-16 mb-4 opacity-50 text-zinc-300" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">No Image</span>
               </div>
             )}
           </div>
 
-          <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
+          {/* RIGHT: Text & Details - Takes up 2/3 width */}
+          <div className="w-full md:w-2/3 flex flex-col justify-start">
             <span className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-2">
               {product.category || 'General'}
             </span>
@@ -246,7 +250,7 @@ export default function ProductDetails() {
               ₹{parseFloat(product.price).toFixed(2)}
             </div>
 
-            <p className="text-zinc-400 leading-relaxed mb-8 flex-grow">
+            <p className="text-zinc-400 leading-relaxed mb-8 flex-grow whitespace-pre-wrap">
               {product.description || "No description provided for this product."}
             </p>
 
@@ -273,7 +277,7 @@ export default function ProductDetails() {
 
             <button 
               onClick={handleAddToCart}
-              className="w-full bg-amber-500 text-[#0a0a0a] py-4 rounded-md font-extrabold text-lg hover:bg-amber-400 transition-all duration-300 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] active:scale-[0.98]"
+              className="w-full md:w-fit px-12 bg-amber-500 text-[#0a0a0a] py-4 rounded-md font-extrabold text-lg hover:bg-amber-400 transition-all duration-300 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] active:scale-[0.98]"
             >
               <ShoppingCart className="h-6 w-6 mr-2.5" />
               Add to Cart
@@ -386,7 +390,6 @@ export default function ProductDetails() {
               </form>
             </div>
 
-            {/* Review List */}
             <div className="md:col-span-2 space-y-6">
               {product.reviews && product.reviews.length > 0 ? (
                 product.reviews.map((review, idx) => (
