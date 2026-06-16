@@ -5,7 +5,15 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['node_modules', 'dist', 'src/generated/', '.eslintcache'],
+    ignores: [
+      'node_modules',
+      'dist',
+      'client',
+      'ai-service',
+      'src/generated/',
+      'coverage',
+      '.eslintcache',
+    ],
   },
   {
     files: ['**/*.js'],

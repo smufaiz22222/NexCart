@@ -28,8 +28,9 @@ export default defineConfig([
       prettier: prettierPlugin,
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { argsIgnorePattern: '^[A-Z_]', varsIgnorePattern: '^[A-Z_]' }],
       'prettier/prettier': 'error',
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
   eslintConfigPrettier,

@@ -12,14 +12,14 @@ Use this report format for final-year documentation and viva demonstrations.
 
 ## Metrics Explained
 
-| Metric | Meaning |
-| --- | --- |
+| Metric      | Meaning                                                             |
+| ----------- | ------------------------------------------------------------------- |
 | Precision@K | Fraction of top-K recommendations that contain the hidden purchase. |
-| Recall@K | Whether the hidden purchase appears in the top-K list. |
-| MAP@K | Rewards placing the hidden purchase higher in the ranked list. |
-| NDCG@K | Rank-sensitive relevance score. |
-| Coverage | Fraction of catalog appearing in recommendations. |
-| Diversity | Category spread among recommended products. |
+| Recall@K    | Whether the hidden purchase appears in the top-K list.              |
+| MAP@K       | Rewards placing the hidden purchase higher in the ranked list.      |
+| NDCG@K      | Rank-sensitive relevance score.                                     |
+| Coverage    | Fraction of catalog appearing in recommendations.                   |
+| Diversity   | Category spread among recommended products.                         |
 
 ## Example Output
 

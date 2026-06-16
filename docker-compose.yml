@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-qwerty}
+      POSTGRES_DB: ${DB_NAME:-nexcart_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-qwerty}@db:5432/${DB_NAME:-nexcart_db}?schema=public"
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_here}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+    depends_on:
+      - db
+    restart: always
+
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CHROMA_PATH: "./chroma_db"
+      DOCS_PATH: "./app/docs"
+    volumes:
+      - ./ai-service/chroma_db:/app/chroma_db
+      - ./ai-service/app/docs:/app/app/docs
+    restart: always
+
+volumes:
+  postgres_data:

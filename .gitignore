@@ -1,11 +1,14 @@
 # Node.js dependencies
 node_modules/
+client/node_modules/
 
 # Build outputs
 dist/
 dist-ssr/
 build/
 out/
+client/dist/
+coverage/
 
 # Environment variables
 .env
@@ -14,6 +17,7 @@ out/
 .env.test.local
 .env.production.local
 *.env
+!.env.example
 
 # Logs
 *.log
@@ -24,7 +28,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Prisma generated files
-backend/src/generated/
+src/generated/
+/generated/prisma/
 
 # Python / AI Service
 __pycache__/
@@ -35,13 +40,16 @@ __pycache__/
 env/
 venv/
 .venv/
+ai-service/.venv/
+ai-service/__pycache__/
 ai-service/chroma_db/
 
 # Operating System Files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# IDE Files (except shared config)
+# IDE Files
 .vscode/*
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -59,6 +67,7 @@ Thumbs.db
 .eslintcache
 *.eslintcache
 *.crdownload
+.npm/
 
 # Agent and workspace files
 .agents/
@@ -71,4 +80,4 @@ skills-lock.json
 *.sql.tar
 *.sql.zip
 *.dump
-*.sql.dump
+*.sql.dump

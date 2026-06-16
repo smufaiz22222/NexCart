@@ -51,4 +51,14 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/interactions', interactionRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 
+const __dirname = path.resolve();
+app.use(express.static(path.join(__dirname, 'client/dist')));
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API route not found' });
+  }
+  res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+});
+
 export default app;

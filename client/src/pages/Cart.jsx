@@ -129,7 +129,6 @@ export default function Cart() {
         setCheckoutError(error.response?.data?.error || 'Failed to load cart')
       );
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAddresses();
   }, [fetchAddresses, hasHydrated, hydrateCart]);
 
@@ -142,7 +141,6 @@ export default function Cart() {
     const postalCode = addressForm.postalCode.trim();
 
     if (!/^\d{6}$/.test(postalCode)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPostalLookup((current) => ({
         ...current,
         status: postalCode.length ? 'invalid' : 'idle',

@@ -2,11 +2,11 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Start Backend Server",
+      "label": "Start Full Stack (FE + BE + AI)",
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/backend"
+        "cwd": "${workspaceFolder}"
       },
       "presentation": {
         "reveal": "always",
@@ -15,49 +15,83 @@
       },
       "runOptions": {
         "runOn": "folderOpen"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Start Backend Server",
+      "type": "shell",
+      "command": "npm run dev:server",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "servers"
       }
     },
     {
       "label": "Start Frontend Server",
       "type": "shell",
-      "command": "npm run dev",
+      "command": "npm run dev:client",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}"
       },
       "presentation": {
         "reveal": "always",
         "panel": "shared",
         "group": "servers"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
       }
     },
     {
       "label": "Start AI Service",
       "type": "shell",
-      "command": ".venv\\Scripts\\python -m uvicorn app.main:app --reload --port 8000",
+      "command": "npm run dev:ai",
       "options": {
-        "cwd": "${workspaceFolder}/ai-service"
+        "cwd": "${workspaceFolder}"
       },
       "presentation": {
         "reveal": "always",
         "panel": "shared",
         "group": "servers"
-      },
-      "runOptions": {
-        "runOn": "default"
       }
     },
     {
-      "label": "Start All Services (FE + BE)",
-      "dependsOn": [
-        "Start Backend Server",
-        "Start Frontend Server"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
+      "label": "Docker: Launch Full Stack",
+      "type": "shell",
+      "command": "docker-compose up --build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Lint: All Projects",
+      "type": "shell",
+      "command": "npm run lint",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "Format: All Projects",
+      "type": "shell",
+      "command": "npm run format",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent"
       }
     }
   ]

@@ -1,6 +1,9 @@
 node_modules/
+client/node_modules/
 dist/
+client/dist/
 build/
+src/generated/
 .vscode/
 .git/
 .agents/
@@ -8,9 +11,10 @@ build/
 ai-service/
 skills-lock.json
 package-lock.json
-package.json
+client/package-lock.json
 .eslintcache
 *.eslintcache
+coverage/
 **/node_modules/
 **/dist/
 **/dist-ssr/

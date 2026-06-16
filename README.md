@@ -44,92 +44,64 @@ flowchart TD
 
 ```txt
 NexCart_updated/
-├── backend/            # Express server, Prisma schema, db seeders, recommendation jobs
-├── frontend/           # React frontend application, store components, custom hooks
-├── ai-service/         # Python FastAPI service, chroma vector database, ingestion docs
-├── docs/               # Technical reports, mathematical formulas, and sample metrics
-├── .vscode/            # Visual Studio Code tasks configuration for automatic launching
-└── README.md           # Workspace-level overview and launch manual (This file)
+├── client/             # React frontend application
+├── src/                # Express server source
+├── prisma/             # Database schema and seeders
+├── ai-service/         # Python FastAPI service & ChromaDB
+├── docs/               # Technical reports & documentation
+├── package.json        # Root-level unified scripts
+└── README.md           # This file
 ```
 
 ---
 
-## 3. Unified Quick Start (VS Code Tasks)
+## 3. Quick Start
 
-The project includes custom VS Code task profiles defined in [tasks.json](file:///c:/Users/smufa/Desktop/NexCart_updated/.vscode/tasks.json) to automate local server launch.
-
-1. **Automatic Launch on Open**: When you open the workspace in Visual Studio Code, the workspace will automatically trigger:
-   - **Start Backend Server** (Express)
-   - **Start Frontend Server** (Vite React)
-2. **AI Service Task**: Open the Command Palette (`Ctrl+Shift+P` on Windows/Linux or `Cmd+Shift+P` on macOS) and run `Tasks: Run Task` -> Select `Start AI Service`.
-3. **Manual Launcher**: You can also select the compound task `Start All Services (FE + BE)` to start the backend and frontend simultaneously.
+1. **Automatic Launch**: Open the workspace in VS Code to trigger the backend and frontend servers automatically.
+2. **Unified Command**: Run `npm run dev` in the root directory to start the entire stack:
+   - **Backend Server** (Express)
+   - **Frontend Dev Server** (Vite React)
+   - **AI Service** (FastAPI)
 
 ---
 
-## 4. Service-by-Service Setup Guides
+## 4. Setup Guide
 
-### 4.1 Backend (Express + Prisma + PostgreSQL)
+### 4.1 Web Application
 
-1. **Navigate and Install**:
+1. **Install Dependencies**:
    ```bash
-   cd backend
    npm install
+   npm run client:install
    ```
-2. **Environment Configuration**:
-   Create a `.env` file inside the `backend` directory matching the variables from [backend/.env](file:///c:/Users/smufa/Desktop/NexCart_updated/backend/.env):
-   ```properties
-   DATABASE_URL="postgresql://postgres:<password>@localhost:5433/nexcart_db?schema=public"
-   JWT_SECRET="your_secret_key"
-   PORT=5000
-   GEMINI_API_KEY="your_gemini_api_key"
-   RAZORPAY_KEY_ID="rzp_test_..."
-   RAZORPAY_KEY_SECRET="your_razorpay_secret"
-   ```
-3. **Apply Prisma Database Migrations**:
-   Push the schema to your local PostgreSQL instance and generate the Prisma Client:
+2. **Database Setup**:
    ```bash
    npx prisma db push
    npx prisma generate
-   ```
-4. **Seed Demonstration Data**:
-   ```bash
    npm run recommendations:seed-demo
    ```
-5. **Pre-compute Similarity Matrices**:
-   Build content-based and collaborative similarity matrices needed for hybrid recommendation queries:
-   ```bash
-   npm run recommendations:build-content
-   ```
-   _Note: Other jobs like collaborative filtering (`npm run recommendations:build-cf`) and popularity indices (`npm run recommendations:build-popularity`) should be run as active transactions and user interaction tracking data accumulate._
-6. **Start Dev Server**:
+3. **Start Development**:
    ```bash
    npm run dev
    ```
-   The API will listen at [http://localhost:5000](http://localhost:5000).
+   - **Full Stack**: [http://localhost:5000](http://localhost:5000)
+   - **Frontend (Vite)**: [http://localhost:5173](http://localhost:5173) (Proxied)
+   - **API Health**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
 
 ---
 
-### 4.2 Frontend (React + Vite)
+### 4.2 Docker (One-Command Setup)
 
-1. **Navigate and Install**:
+If you have Docker and Docker Compose installed, you can launch the entire stack (including the database) with:
+
+1. **Environment Configuration**: Ensure your root `.env` contains the necessary API keys.
+2. **Launch**:
    ```bash
-   cd frontend
-   npm install
+   docker-compose up --build
    ```
-2. **Start Dev Server**:
-   ```bash
-   npm run dev
-   ```
-   The client application will run at [http://localhost:5173](http://localhost:5173).
-
----
-
-### 4.3 AI Service (Python FastAPI + ChromaDB)
-
-1. **Navigate and Install**:
-   ```bash
-   cd ai-service
-   ```
+   - **Web App**: [http://localhost:5000](http://localhost:5000)
+   - **AI Service**: [http://localhost:8000](http://localhost:8000)
+   - **Database**: [http://localhost:5433](http://localhost:5433)
 2. **Create and Activate Virtual Environment**:
    - **Windows (Command Prompt)**:
      ```cmd
@@ -151,7 +123,7 @@ The project includes custom VS Code task profiles defined in [tasks.json](file:/
    pip install -r requirements.txt
    ```
 4. **Environment Configuration**:
-   Create a `.env` file inside the `ai-service` directory matching [ai-service/.env](file:///c:/Users/smufa/Desktop/NexCart_updated/ai-service/.env):
+   Create a `.env` file inside the `ai-service` directory matching [ai-service/.env](./ai-service/.env):
    ```properties
    LLM_PROVIDER=gemini
    GEMINI_API_KEY="your_gemini_api_key"
@@ -166,7 +138,7 @@ The project includes custom VS Code task profiles defined in [tasks.json](file:/
    AI_CORS_ORIGINS=http://localhost:5173,http://localhost:4173
    ```
 5. **Run Document Ingestion**:
-   Load reference materials (such as the default [Shopify 101 Guide PDF](file:///c:/Users/smufa/Desktop/NexCart_updated/ai-service/app/docs/Shopify%20101%20Complete%20Guide.pdf)) into the Chroma Vector Database:
+   Load reference materials (such as the default [Shopify 101 Guide PDF](./ai-service/app/docs/Shopify%20101%20Complete%20Guide.pdf)) into the Chroma Vector Database:
    - Make sure uvicorn is running, or run the Python ingestion logic. You can start the server:
      ```bash
      uvicorn app.main:app --reload --port 8000
@@ -197,5 +169,5 @@ The project includes custom VS Code task profiles defined in [tasks.json](file:/
 
 For detailed mathematical algorithms, data schemas, sequence flows, or benchmarking explanations, please consult:
 
-- [NexCart Recommendation System Final Report](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/recommendation-system-final-report.md)
-- [Sample Recommendation Evaluation Report](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/sample-recommendation-evaluation-report.md)
+- [NexCart Recommendation System Final Report](./docs/recommendation-system-final-report.md)
+- [Sample Recommendation Evaluation Report](./docs/sample-recommendation-evaluation-report.md)

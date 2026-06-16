@@ -18,11 +18,11 @@ Verify that your root directory has the following structure:
 
 ```txt
 NexCart_updated/
-├── backend/
-│   └── .env
-├── frontend/
-└── ai-service/
-    └── .env
+├── client/         # Frontend
+├── prisma/         # Database schema
+├── src/            # Backend API
+├── ai-service/     # AI Service
+└── package.json    # Root scripts
 ```
 
 Ensure your backend `.env` variables match the local settings:
@@ -56,12 +56,12 @@ AI_CORS_ORIGINS=http://localhost:5173,http://localhost:4173
 
 ## 2. Step-by-Step Installation
 
-### 2.1 Backend (Express) Setup
+### 2.1 Web Application (Backend + Frontend) Setup
 
-1.  Navigate and install:
+1.  Install dependencies:
     ```bash
-    cd backend
     npm install
+    npm run client:install
     ```
 2.  Apply Prisma schemas and generate the query client:
     ```bash
@@ -73,15 +73,7 @@ AI_CORS_ORIGINS=http://localhost:5173,http://localhost:4173
     npx prisma db seed
     ```
 
-### 2.2 Frontend (React) Setup
-
-1.  Navigate and install:
-    ```bash
-    cd frontend
-    npm install
-    ```
-
-### 2.3 AI Service (FastAPI) Setup
+### 2.2 AI Service (FastAPI) Setup
 
 1.  Navigate and create virtual environment:
     ```bash
@@ -109,9 +101,8 @@ Open the workspace directory in VS Code. The **Backend** and **Frontend** server
 
 ### 3.2 Manual Command Startup
 
-- **Backend**: `cd backend && npm run dev` (Runs on [http://localhost:5000](http://localhost:5000))
-- **Frontend**: `cd frontend && npm run dev` (Runs on [http://localhost:5173](http://localhost:5173))
-- **AI Service**: `cd ai-service && .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000` (Runs on [http://localhost:8000](http://localhost:8000))
+- **All Services (Combined)**: `npm run dev` (Starts backend on port 5000, frontend on port 5173, and AI service on port 8000)
+- **Individual AI Service**: `cd ai-service && .venv\Scripts\activate && uvicorn app.main:app --reload --port 8000`
 
 ---
 
@@ -124,7 +115,6 @@ NexCart requires pre-computing similarity profiles offline or periodically to se
 To populate transactional activities and dummy interactions for recommendations evaluation, run:
 
 ```bash
-cd backend
 npm run recommendations:seed-demo
 ```
 
@@ -161,17 +151,12 @@ Follow this checklist before submitting PRs or deploying:
 
 ### 5.1 Linting & Formatting Validation
 
-- **Frontend Check**:
+- **Web App Check**:
   ```bash
-  cd frontend
   npm run lint
   npm run format:check
-  ```
-- **Backend Check**:
-  ```bash
-  cd backend
-  npm run lint
-  npm run format:check
+  npm run lint --prefix client
+  npm run format:check --prefix client
   ```
 - **Backend Syntax Node Verification**:
   Run inside Windows PowerShell:

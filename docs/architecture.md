@@ -43,7 +43,7 @@ flowchart TD
 
 ## 2. Database Design & Models
 
-The relational database is managed via [schema.prisma](file:///c:/Users/smufa/Desktop/NexCart_updated/backend/prisma/schema.prisma) and deployed on PostgreSQL. Key database models and relationships include:
+The relational database is managed via [schema.prisma](../prisma/schema.prisma) and deployed on PostgreSQL. Key database models and relationships include:
 
 ### 2.1 Core Identity & Roles
 
@@ -73,7 +73,7 @@ The relational database is managed via [schema.prisma](file:///c:/Users/smufa/De
 
 ### 3.1 Express Backend Routes
 
-All backend routes are prefix-mapped under `/api` inside [index.js](file:///c:/Users/smufa/Desktop/NexCart_updated/backend/src/index.js):
+All backend routes are prefix-mapped under `/api` inside [index.js](../src/index.js):
 
 | Resource Endpoint          | Middleware / Auth     | Controller Logic              | Description                                                                     |
 | :------------------------- | :-------------------- | :---------------------------- | :------------------------------------------------------------------------------ |

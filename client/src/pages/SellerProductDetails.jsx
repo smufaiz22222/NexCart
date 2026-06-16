@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BadgeIndianRupee, Boxes, Pencil, Save, Tag, TriangleAlert } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../api/axios';
@@ -27,7 +27,7 @@ export default function SellerProductDetails() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await apiClient.get(`/products/${id}`);
@@ -39,11 +39,11 @@ export default function SellerProductDetails() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchProduct();
-  }, [id]);
+  }, [fetchProduct]);
 
   const stockStatus = useMemo(() => {
     if (!product)
