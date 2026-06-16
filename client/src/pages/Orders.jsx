@@ -19,13 +19,17 @@ import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
 import {
   useOrders,
+  useCreateDispute,
+  useCreateDisputeInternalNote,
   useUpdateOrderStatus,
   useCancelOrderItem,
+  useMoveDisputeToReview,
   useRetryRefund,
   useRequestReturn,
   useApproveReturn,
   useRejectReturn,
   useReceiveReturn,
+  useResolveDispute,
   useRetryReturnRefund,
   useSubmitOrderIssue,
   useReviewOrderIssue,
@@ -45,6 +49,22 @@ const WHOLESALER_REVIEW_TEMPLATE = {
   finalResolution: 'REFUND',
   sellerResponse: '',
   refundAmount: '',
+};
+
+const DISPUTE_REASON_OPTIONS = [
+  'DAMAGED_ITEM',
+  'WRONG_ITEM',
+  'MISSING_PARTS',
+  'DEFECTIVE_PRODUCT',
+  'QUALITY_ISSUE',
+  'NOT_AS_DESCRIBED',
+  'OTHER',
+];
+
+const DISPUTE_RESOLUTION_LABELS = {
+  APPROVE: 'Approve',
+  REJECT: 'Reject',
+  PARTIAL_REFUND: 'Partial Refund',
 };
 
 const issueTypeLabel = {
@@ -86,6 +106,8 @@ const formatReturnReason = (reason) =>
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+
+const formatDisputeReason = formatReturnReason;
 
 const getReturnBadge = (item) => {
   if (!item.returnStatus || item.returnStatus === 'NONE') return null;
@@ -213,6 +235,10 @@ export default function Orders() {
   const retryReturnRefundMutation = useRetryReturnRefund();
   const submitIssueMutation = useSubmitOrderIssue();
   const reviewIssueMutation = useReviewOrderIssue();
+  const createDisputeMutation = useCreateDispute();
+  const moveDisputeToReviewMutation = useMoveDisputeToReview();
+  const resolveDisputeMutation = useResolveDispute();
+  const createDisputeInternalNoteMutation = useCreateDisputeInternalNote();
 
   const sortedOrders = useMemo(
     () => [...orders].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)),
@@ -262,6 +288,7 @@ export default function Orders() {
       {
         orderId: order.id,
         ...draft,
+        type: 'REFUND',
       },
       {
         onSuccess: () => {
@@ -275,6 +302,55 @@ export default function Orders() {
         },
         onSettled: () => {
           setSubmittingOrderId(null);
+        },
+      }
+    );
+  };
+
+  const handleCreateDispute = (orderId, item) => {
+    const reasonInput =
+      window.prompt(`Dispute reason (${DISPUTE_REASON_OPTIONS.join(', ')})`, 'DAMAGED_ITEM') || '';
+    const normalizedReason = reasonInput.trim().toUpperCase().replaceAll(' ', '_');
+    if (!DISPUTE_REASON_OPTIONS.includes(normalizedReason)) {
+      toast.warning('Please enter a valid dispute reason.');
+      return;
+    }
+
+    const description =
+      window.prompt(
+        'Describe the issue in detail',
+        'Explain what went wrong, what you expected, and why you need seller review.'
+      ) || '';
+    if (!description.trim()) {
+      toast.warning('A dispute description is required.');
+      return;
+    }
+
+    const evidenceInput = window.prompt('Optional evidence URLs, separated by commas', '') || '';
+    const evidenceUrls = evidenceInput
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    setActiveItemActionId(item.id);
+    createDisputeMutation.mutate(
+      {
+        orderId,
+        itemId: item.id,
+        reason: normalizedReason,
+        description,
+        evidenceUrls,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Dispute opened successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to create dispute:', err);
+          toast.error(err.response?.data?.error || 'Failed to create dispute');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
         },
       }
     );
@@ -299,6 +375,95 @@ export default function Orders() {
         },
         onSettled: () => {
           setReviewingIssueId(null);
+        },
+      }
+    );
+  };
+
+  const handleMoveDisputeToReview = (dispute) => {
+    moveDisputeToReviewMutation.mutate(
+      {
+        orderId: dispute.orderId,
+        itemId: dispute.orderItemId,
+        disputeId: dispute.id,
+        updatedAt: dispute.updatedAt,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Dispute moved to review');
+        },
+        onError: (err) => {
+          console.error('Failed to move dispute to review:', err);
+          toast.error(err.response?.data?.error || 'Failed to update dispute');
+        },
+      }
+    );
+  };
+
+  const handleResolveDispute = (dispute) => {
+    const resolutionTypeInput =
+      window.prompt('Resolution type (APPROVE, REJECT, PARTIAL_REFUND)', 'REJECT') || '';
+    const resolutionType = resolutionTypeInput.trim().toUpperCase().replaceAll(' ', '_');
+    if (!Object.keys(DISPUTE_RESOLUTION_LABELS).includes(resolutionType)) {
+      toast.warning('Please enter a valid resolution type.');
+      return;
+    }
+
+    let resolutionAmount = '';
+    if (resolutionType === 'PARTIAL_REFUND') {
+      resolutionAmount = window.prompt('Partial refund amount', '') || '';
+      if (!resolutionAmount.trim()) {
+        toast.warning('A partial refund amount is required.');
+        return;
+      }
+    }
+
+    const resolutionNotes = window.prompt('Resolution notes', '') || '';
+
+    resolveDisputeMutation.mutate(
+      {
+        orderId: dispute.orderId,
+        itemId: dispute.orderItemId,
+        disputeId: dispute.id,
+        updatedAt: dispute.updatedAt,
+        resolutionType,
+        resolutionNotes,
+        resolutionAmount,
+        allowDirectResolution: dispute.status === 'OPEN',
+      },
+      {
+        onSuccess: () => {
+          toast.success('Dispute resolved successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to resolve dispute:', err);
+          toast.error(err.response?.data?.error || 'Failed to resolve dispute');
+        },
+      }
+    );
+  };
+
+  const handleAddDisputeNote = (dispute) => {
+    const note = window.prompt('Seller-only investigation note', '') || '';
+    if (!note.trim()) {
+      return;
+    }
+
+    createDisputeInternalNoteMutation.mutate(
+      {
+        orderId: dispute.orderId,
+        itemId: dispute.orderItemId,
+        disputeId: dispute.id,
+        updatedAt: dispute.updatedAt,
+        note,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Internal note added');
+        },
+        onError: (err) => {
+          console.error('Failed to add internal note:', err);
+          toast.error(err.response?.data?.error || 'Failed to add note');
         },
       }
     );
@@ -722,6 +887,17 @@ export default function Orders() {
                                       : 'Request Return'}
                                   </button>
                                 )}
+                                {item.disputeEligibility?.canOpen && (
+                                  <button
+                                    onClick={() => handleCreateDispute(order.id, item)}
+                                    disabled={activeItemActionId === item.id}
+                                    className="text-[11px] font-bold uppercase tracking-wider bg-white text-[#161412] border border-[#ddd7cc] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                  >
+                                    {activeItemActionId === item.id
+                                      ? 'Submitting...'
+                                      : 'Open Dispute'}
+                                  </button>
+                                )}
                               </div>
                             )}
                             {user?.role === 'WHOLESALER' && item.returnStatus === 'REQUESTED' && (
@@ -783,12 +959,12 @@ export default function Orders() {
                       <div>
                         <h3 className="text-sm font-bold uppercase tracking-widest text-[#161412] flex items-center gap-2">
                           <MessageSquareWarning className="h-4 w-4 text-[#8f5d31]" />
-                          Refunds and Disputes
+                          Refund Requests and Disputes
                         </h3>
                         <p className="text-xs text-[#6b665f] mt-1">
                           {user?.role === 'WHOLESALER'
-                            ? 'Review buyer requests and record the final resolution.'
-                            : 'Use the dedicated return buttons above for returns, or raise a refund/dispute request here.'}
+                            ? 'Review refund requests, investigate disputes, and record seller decisions.'
+                            : 'Use the refund form here, and open item-level disputes from the item actions above.'}
                         </p>
                       </div>
 
@@ -823,7 +999,6 @@ export default function Orders() {
                               className="w-full rounded-md border border-zinc-700 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                             >
                               <option value="REFUND">Refund</option>
-                              <option value="DISPUTE">Dispute</option>
                             </select>
                           </label>
 
@@ -931,13 +1106,142 @@ export default function Orders() {
                       </div>
                     )}
 
-                    {!order.issues?.length ? (
+                    {!order.disputes?.length && !order.issues?.length ? (
                       <div className="rounded-md border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">
-                        No return, refund, or dispute requests for this order yet.
+                        No refund requests or disputes for this order yet.
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {order.issues.map((issue) => {
+                        {(order.disputes || []).map((dispute) => (
+                          <div
+                            key={dispute.id}
+                            className="rounded-md border border-[#ddd7cc] bg-white p-4"
+                          >
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                              <div className="space-y-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-semibold text-[#161412]">
+                                    Dispute
+                                  </span>
+                                  <span className="px-2.5 py-1 rounded-sm text-[10px] uppercase tracking-widest font-bold border bg-[#161412]/5 text-[#161412] border-[#ddd7cc]">
+                                    {dispute.status.replaceAll('_', ' ')}
+                                  </span>
+                                  <span className="text-[11px] font-mono text-[#6b665f] bg-[#f3efe8] px-2 py-1 rounded">
+                                    #{dispute.id.slice(0, 8).toUpperCase()}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-[#161412] font-medium">
+                                  {formatDisputeReason(dispute.reason)}
+                                </div>
+                                <p className="text-sm text-[#6b665f] leading-relaxed">
+                                  {dispute.description}
+                                </p>
+                                <div className="flex flex-wrap gap-4 text-xs text-[#6b665f]">
+                                  <span>
+                                    Item {dispute.item?.product?.name || dispute.orderItemId}
+                                  </span>
+                                  {dispute.latestResolution && (
+                                    <span>
+                                      Resolution{' '}
+                                      {DISPUTE_RESOLUTION_LABELS[
+                                        dispute.latestResolution.resolutionType
+                                      ] || dispute.latestResolution.resolutionType}
+                                    </span>
+                                  )}
+                                  {dispute.latestResolution?.resolutionAmount && (
+                                    <span>
+                                      Amount ₹
+                                      {Number(dispute.latestResolution.resolutionAmount).toFixed(2)}
+                                    </span>
+                                  )}
+                                  {dispute.latestResolution?.refundId && (
+                                    <span>Refund {dispute.latestResolution.refundId}</span>
+                                  )}
+                                </div>
+                                {!!dispute.evidence?.length && (
+                                  <div className="text-xs text-[#6b665f]">
+                                    Evidence:{' '}
+                                    {dispute.evidence.map((entry) => entry.url).join(', ')}
+                                  </div>
+                                )}
+                                {!!dispute.timeline?.length && (
+                                  <div className="rounded-md border border-[#e7e1d7] bg-[#fbfaf7] p-3">
+                                    <div className="text-[10px] uppercase tracking-widest text-[#8b857c] font-bold mb-2">
+                                      Timeline
+                                    </div>
+                                    <div className="space-y-2">
+                                      {dispute.timeline.map((entry) => (
+                                        <div key={entry.id} className="text-xs text-[#6b665f]">
+                                          <span className="font-semibold text-[#161412]">
+                                            {entry.type.replaceAll('_', ' ')}
+                                          </span>{' '}
+                                          on{' '}
+                                          {new Date(entry.occurredAt).toLocaleString(undefined, {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: 'numeric',
+                                            minute: '2-digit',
+                                          })}
+                                          {entry.notes ? ` - ${entry.notes}` : ''}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {user?.role === 'WHOLESALER' && !!dispute.internalNotes?.length && (
+                                  <div className="rounded-md border border-[#e7e1d7] bg-[#fffdf8] p-3">
+                                    <div className="text-[10px] uppercase tracking-widest text-[#8b857c] font-bold mb-2">
+                                      Internal Notes
+                                    </div>
+                                    <div className="space-y-2">
+                                      {dispute.internalNotes.map((note) => (
+                                        <div key={note.id} className="text-xs text-[#6b665f]">
+                                          <span className="font-semibold text-[#161412]">
+                                            {note.author?.name || 'Seller'}
+                                          </span>{' '}
+                                          - {note.note}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {user?.role === 'WHOLESALER' && (
+                                <div className="w-full lg:w-[260px] rounded-md border border-[#e7e1d7] bg-[#fbfaf7] p-3">
+                                  <div className="grid grid-cols-1 gap-3">
+                                    {dispute.status === 'OPEN' && (
+                                      <button
+                                        onClick={() => handleMoveDisputeToReview(dispute)}
+                                        className="text-xs font-bold uppercase tracking-wider bg-[#161412] text-white px-4 py-2.5 rounded-md transition-all"
+                                      >
+                                        Move to Review
+                                      </button>
+                                    )}
+                                    {dispute.status !== 'RESOLVED' && (
+                                      <button
+                                        onClick={() => handleResolveDispute(dispute)}
+                                        className="text-xs font-bold uppercase tracking-wider bg-amber-500 text-[#0a0a0a] px-4 py-2.5 rounded-md transition-all"
+                                      >
+                                        Resolve Dispute
+                                      </button>
+                                    )}
+                                    {dispute.status !== 'RESOLVED' && (
+                                      <button
+                                        onClick={() => handleAddDisputeNote(dispute)}
+                                        className="text-xs font-bold uppercase tracking-wider bg-white text-[#161412] border border-[#ddd7cc] px-4 py-2.5 rounded-md transition-all"
+                                      >
+                                        Add Internal Note
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {(order.issues || []).map((issue) => {
                           const reviewDraft = issueReviews[issue.id] || {
                             ...WHOLESALER_REVIEW_TEMPLATE,
                             status: issue.status === 'OPEN' ? 'IN_REVIEW' : issue.status,

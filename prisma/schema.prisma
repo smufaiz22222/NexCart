@@ -200,13 +200,13 @@ model User {
 
   wholesalerProfile Wholesaler?
 
-  ordersPlaced  Order[]       @relation("BuyerOrders")
-  orderIssues   OrderIssue[]  @relation("OrderIssueRequester")
-  ledgerEntries LedgerEntry[] @relation("UserLedger")
-  disputesOpened       Dispute[]              @relation("BuyerDisputes")
-  disputeResolutions   DisputeResolution[]    @relation("DisputeResolvedByUser")
-  disputeInternalNotes DisputeInternalNote[]  @relation("DisputeInternalNoteAuthor")
-  disputeEvents        DisputeEvent[]         @relation("DisputeEventPerformer")
+  ordersPlaced         Order[]               @relation("BuyerOrders")
+  orderIssues          OrderIssue[]          @relation("OrderIssueRequester")
+  ledgerEntries        LedgerEntry[]         @relation("UserLedger")
+  disputesOpened       Dispute[]             @relation("BuyerDisputes")
+  disputeResolutions   DisputeResolution[]   @relation("DisputeResolvedByUser")
+  disputeInternalNotes DisputeInternalNote[] @relation("DisputeInternalNoteAuthor")
+  disputeEvents        DisputeEvent[]        @relation("DisputeEventPerformer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -248,7 +248,7 @@ model Product {
   currentStock Int @default(0)
   minStock     Int @default(10)
 
-  cartItems             CartItem[]
+  cartItems            CartItem[]
   inventoryLogs        InventoryLog[]
   orderItems           OrderItem[]
   interactions         RecommendationInteraction[]
@@ -283,21 +283,21 @@ model Order {
   buyerId String
   buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
 
-  status           OrderStatus   @default(PENDING)
-  paymentMethod    PaymentMethod @default(COD)
-  paymentStatus    PaymentStatus @default(PENDING)
+  status               OrderStatus          @default(PENDING)
+  paymentMethod        PaymentMethod        @default(COD)
+  paymentStatus        PaymentStatus        @default(PENDING)
   paymentCaptureStatus PaymentCaptureStatus @default(NOT_APPLICABLE)
-  paymentProvider  String?
-  paymentReference String?
-  razorpayPaymentId String?
-  razorpayOrderId String?
-  totalAmount      Decimal       @db.Decimal(10, 2)
-  shippingAddress  String?
+  paymentProvider      String?
+  paymentReference     String?
+  razorpayPaymentId    String?
+  razorpayOrderId      String?
+  totalAmount          Decimal              @db.Decimal(10, 2)
+  shippingAddress      String?
 
-  items   OrderItem[]
-  invoice Invoice?
-  issues  OrderIssue[]
-  disputes Dispute[]
+  items         OrderItem[]
+  invoice       Invoice?
+  issues        OrderIssue[]
+  disputes      Dispute[]
   ledgerEntries LedgerEntry[]
   adjustments   OrderAdjustment[]
 
@@ -332,21 +332,21 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
 
   quantity             Int
-  price                Decimal      @db.Decimal(10, 2)
-  unitPriceAtPurchase  Decimal      @db.Decimal(10, 2)
-  subtotalAtPurchase   Decimal      @db.Decimal(10, 2)
+  price                Decimal            @db.Decimal(10, 2)
+  unitPriceAtPurchase  Decimal            @db.Decimal(10, 2)
+  subtotalAtPurchase   Decimal            @db.Decimal(10, 2)
   selectedSize         String?
   recommendationId     String?
-  status               OrderItemStatus @default(ACTIVE)
+  status               OrderItemStatus    @default(ACTIVE)
   cancelledAt          DateTime?
   cancelledByRole      Role?
   cancellationReason   String?
-  refundStatus         RefundStatus @default(NOT_APPLICABLE)
+  refundStatus         RefundStatus       @default(NOT_APPLICABLE)
   refundReference      String?
   refundFailureReason  String?
   refundRequestedAt    DateTime?
   refundCompletedAt    DateTime?
-  refundedAmount       Decimal?     @db.Decimal(10, 2)
+  refundedAmount       Decimal?           @db.Decimal(10, 2)
   returnStatus         ReturnStatus       @default(NONE)
   returnRefundStatus   ReturnRefundStatus @default(NONE)
   returnReason         ReturnReason?
@@ -377,27 +377,27 @@ model OrderItem {
 
 model Cart {
   id        String     @id @default(uuid())
-  userId     String    @unique
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items       CartItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@index([userId])
 }
 
 model CartItem {
-  id           String   @id @default(uuid())
-  cartId       String
-  cart         Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  selectedSize String?
-  quantity     Int
+  id                   String   @id @default(uuid())
+  cartId               String
+  cart                 Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId            String
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  selectedSize         String?
+  quantity             Int
   recommendationId     String?
   recommendationSource String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@unique([cartId, productId, selectedSize])
   @@index([cartId])
@@ -456,29 +456,29 @@ model OrderIssue {
 }
 
 model Dispute {
-  id                String         @id @default(uuid())
-  orderId           String
-  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderItemId       String
-  orderItem         OrderItem      @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  buyerId           String
-  buyer             User           @relation("BuyerDisputes", fields: [buyerId], references: [id], onDelete: Cascade)
-  sellerId          String
-  seller            Wholesaler     @relation("SellerDisputes", fields: [sellerId], references: [id], onDelete: Cascade)
-  status            DisputeStatus  @default(OPEN)
-  reason            DisputeReason
-  description       String
-  openedAt          DateTime       @default(now())
-  respondedAt       DateTime?
-  dueAt             DateTime?
-  createdByIp       String?
+  id                 String                @id @default(uuid())
+  orderId            String
+  order              Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId        String
+  orderItem          OrderItem             @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  buyerId            String
+  buyer              User                  @relation("BuyerDisputes", fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId           String
+  seller             Wholesaler            @relation("SellerDisputes", fields: [sellerId], references: [id], onDelete: Cascade)
+  status             DisputeStatus         @default(OPEN)
+  reason             DisputeReason
+  description        String
+  openedAt           DateTime              @default(now())
+  respondedAt        DateTime?
+  dueAt              DateTime?
+  createdByIp        String?
   createdByUserAgent String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  resolution        DisputeResolution?
-  evidence          DisputeEvidence[]
-  internalNotes     DisputeInternalNote[]
-  events            DisputeEvent[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  resolution         DisputeResolution?
+  evidence           DisputeEvidence[]
+  internalNotes      DisputeInternalNote[]
+  events             DisputeEvent[]
 
   @@index([orderId])
   @@index([orderItemId])
@@ -490,18 +490,18 @@ model Dispute {
 }
 
 model DisputeResolution {
-  id               String                 @id @default(uuid())
-  disputeId        String                 @unique
-  dispute          Dispute                @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  id               String                @id @default(uuid())
+  disputeId        String                @unique
+  dispute          Dispute               @relation(fields: [disputeId], references: [id], onDelete: Cascade)
   resolvedByUserId String
-  resolvedByUser   User                   @relation("DisputeResolvedByUser", fields: [resolvedByUserId], references: [id], onDelete: Restrict)
+  resolvedByUser   User                  @relation("DisputeResolvedByUser", fields: [resolvedByUserId], references: [id], onDelete: Restrict)
   resolvedByRole   DisputeResolvedByRole
   resolutionType   DisputeResolutionType
   resolutionNotes  String?
-  resolutionAmount Decimal?               @db.Decimal(10, 2)
+  resolutionAmount Decimal?              @db.Decimal(10, 2)
   refundId         String?
   ledgerEntryId    String?
-  createdAt        DateTime               @default(now())
+  createdAt        DateTime              @default(now())
 }
 
 model DisputeEvidence {
@@ -559,16 +559,16 @@ model LedgerEntry {
   wholesalerId String
   wholesaler   Wholesaler @relation("WholesalerLedger", fields: [wholesalerId], references: [id])
 
-  userId String?
-  user   User?   @relation("UserLedger", fields: [userId], references: [id])
+  userId  String?
+  user    User?   @relation("UserLedger", fields: [userId], references: [id])
   orderId String?
-  order   Order? @relation(fields: [orderId], references: [id])
+  order   Order?  @relation(fields: [orderId], references: [id])
 
-  amount      Decimal @db.Decimal(10, 2)
-  description String
-  referenceId String?
-  source      LedgerEntrySource @default(MANUAL)
-  idempotencyKey String? @unique
+  amount         Decimal           @db.Decimal(10, 2)
+  description    String
+  referenceId    String?
+  source         LedgerEntrySource @default(MANUAL)
+  idempotencyKey String?           @unique
 
   createdAt DateTime @default(now())
 
@@ -577,16 +577,16 @@ model LedgerEntry {
 
 model OrderAdjustment {
   id           String              @id @default(uuid())
-  orderId       String
-  order         Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderItemId   String?
-  orderItem     OrderItem?          @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
-  type          OrderAdjustmentType
-  quantity      Int                 @default(0)
-  amount        Decimal             @db.Decimal(10, 2)
-  description   String
-  referenceKey  String              @unique
-  createdAt     DateTime            @default(now())
+  orderId      String
+  order        Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId  String?
+  orderItem    OrderItem?          @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  type         OrderAdjustmentType
+  quantity     Int                 @default(0)
+  amount       Decimal             @db.Decimal(10, 2)
+  description  String
+  referenceKey String              @unique
+  createdAt    DateTime            @default(now())
 
   @@index([orderId])
   @@index([orderItemId])

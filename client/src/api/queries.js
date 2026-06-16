@@ -388,3 +388,89 @@ export const useReviewOrderIssue = () => {
     },
   });
 };
+
+export const useCreateDispute = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, itemId, reason, description, evidenceUrls = [] }) => {
+      const response = await apiClient.post(`/orders/${orderId}/items/${itemId}/disputes`, {
+        reason,
+        description,
+        evidenceUrls,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};
+
+export const useMoveDisputeToReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, itemId, disputeId, updatedAt }) => {
+      const response = await apiClient.patch(
+        `/orders/${orderId}/items/${itemId}/disputes/${disputeId}/status`,
+        {
+          status: 'UNDER_REVIEW',
+          updatedAt,
+        }
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};
+
+export const useResolveDispute = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      itemId,
+      disputeId,
+      updatedAt,
+      resolutionType,
+      resolutionNotes,
+      resolutionAmount,
+      allowDirectResolution,
+    }) => {
+      const response = await apiClient.patch(
+        `/orders/${orderId}/items/${itemId}/disputes/${disputeId}/resolve`,
+        {
+          updatedAt,
+          resolutionType,
+          resolutionNotes,
+          resolutionAmount: resolutionAmount ? parseFloat(resolutionAmount) : null,
+          allowDirectResolution,
+        }
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};
+
+export const useCreateDisputeInternalNote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, itemId, disputeId, updatedAt, note }) => {
+      const response = await apiClient.post(
+        `/orders/${orderId}/items/${itemId}/disputes/${disputeId}/internal-notes`,
+        {
+          updatedAt,
+          note,
+        }
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};

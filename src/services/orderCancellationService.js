@@ -1,5 +1,5 @@
-import Razorpay from 'razorpay';
 import { prisma } from '../config/db.js';
+import { createRazorpayRefund, getOrderPaymentMetadata, toNumber } from './paymentRefundService.js';
 
 export const ORDER_ITEM_STATUSES = {
   ACTIVE: 'ACTIVE',
@@ -34,9 +34,6 @@ const buildError = (message, statusCode = 400) => {
   return error;
 };
 
-const toNumber = (value) => Number(Number(value || 0).toFixed(2));
-const toPaise = (value) => Math.round(toNumber(value) * 100);
-
 const ORDER_DETAILS_INCLUDE = {
   buyer: { select: { id: true, name: true, email: true } },
   seller: { select: { id: true, businessName: true } },
@@ -57,17 +54,32 @@ const ORDER_DETAILS_INCLUDE = {
     },
     orderBy: { createdAt: 'desc' },
   },
-};
-
-const getRazorpayClient = () => {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-  if (!keyId || !keySecret) {
-    throw buildError('Razorpay is not configured on the server', 500);
-  }
-
-  return new Razorpay({ key_id: keyId, key_secret: keySecret });
+  disputes: {
+    include: {
+      buyer: { select: { id: true, name: true, email: true } },
+      seller: { select: { id: true, businessName: true } },
+      orderItem: {
+        include: {
+          product: { select: { id: true, name: true, imageUrl: true } },
+        },
+      },
+      resolution: true,
+      evidence: { orderBy: { createdAt: 'asc' } },
+      internalNotes: {
+        include: {
+          author: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+      events: {
+        include: {
+          performedByUser: { select: { id: true, name: true, email: true, role: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
 };
 
 const getOrderWithDetails = (db, orderId) =>
@@ -132,16 +144,6 @@ export const refreshOrderPaymentStatus = async (db, orderId) => {
   }
 
   return order;
-};
-
-const getPaymentMetadata = (order) => {
-  const reference = String(order.paymentReference || '');
-  const [refOrderId, refPaymentId] = reference.includes(':') ? reference.split(':') : [null, null];
-
-  return {
-    razorpayOrderId: order.razorpayOrderId || refOrderId || null,
-    razorpayPaymentId: order.razorpayPaymentId || refPaymentId || null,
-  };
 };
 
 export const cancelOrderItemForCustomer = async ({
@@ -343,7 +345,7 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
     };
   }
 
-  const { razorpayPaymentId } = getPaymentMetadata(order);
+  const { razorpayPaymentId } = getOrderPaymentMetadata(order);
   if (!razorpayPaymentId) {
     await client.orderItem.update({
       where: { id: itemId },
@@ -383,10 +385,9 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
   }
 
   try {
-    const razorpay = getRazorpayClient();
-    const refund = await razorpay.payments.refund(razorpayPaymentId, {
-      amount: toPaise(item.subtotalAtPurchase),
-      speed: 'normal',
+    const refund = await createRazorpayRefund({
+      order,
+      amount: item.subtotalAtPurchase,
       notes: {
         orderId,
         orderItemId: itemId,
@@ -400,7 +401,7 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
         refundReference: refund.id || item.refundReference,
         refundFailureReason: null,
         refundCompletedAt: new Date(),
-        refundedAmount: toNumber((refund.amount || toPaise(item.subtotalAtPurchase)) / 100),
+        refundedAmount: toNumber(refund.amount ? refund.amount / 100 : item.subtotalAtPurchase),
       },
     });
   } catch (error) {

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Star, Store } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
+import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
 import { useProductDetail, useSimilarProducts, useSubmitReview } from '../api/queries';
 
@@ -17,6 +18,7 @@ export default function ProductDetails() {
   const location = useLocation();
   const addToCart = useCartStore((state) => state.addToCart);
   const loggedImpressionRecommendationIds = useRef(new Set());
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [attributionRecommendationContext, setAttributionRecommendationContext] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
@@ -50,7 +52,7 @@ export default function ProductDetails() {
   }, [product, selectedSize]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !isAuthenticated) return;
     apiClient
       .post('/interactions', {
         productId: id,
@@ -58,7 +60,7 @@ export default function ProductDetails() {
         source: 'product_detail',
       })
       .catch((error) => console.error('Failed to log product view:', error));
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     const incomingContext = location.state?.recommendationContext;
@@ -96,6 +98,7 @@ export default function ProductDetails() {
   }, [id, location.state]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (!similarRecommendationId || similarProducts.length === 0) return;
     if (loggedImpressionRecommendationIds.current.has(similarRecommendationId)) return;
 
@@ -109,7 +112,7 @@ export default function ProductDetails() {
         })),
       })
       .catch((error) => console.error('Failed to log similar impressions:', error));
-  }, [similarRecommendationId, similarProducts]);
+  }, [similarRecommendationId, similarProducts, isAuthenticated]);
 
   const handleAddToCart = async () => {
     if (product.sizes?.length > 0 && !selectedSize) {
@@ -124,18 +127,20 @@ export default function ProductDetails() {
         recommendationId: attributionRecommendationContext?.recommendationId || null,
         recommendationSource: attributionRecommendationContext?.source || null,
       });
-      apiClient
-        .post('/interactions', {
-          productId: product.id,
-          action: 'cart',
-          quantity: 1,
-          source: 'product_detail',
-          recommendationId: attributionRecommendationContext?.recommendationId,
-          metadata: attributionRecommendationContext
-            ? { recommendationSource: attributionRecommendationContext.source }
-            : {},
-        })
-        .catch((error) => console.error('Failed to log cart interaction:', error));
+      if (isAuthenticated) {
+        apiClient
+          .post('/interactions', {
+            productId: product.id,
+            action: 'cart',
+            quantity: 1,
+            source: 'product_detail',
+            recommendationId: attributionRecommendationContext?.recommendationId,
+            metadata: attributionRecommendationContext
+              ? { recommendationSource: attributionRecommendationContext.source }
+              : {},
+          })
+          .catch((error) => console.error('Failed to log cart interaction:', error));
+      }
       sessionStorage.removeItem(getAttributionStorageKey(product.id));
       toast.success('Added to cart!');
     } catch (error) {
@@ -153,13 +158,15 @@ export default function ProductDetails() {
         source: 'similar_products',
       };
 
-      apiClient
-        .post('/interactions/recommendation-event', {
-          recommendationId: similarRecommendationId,
-          productId: recommendedProduct.id,
-          eventType: 'click',
-        })
-        .catch((error) => console.error('Failed to log recommendation click:', error));
+      if (isAuthenticated) {
+        apiClient
+          .post('/interactions/recommendation-event', {
+            recommendationId: similarRecommendationId,
+            productId: recommendedProduct.id,
+            eventType: 'click',
+          })
+          .catch((error) => console.error('Failed to log recommendation click:', error));
+      }
     }
 
     navigate(
@@ -342,39 +349,54 @@ export default function ProductDetails() {
       <section className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr]">
         <div className="rounded-[34px] bg-white p-7 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
           <h2 className="text-3xl font-black tracking-tight">Reviews</h2>
-          <form
-            onSubmit={handleReviewSubmit}
-            className="mt-6 space-y-4 rounded-[28px] bg-[#f8f6f1] p-5"
-          >
-            <div className="flex flex-wrap gap-3">
-              {[1, 2, 3, 4, 5].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setRating(value)}
-                  className={`rounded-full px-4 py-2 text-sm font-bold ${
-                    rating === value ? 'bg-[#161412] text-white' : 'bg-white text-[#161412]'
-                  }`}
-                >
-                  {value} Star
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-              placeholder="Share your product experience"
-              rows={4}
-              className="w-full rounded-[22px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-            />
-            <button
-              type="submit"
-              disabled={isSubmittingReview}
-              className="rounded-full bg-[#161412] px-5 py-3 text-sm font-bold text-white"
+          {isAuthenticated ? (
+            <form
+              onSubmit={handleReviewSubmit}
+              className="mt-6 space-y-4 rounded-[28px] bg-[#f8f6f1] p-5"
             >
-              {isSubmittingReview ? 'Posting review...' : 'Post review'}
-            </button>
-          </form>
+              <div className="flex flex-wrap gap-3">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRating(value)}
+                    className={`rounded-full px-4 py-2 text-sm font-bold ${
+                      rating === value ? 'bg-[#161412] text-white' : 'bg-white text-[#161412]'
+                    }`}
+                  >
+                    {value} Star
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                placeholder="Share your product experience"
+                rows={4}
+                className="w-full rounded-[22px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isSubmittingReview}
+                className="rounded-full bg-[#161412] px-5 py-3 text-sm font-bold text-white"
+              >
+                {isSubmittingReview ? 'Posting review...' : 'Post review'}
+              </button>
+            </form>
+          ) : (
+            <div className="mt-6 rounded-[28px] bg-[#f8f6f1] p-6 text-center border border-dashed border-[#ddd7cc]">
+              <p className="text-sm font-semibold text-[#6b665f]">
+                You must be logged in to leave a review.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal'))}
+                className="mt-4 rounded-full bg-[#161412] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#2c2926]"
+              >
+                Login / Register
+              </button>
+            </div>
+          )}
 
           <div className="mt-6 space-y-4">
             {(product.reviews || []).length ? (

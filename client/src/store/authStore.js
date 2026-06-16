@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../api/axios.js';
+import useCartStore from './cartStore.js';
 
 const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
@@ -18,6 +19,11 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('user', JSON.stringify(user));
 
       set({ user, token, isAuthenticated: true, isLoading: false, error: null });
+
+      // Sync local cart items to the database cart
+      if (user?.role === 'CUSTOMER') {
+        await useCartStore.getState().syncLocalCart();
+      }
 
       return user;
     } catch (error) {

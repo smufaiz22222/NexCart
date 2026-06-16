@@ -3,14 +3,18 @@ import {
   approveReturn,
   cancelOrderItem,
   checkout,
+  createDisputeSellerNote,
+  createItemDispute,
   createOrderIssue,
   createPrepaidOrder,
   getOrders,
   receiveReturn,
   rejectReturn,
+  resolveOrderItemDispute,
   requestReturn,
   retryReturnRefund,
   retryOrderItemRefund,
+  updateDisputeStatus,
   updateOrderIssue,
   updateOrderStatus,
   verifyPrepaidOrder,
@@ -34,6 +38,22 @@ router.post('/:id/items/:itemId/approve-return', authenticate, approveReturn);
 router.post('/:id/items/:itemId/reject-return', authenticate, rejectReturn);
 router.post('/:id/items/:itemId/receive-return', authenticate, receiveReturn);
 router.post('/:id/items/:itemId/retry-return-refund', authenticate, retryReturnRefund);
+router.post('/:orderId/items/:itemId/disputes', authenticate, createItemDispute);
+router.patch(
+  '/:orderId/items/:itemId/disputes/:disputeId/status',
+  authenticate,
+  updateDisputeStatus
+);
+router.patch(
+  '/:orderId/items/:itemId/disputes/:disputeId/resolve',
+  authenticate,
+  resolveOrderItemDispute
+);
+router.post(
+  '/:orderId/items/:itemId/disputes/:disputeId/internal-notes',
+  authenticate,
+  createDisputeSellerNote
+);
 router.put('/:id/status', authenticate, updateOrderStatus);
 router.post('/:id/issues', authenticate, createOrderIssue);
 router.put('/issues/:issueId', authenticate, updateOrderIssue);

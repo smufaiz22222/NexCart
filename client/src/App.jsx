@@ -34,6 +34,10 @@ const Storefront = lazy(() => import('./pages/Storefront'));
 const Cart = lazy(() => import('./pages/Cart'));
 const ProductDetails = lazy(() => import('./pages/ProductDetails'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
+const AboutUs = lazy(() => import('./pages/AboutUs'));
+const Faq = lazy(() => import('./pages/Faq'));
+const ContactUs = lazy(() => import('./pages/ContactUs'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -72,7 +76,7 @@ function App() {
                 path="/"
                 element={
                   !isAuthenticated ? (
-                    <Navigate to="/login" />
+                    <Navigate to="/store" />
                   ) : user?.role === 'SUPER_ADMIN' ? (
                     <Navigate to="/admin" />
                   ) : user?.role === 'WHOLESALER' ? (
@@ -83,18 +87,22 @@ function App() {
                 }
               />
 
-              <Route
-                path="/store/*"
-                element={
-                  <ProtectedRoute allowedRoles={['CUSTOMER']}>
-                    <CustomerLayout />
-                  </ProtectedRoute>
-                }
-              >
+              <Route path="/store/*" element={<CustomerLayout />}>
                 <Route index element={<Storefront />} />
                 <Route path="cart" element={<Cart />} />
                 <Route path="product/:id" element={<ProductDetails />} />
-                <Route path="orders" element={<Orders />} />
+                <Route
+                  path="orders"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <Orders />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="about" element={<AboutUs />} />
+                <Route path="faq" element={<Faq />} />
+                <Route path="contact" element={<ContactUs />} />
+                <Route path="privacy" element={<PrivacyPolicy />} />
               </Route>
 
               <Route

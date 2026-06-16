@@ -1,5 +1,5 @@
-import Razorpay from 'razorpay';
 import { prisma } from '../config/db.js';
+import { createRazorpayRefund, getOrderPaymentMetadata, toNumber } from './paymentRefundService.js';
 
 export const RETURN_STATUSES = {
   NONE: 'NONE',
@@ -46,9 +46,6 @@ const buildError = (message, statusCode = 400) => {
   return error;
 };
 
-const toNumber = (value) => Number(Number(value || 0).toFixed(2));
-const toPaise = (value) => Math.round(toNumber(value) * 100);
-
 const ORDER_DETAILS_INCLUDE = {
   buyer: { select: { id: true, name: true, email: true } },
   seller: { select: { id: true, businessName: true } },
@@ -70,20 +67,35 @@ const ORDER_DETAILS_INCLUDE = {
     },
     orderBy: { createdAt: 'desc' },
   },
+  disputes: {
+    include: {
+      buyer: { select: { id: true, name: true, email: true } },
+      seller: { select: { id: true, businessName: true } },
+      orderItem: {
+        include: {
+          product: { select: { id: true, name: true, imageUrl: true } },
+        },
+      },
+      resolution: true,
+      evidence: { orderBy: { createdAt: 'asc' } },
+      internalNotes: {
+        include: {
+          author: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+      events: {
+        include: {
+          performedByUser: { select: { id: true, name: true, email: true, role: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
   adjustments: {
     orderBy: { createdAt: 'asc' },
   },
-};
-
-const getRazorpayClient = () => {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-  if (!keyId || !keySecret) {
-    throw buildError('Razorpay is not configured on the server', 500);
-  }
-
-  return new Razorpay({ key_id: keyId, key_secret: keySecret });
 };
 
 const getOrderWithDetails = (db, orderId) =>
@@ -115,16 +127,6 @@ const classifyRefundFailureStatus = (error) => {
   }
 
   return RETURN_REFUND_STATUSES.FAILED;
-};
-
-const getPaymentMetadata = (order) => {
-  const reference = String(order.paymentReference || '');
-  const [refOrderId, refPaymentId] = reference.includes(':') ? reference.split(':') : [null, null];
-
-  return {
-    razorpayOrderId: order.razorpayOrderId || refOrderId || null,
-    razorpayPaymentId: order.razorpayPaymentId || refPaymentId || null,
-  };
 };
 
 const validateReturnReason = (reason) => {
@@ -460,7 +462,7 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
     };
   }
 
-  const { razorpayPaymentId } = getPaymentMetadata(order);
+  const { razorpayPaymentId } = getOrderPaymentMetadata(order);
   if (!razorpayPaymentId) {
     await client.orderItem.update({
       where: { id: itemId },
@@ -506,13 +508,11 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
   }
 
   try {
-    const razorpay = getRazorpayClient();
-    const refund = await razorpay.payments.refund(razorpayPaymentId, {
-      amount: toPaise(
+    const refund = await createRazorpayRefund({
+      order,
+      amount:
         item.refundAmountSnapshot ??
-          calculateReturnAmount(item, item.returnedQuantity || item.quantity)
-      ),
-      speed: 'normal',
+        calculateReturnAmount(item, item.returnedQuantity || item.quantity),
       notes: {
         orderId,
         orderItemId: itemId,

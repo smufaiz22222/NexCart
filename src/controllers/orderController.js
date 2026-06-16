@@ -10,13 +10,20 @@ import {
 } from '../services/orderCancellationService.js';
 import {
   approveOrderItemReturn,
-  decorateOrderWithReturnFinancials,
   getReturnWindowDateForDelivery,
   receiveOrderItemReturn,
   rejectOrderItemReturn,
   requestOrderItemReturn,
   retryOrderItemReturnRefund,
 } from '../services/orderReturnService.js';
+import {
+  addDisputeInternalNote,
+  createDispute,
+  decorateOrderWithDisputes,
+  moveDisputeToReview,
+  ORDER_DISPUTE_INCLUDE,
+  resolveDispute,
+} from '../services/disputeService.js';
 
 const PAYMENT_METHODS = {
   COD: 'COD',
@@ -59,26 +66,7 @@ const ORDER_ISSUE_RESOLUTIONS = {
   RETURNLESS_REFUND: 'RETURNLESS_REFUND',
 };
 
-const ORDER_INCLUDE_FOR_RESPONSE = {
-  buyer: { select: { id: true, name: true, email: true } },
-  seller: { select: { id: true, businessName: true } },
-  invoice: true,
-  items: { include: { product: true } },
-  issues: {
-    include: {
-      requester: { select: { id: true, name: true, role: true } },
-      orderItem: {
-        include: {
-          product: { select: { id: true, name: true, imageUrl: true } },
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  },
-  adjustments: {
-    orderBy: { createdAt: 'asc' },
-  },
-};
+const ORDER_INCLUDE_FOR_RESPONSE = ORDER_DISPUTE_INCLUDE;
 
 const getRazorpayClient = () => {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -663,7 +651,10 @@ export const getOrders = async (req, res) => {
       });
     }
 
-    res.status(200).json({ orders: orders.map(decorateOrderWithReturnFinancials) });
+    const viewerRole = req.user.role === 'WHOLESALER' ? 'WHOLESALER' : 'CUSTOMER';
+    res.status(200).json({
+      orders: orders.map((order) => decorateOrderWithDisputes(order, viewerRole)),
+    });
   } catch (error) {
     console.error('Get Orders Error:', error);
     res.status(500).json({ error: 'Failed to fetch orders' });
@@ -737,7 +728,7 @@ export const updateOrderStatus = async (req, res) => {
         include: ORDER_INCLUDE_FOR_RESPONSE,
       });
 
-      return decorateOrderWithReturnFinancials(nextOrder);
+      return decorateOrderWithDisputes(nextOrder, 'WHOLESALER');
     });
 
     res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
@@ -754,7 +745,7 @@ export const createOrderIssue = async (req, res) => {
     if (req.user.role !== 'CUSTOMER') {
       return res
         .status(403)
-        .json({ error: 'Only customers can create return, refund, or dispute requests' });
+        .json({ error: 'Only customers can create refund requests from this endpoint' });
     }
 
     const { id: orderId } = req.params;
@@ -775,6 +766,12 @@ export const createOrderIssue = async (req, res) => {
       return res.status(400).json({
         error:
           'Use the dedicated return flow for delivered items instead of the generic issue form',
+      });
+    }
+
+    if (type === ORDER_ISSUE_TYPES.DISPUTE) {
+      return res.status(400).json({
+        error: 'Use the dedicated dispute endpoints instead of the generic issue form',
       });
     }
 
@@ -865,6 +862,12 @@ export const updateOrderIssue = async (req, res) => {
       return res.status(404).json({ error: 'Order issue not found' });
     }
 
+    if (issue.type === ORDER_ISSUE_TYPES.DISPUTE) {
+      return res.status(400).json({
+        error: 'Legacy dispute issues are no longer editable through the generic issue workflow',
+      });
+    }
+
     const nextResolution = normalizeIssueResolution(finalResolution || issue.finalResolution);
     const parsedRefundAmount =
       refundAmount === null || refundAmount === undefined || refundAmount === ''
@@ -908,11 +911,135 @@ export const updateOrderIssue = async (req, res) => {
     res.status(200).json({
       message: 'Order issue updated successfully',
       issue: updatedIssue,
-      order: updatedOrder,
+      order: decorateOrderWithDisputes(updatedOrder, 'WHOLESALER'),
     });
   } catch (error) {
     console.error('Update Order Issue Error:', error);
     res.status(500).json({ error: 'Failed to update order issue' });
+  }
+};
+
+export const createItemDispute = async (req, res) => {
+  try {
+    if (req.user.role !== 'CUSTOMER') {
+      return res.status(403).json({ error: 'Only customers can open disputes.' });
+    }
+
+    const { orderId, itemId } = req.params;
+    const { reason, description, evidenceUrls } = req.body || {};
+
+    const result = await createDispute({
+      buyerId: req.user.userId,
+      orderId,
+      itemId,
+      reason,
+      description,
+      evidenceUrls,
+      createdByIp: req.ip || null,
+      createdByUserAgent: req.get('user-agent') || null,
+      client: prisma,
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Create Dispute Error:', error);
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to create dispute' });
+  }
+};
+
+export const updateDisputeStatus = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can review disputes.' });
+    }
+
+    const { orderId, itemId, disputeId } = req.params;
+    const { status, updatedAt } = req.body || {};
+
+    if (status !== 'UNDER_REVIEW') {
+      return res.status(422).json({ error: 'Only UNDER_REVIEW is supported on this endpoint.' });
+    }
+
+    const result = await moveDisputeToReview({
+      wholesalerId: req.user.wholesalerId,
+      sellerUserId: req.user.userId,
+      orderId,
+      itemId,
+      disputeId,
+      updatedAt,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Update Dispute Status Error:', error);
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to update dispute status' });
+  }
+};
+
+export const resolveOrderItemDispute = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can resolve disputes.' });
+    }
+
+    const { orderId, itemId, disputeId } = req.params;
+    const { resolutionType, resolutionNotes, resolutionAmount, allowDirectResolution, updatedAt } =
+      req.body || {};
+
+    const result = await resolveDispute({
+      wholesalerId: req.user.wholesalerId,
+      sellerUserId: req.user.userId,
+      orderId,
+      itemId,
+      disputeId,
+      updatedAt,
+      resolutionType,
+      resolutionNotes,
+      resolutionAmount,
+      allowDirectResolution,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Resolve Dispute Error:', error);
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to resolve dispute' });
+  }
+};
+
+export const createDisputeSellerNote = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can add dispute notes.' });
+    }
+
+    const { orderId, itemId, disputeId } = req.params;
+    const { note, updatedAt } = req.body || {};
+
+    const result = await addDisputeInternalNote({
+      wholesalerId: req.user.wholesalerId,
+      sellerUserId: req.user.userId,
+      orderId,
+      itemId,
+      disputeId,
+      updatedAt,
+      note,
+      client: prisma,
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Create Dispute Internal Note Error:', error);
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to create dispute internal note' });
   }
 };
 
@@ -935,7 +1062,7 @@ export const cancelOrderItem = async (req, res) => {
 
     res.status(200).json({
       message: result.message,
-      order: result.order,
+      order: decorateOrderWithDisputes(result.order, 'CUSTOMER'),
       item: result.item,
       refundStatus: result.item?.refundStatus || null,
       refundedAmount: result.item?.refundedAmount || null,
@@ -965,7 +1092,7 @@ export const retryOrderItemRefund = async (req, res) => {
 
     res.status(200).json({
       message: result.message,
-      order: result.order,
+      order: decorateOrderWithDisputes(result.order, 'CUSTOMER'),
       item: result.item,
       refundStatus: result.item?.refundStatus || null,
       refundedAmount: result.item?.refundedAmount || null,
@@ -995,7 +1122,10 @@ export const requestReturn = async (req, res) => {
       client: prisma,
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'CUSTOMER'),
+    });
   } catch (error) {
     console.error('Request Return Error:', error);
     res
@@ -1019,7 +1149,10 @@ export const approveReturn = async (req, res) => {
       client: prisma,
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'WHOLESALER'),
+    });
   } catch (error) {
     console.error('Approve Return Error:', error);
     res
@@ -1045,7 +1178,10 @@ export const rejectReturn = async (req, res) => {
       client: prisma,
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'WHOLESALER'),
+    });
   } catch (error) {
     console.error('Reject Return Error:', error);
     res.status(error.statusCode || 400).json({ error: error.message || 'Failed to reject return' });
@@ -1066,7 +1202,10 @@ export const receiveReturn = async (req, res) => {
       client: prisma,
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'WHOLESALER'),
+    });
   } catch (error) {
     console.error('Receive Return Error:', error);
     res
@@ -1089,7 +1228,10 @@ export const retryReturnRefund = async (req, res) => {
       client: prisma,
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'WHOLESALER'),
+    });
   } catch (error) {
     console.error('Retry Return Refund Error:', error);
     res

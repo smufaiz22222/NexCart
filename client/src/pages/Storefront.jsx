@@ -3,6 +3,7 @@ import { ArrowRight, Search, Star, Store, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
 import { useMarketplaceProducts, useTrendingProducts } from '../api/queries';
+import useAuthStore from '../store/authStore';
 
 const testimonialCards = [
   {
@@ -38,8 +39,10 @@ export default function Storefront() {
 
   const trendingProducts = useMemo(() => {
     const recommendations = trendingData?.recommendations || [];
-    const products = recommendations.map((item) => item.product).slice(0, 24);
-    return products.length ? products : marketplaceProducts.slice(0, 24);
+    const recommendedProducts = recommendations.map((item) => item.product);
+    const recommendedIds = new Set(recommendedProducts.map((p) => p.id));
+    const otherProducts = marketplaceProducts.filter((p) => !recommendedIds.has(p.id));
+    return [...recommendedProducts, ...otherProducts];
   }, [trendingData, marketplaceProducts]);
 
   const recommendedProductIds = useMemo(() => {
@@ -57,10 +60,17 @@ export default function Storefront() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedCollection, setSelectedCollection] = useState('Trending');
+  const [visibleCount, setVisibleCount] = useState(12);
   const navigate = useNavigate();
   const loggedImpressionRecommendationIds = useRef(new Set());
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   useEffect(() => {
+    setVisibleCount(12);
+  }, [searchTerm, selectedCategory, selectedCollection]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
     if (!recommendationId || trendingProducts.length === 0) return;
     if (loggedImpressionRecommendationIds.current.has(recommendationId)) return;
 
@@ -74,7 +84,7 @@ export default function Storefront() {
         })),
       })
       .catch((error) => console.error('Failed to log recommendation impressions:', error));
-  }, [recommendationId, trendingProducts]);
+  }, [recommendationId, trendingProducts, isAuthenticated]);
 
   const handleProductClick = (product, source = 'storefront') => {
     let recommendationContext = null;
@@ -86,13 +96,15 @@ export default function Storefront() {
         source,
       };
 
-      apiClient
-        .post('/interactions/recommendation-event', {
-          recommendationId,
-          productId: product.id,
-          eventType: 'click',
-        })
-        .catch((error) => console.error('Failed to log recommendation click:', error));
+      if (isAuthenticated) {
+        apiClient
+          .post('/interactions/recommendation-event', {
+            recommendationId,
+            productId: product.id,
+            eventType: 'click',
+          })
+          .catch((error) => console.error('Failed to log recommendation click:', error));
+      }
     }
 
     navigate(
@@ -106,23 +118,53 @@ export default function Storefront() {
     ...new Set(marketplaceProducts.map((product) => product.category || 'General')),
   ];
   const collections = ['Trending', 'New Arrivals', 'Top Rated'];
-  const featuredProducts =
-    selectedCollection === 'Top Rated'
-      ? [...marketplaceProducts]
-          .sort((left, right) => (right.ratingAverage || 0) - (left.ratingAverage || 0))
-          .slice(0, 12)
-      : selectedCollection === 'New Arrivals'
-        ? [...marketplaceProducts].slice(0, 12)
-        : trendingProducts.slice(0, 12);
+  const featuredProducts = useMemo(() => {
+    if (selectedCollection === 'Top Rated') {
+      return [...marketplaceProducts].sort(
+        (left, right) => (right.ratingAverage || 0) - (left.ratingAverage || 0)
+      );
+    }
+    if (selectedCollection === 'New Arrivals') {
+      return [...marketplaceProducts];
+    }
+    return trendingProducts.length ? trendingProducts : marketplaceProducts;
+  }, [selectedCollection, marketplaceProducts, trendingProducts]);
 
-  const filteredProducts = featuredProducts.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.wholesaler?.businessName || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'All' || (product.category || 'General') === selectedCategory;
+  const searchedAndCategorizedProducts = useMemo(() => {
+    return marketplaceProducts.filter((product) => {
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.wholesaler?.businessName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        selectedCategory === 'All' || (product.category || 'General') === selectedCategory;
 
-    return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [marketplaceProducts, searchTerm, selectedCategory]);
+
+  const isSearchOrFilterActive = searchTerm.trim() !== '' || selectedCategory !== 'All';
+
+  const filteredProducts = useMemo(() => {
+    if (isSearchOrFilterActive) {
+      return searchedAndCategorizedProducts;
+    }
+    return featuredProducts;
+  }, [isSearchOrFilterActive, searchedAndCategorizedProducts, featuredProducts]);
+
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
+  console.log('Storefront State Debug:', {
+    marketplaceProductsCount: marketplaceProducts.length,
+    trendingProductsCount: trendingProducts.length,
+    filteredProductsCount: filteredProducts.length,
+    displayedProductsCount: displayedProducts.length,
+    visibleCount,
+    isSearchOrFilterActive,
+    selectedCategory,
+    selectedCollection,
   });
 
   const categoryHighlights = categories.filter((category) => category !== 'All').slice(0, 4);
@@ -247,8 +289,22 @@ export default function Storefront() {
 
       <section id="new-arrivals" className="mx-auto w-full max-w-7xl px-4 pt-12 sm:px-6 lg:px-8">
         <SectionHeading
-          title="New Arrivals"
-          description="A storefront-first product grid with live ratings, discount cues, and better seller context."
+          title={
+            isSearchOrFilterActive
+              ? searchTerm
+                ? `Results for "${searchTerm}"`
+                : `Category: ${selectedCategory}`
+              : selectedCollection
+          }
+          description={
+            isSearchOrFilterActive
+              ? `Showing up to 100 products matching your criteria from a total of ${searchedAndCategorizedProducts.length} results.`
+              : selectedCollection === 'Top Rated'
+                ? 'Highest rated products from our wholesale partners.'
+                : selectedCollection === 'New Arrivals'
+                  ? 'Freshly listed wholesale-ready products.'
+                  : 'Trending recommendations based on live metrics.'
+          }
           syncing={isFetching}
         />
         <div className="mt-6 flex flex-wrap gap-2">
@@ -290,15 +346,28 @@ export default function Storefront() {
             description="Try another collection or clear your search to see more products."
           />
         ) : (
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onClick={() => handleProductClick(product, 'storefront_collection')}
-              />
-            ))}
-          </div>
+          <>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+              {displayedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onClick={() => handleProductClick(product, 'storefront_collection')}
+                />
+              ))}
+            </div>
+            {filteredProducts.length > visibleCount && (
+              <div className="mt-12 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + 24)}
+                  className="rounded-full border border-[#ddd7cc] bg-white px-8 py-4 text-sm font-bold text-[#161412] hover:bg-[#161412] hover:text-white transition-all shadow-[0_12px_30px_rgba(22,20,18,0.04)] active:scale-95"
+                >
+                  Load More Products
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
 
