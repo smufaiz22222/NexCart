@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, PackageSearch, Package } from 'lucide-react';
-import apiClient from '../api/axios';
+import { toast } from 'sonner';
+import { useProducts, useCreateProduct } from '../api/queries';
 
 export default function Products() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 1. UPDATED: Added 'category' to the initial state
@@ -22,20 +21,8 @@ export default function Products() {
     minStock: '10',
   });
 
-  const fetchProducts = async () => {
-    try {
-      const response = await apiClient.get('/products');
-      setProducts(response.data.products);
-    } catch (error) {
-      console.error('Failed to fetch products:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  const { data: products = [], isLoading, isError, error, isFetching, refetch } = useProducts();
+  const createProductMutation = useCreateProduct();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -43,32 +30,35 @@ export default function Products() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      await apiClient.post('/products', {
+    createProductMutation.mutate(
+      {
         ...formData,
         price: parseFloat(formData.price),
         costPrice: parseFloat(formData.costPrice || 0),
         currentStock: parseInt(formData.currentStock || 0, 10),
         minStock: parseInt(formData.minStock || 10, 10),
-      });
-
-      fetchProducts();
-      setIsModalOpen(false);
-      // 2. UPDATED: Reset form includes category
-      setFormData({
-        name: '',
-        description: '',
-        category: '',
-        price: '',
-        costPrice: '',
-        sku: '',
-        imageUrl: '',
-        currentStock: '',
-        minStock: '10',
-      });
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to create product');
-    }
+      },
+      {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setFormData({
+            name: '',
+            description: '',
+            category: '',
+            price: '',
+            costPrice: '',
+            sku: '',
+            imageUrl: '',
+            currentStock: '',
+            minStock: '10',
+          });
+          toast.success('Product created successfully!');
+        },
+        onError: (err) => {
+          toast.error(err.response?.data?.error || 'Failed to create product');
+        },
+      }
+    );
   };
 
   return (
@@ -76,7 +66,14 @@ export default function Products() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">Products Management</h1>
+          <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
+            Products Management
+            {isFetching && !isLoading && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                Syncing...
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-zinc-400 mt-1">Add and manage your inventory catalog.</p>
         </div>
         <button
@@ -89,7 +86,20 @@ export default function Products() {
       </div>
 
       {/* Products Table Area */}
-      {isLoading ? (
+      {isError ? (
+        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-red-500/20 p-12 flex flex-col items-center justify-center text-center">
+          <p className="text-red-400 text-sm font-semibold mb-4">
+            Failed to load products:{' '}
+            {error?.response?.data?.error || error?.message || 'Unknown error'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
+          >
+            Retry Loading
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
           <Package className="h-8 w-8 animate-pulse" />
           <p className="font-medium tracking-widest uppercase text-sm">Loading products...</p>

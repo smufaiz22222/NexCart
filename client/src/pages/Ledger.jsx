@@ -1,13 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { BookOpen, Plus, ArrowUpRight, ArrowDownRight, FileText } from 'lucide-react';
-import apiClient from '../api/axios';
+import { toast } from 'sonner';
+import { useLedgerEntries, useRecordPayment } from '../api/queries';
 
 export default function Ledger() {
-  const [entries, setEntries] = useState([]);
-  const [uniqueBuyers, setUniqueBuyers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state for recording a new payment
   const [formData, setFormData] = useState({
@@ -17,32 +14,20 @@ export default function Ledger() {
     referenceId: '',
   });
 
-  const fetchLedger = async () => {
-    try {
-      setIsLoading(true);
-      const response = await apiClient.get('/ledger');
-      const ledgerData = response.data.entries;
-      setEntries(ledgerData);
+  const { data: entries = [], isLoading, isError, error, isFetching, refetch } = useLedgerEntries();
 
-      // UX Magic: Extract unique buyers from the ledger history so we can put them in a dropdown!
-      const buyersMap = new Map();
-      ledgerData.forEach((entry) => {
-        if (entry.user && entry.userId && !buyersMap.has(entry.userId)) {
-          buyersMap.set(entry.userId, entry.user);
-        }
-      });
+  const recordPaymentMutation = useRecordPayment();
 
-      setUniqueBuyers(Array.from(buyersMap.entries()).map(([id, user]) => ({ id, ...user })));
-    } catch (error) {
-      console.error('Failed to fetch ledger:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLedger();
-  }, []);
+  // UX Magic: Extract unique buyers from the ledger history so we can put them in a dropdown!
+  const uniqueBuyers = useMemo(() => {
+    const buyersMap = new Map();
+    entries.forEach((entry) => {
+      if (entry.user && entry.userId && !buyersMap.has(entry.userId)) {
+        buyersMap.set(entry.userId, entry.user);
+      }
+    });
+    return Array.from(buyersMap.entries()).map(([id, user]) => ({ id, ...user }));
+  }, [entries]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -50,21 +35,22 @@ export default function Ledger() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await apiClient.post('/ledger/payment', {
+    recordPaymentMutation.mutate(
+      {
         ...formData,
         amount: parseFloat(formData.amount),
-      });
-
-      await fetchLedger(); // Refresh the table
-      setIsModalOpen(false);
-      setFormData({ userId: '', amount: '', description: 'Payment received', referenceId: '' });
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to record payment');
-    } finally {
-      setIsSubmitting(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setFormData({ userId: '', amount: '', description: 'Payment received', referenceId: '' });
+          toast.success('Payment recorded successfully!');
+        },
+        onError: (err) => {
+          toast.error(err.response?.data?.error || 'Failed to record payment');
+        },
+      }
+    );
   };
 
   return (
@@ -72,9 +58,17 @@ export default function Ledger() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">Financial Ledger</h1>
+          <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
+            Financial Ledger
+            {isFetching && !isLoading && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                Syncing...
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Track marketplace sales and customer payments.
+            Track marketplace sales, automatic delivery settlements, returns, and manual payment
+            adjustments.
           </p>
         </div>
         <button
@@ -86,8 +80,28 @@ export default function Ledger() {
         </button>
       </div>
 
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-100">
+        Marketplace COD orders are now settled automatically when you mark them as delivered. Use
+        <span className="font-semibold"> Record Payment </span>
+        only for exceptional offline collections or manual ledger adjustments that are outside the
+        normal marketplace order flow.
+      </div>
+
       {/* Ledger Table */}
-      {isLoading ? (
+      {isError ? (
+        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-red-500/20 p-12 flex flex-col items-center justify-center text-center">
+          <p className="text-red-400 text-sm font-semibold mb-4">
+            Failed to load accounting records:{' '}
+            {error?.response?.data?.error || error?.message || 'Unknown error'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
+          >
+            Retry Loading
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
           <FileText className="h-8 w-8 animate-pulse" />
           <p className="font-medium tracking-widest uppercase text-sm">
@@ -101,8 +115,9 @@ export default function Ledger() {
           </div>
           <h3 className="text-lg font-semibold text-white tracking-wide">Clean Ledger</h3>
           <p className="mt-2 text-zinc-400 max-w-md">
-            No financial transactions have occurred yet. Once customers buy from your shop, debts
-            and payments will appear here.
+            No financial transactions have occurred yet. Once customers buy from your shop, order
+            charges, automatic COD settlements, return adjustments, and manual payments will appear
+            here.
           </p>
         </div>
       ) : (
@@ -191,7 +206,8 @@ export default function Ledger() {
             <div className="px-6 py-5 border-b border-zinc-800 bg-[#0a0a0a]">
               <h3 className="text-lg font-bold text-white tracking-wide">Record Manual Payment</h3>
               <p className="text-xs text-zinc-400 mt-1">
-                Log cash or bank transfers received from buyers.
+                Log cash or bank transfers that were received outside the automatic marketplace
+                settlement flow.
               </p>
             </div>
 
@@ -286,10 +302,10 @@ export default function Ledger() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || uniqueBuyers.length === 0}
+                  disabled={recordPaymentMutation.isPending || uniqueBuyers.length === 0}
                   className="px-5 py-2.5 border border-transparent rounded-md text-sm font-bold text-[#0a0a0a] bg-emerald-500 hover:bg-emerald-400 transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save Payment'}
+                  {recordPaymentMutation.isPending ? 'Saving...' : 'Save Payment'}
                 </button>
               </div>
             </form>

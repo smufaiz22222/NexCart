@@ -17,6 +17,7 @@ import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
 import { cn } from '../utils/cn';
+import { toast } from 'sonner';
 
 const OTHER_LOCALITY_VALUE = '__OTHER__';
 
@@ -49,6 +50,7 @@ const loadRazorpayScript = () =>
 export default function Cart() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { cart, totals, hasHydrated, isHydrating, hydrateCart, updateQuantity, removeFromCart } =
     useCartStore();
   const selectedAddressStorageKey = user?.id
@@ -129,8 +131,10 @@ export default function Cart() {
         setCheckoutError(error.response?.data?.error || 'Failed to load cart')
       );
     }
-    fetchAddresses();
-  }, [fetchAddresses, hasHydrated, hydrateCart]);
+    if (isAuthenticated) {
+      fetchAddresses();
+    }
+  }, [fetchAddresses, hasHydrated, hydrateCart, isAuthenticated]);
 
   useEffect(() => {
     if (!selectedAddressId) return;
@@ -342,7 +346,7 @@ export default function Cart() {
 
         await hydrateCart();
         navigate('/store/orders');
-        alert('COD order placed successfully!');
+        toast.success('COD order placed successfully!');
         return;
       }
 
@@ -376,7 +380,7 @@ export default function Cart() {
 
               await hydrateCart();
               navigate('/store/orders');
-              alert('Prepaid order placed successfully!');
+              toast.success('Prepaid order placed successfully!');
               resolve();
             } catch (verificationError) {
               reject(
@@ -521,303 +525,322 @@ export default function Cart() {
             </div>
           </div>
 
-          <div className="rounded-[34px] bg-white p-6 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="inline-flex items-center gap-2 rounded-full bg-[#f8f6f1] px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-                  <MapPin className="h-4 w-4" />
-                  Shipping addresses
-                </p>
-                <h2 className="mt-4 text-3xl font-black tracking-tight text-[#161412]">
-                  Choose delivery details
-                </h2>
-                <p className="mt-2 text-sm leading-7 text-[#6b665f]">
-                  Save multiple addresses, restore your selection on refresh, and use pincode-based
-                  city and state fill.
-                </p>
+          {isAuthenticated ? (
+            <div className="rounded-[34px] bg-white p-6 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="inline-flex items-center gap-2 rounded-full bg-[#f8f6f1] px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
+                    <MapPin className="h-4 w-4" />
+                    Shipping addresses
+                  </p>
+                  <h2 className="mt-4 text-3xl font-black tracking-tight text-[#161412]">
+                    Choose delivery details
+                  </h2>
+                  <p className="mt-2 text-sm leading-7 text-[#6b665f]">
+                    Save multiple addresses, restore your selection on refresh, and use
+                    pincode-based city and state fill.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => startAddressEdit(null)}
+                  className="rounded-full border border-[#161412] px-5 py-3 text-sm font-bold text-[#161412]"
+                >
+                  Add address
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => startAddressEdit(null)}
-                className="rounded-full border border-[#161412] px-5 py-3 text-sm font-bold text-[#161412]"
-              >
-                Add address
-              </button>
-            </div>
-
-            <div className="mt-8 space-y-4">
-              {isAddressLoading ? (
-                <div className="flex items-center gap-3 rounded-[24px] bg-[#f8f6f1] px-5 py-5 text-sm font-semibold text-[#6b665f]">
-                  <LoaderCircle className="h-5 w-5 animate-spin text-[#161412]" />
-                  Loading saved addresses...
-                </div>
-              ) : addresses.length === 0 ? (
-                <div className="rounded-[24px] border border-dashed border-[#ddd7cc] px-5 py-6 text-sm text-[#6b665f]">
-                  No saved addresses yet. Add one below to continue checkout.
-                </div>
-              ) : (
-                addresses.map((address) => (
-                  <div
-                    key={address.id}
-                    className={cn(
-                      'rounded-[26px] border p-5 transition',
-                      selectedAddressId === address.id
-                        ? 'border-[#161412] bg-[#f8f6f1]'
-                        : 'border-[#ece7de] bg-[#fbfaf7]'
-                    )}
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedAddressId(address.id)}
-                        className="flex-1 text-left"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-base font-black tracking-tight text-[#161412]">
-                            {address.fullName}
-                          </span>
-                          {address.isDefault && (
-                            <span className="rounded-full bg-[#161412] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white">
-                              Default
+              <div className="mt-8 space-y-4">
+                {isAddressLoading ? (
+                  <div className="flex items-center gap-3 rounded-[24px] bg-[#f8f6f1] px-5 py-5 text-sm font-semibold text-[#6b665f]">
+                    <LoaderCircle className="h-5 w-5 animate-spin text-[#161412]" />
+                    Loading saved addresses...
+                  </div>
+                ) : addresses.length === 0 ? (
+                  <div className="rounded-[24px] border border-dashed border-[#ddd7cc] px-5 py-6 text-sm text-[#6b665f]">
+                    No saved addresses yet. Add one below to continue checkout.
+                  </div>
+                ) : (
+                  addresses.map((address) => (
+                    <div
+                      key={address.id}
+                      className={cn(
+                        'rounded-[26px] border p-5 transition',
+                        selectedAddressId === address.id
+                          ? 'border-[#161412] bg-[#f8f6f1]'
+                          : 'border-[#ece7de] bg-[#fbfaf7]'
+                      )}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAddressId(address.id)}
+                          className="flex-1 text-left"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-base font-black tracking-tight text-[#161412]">
+                              {address.fullName}
                             </span>
-                          )}
-                          {selectedAddressId === address.id && (
-                            <CheckCircle2 className="h-4 w-4 text-[#161412]" />
-                          )}
-                        </div>
-                        <p className="mt-3 text-sm leading-7 text-[#6b665f]">{address.formatted}</p>
-                      </button>
+                            {address.isDefault && (
+                              <span className="rounded-full bg-[#161412] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white">
+                                Default
+                              </span>
+                            )}
+                            {selectedAddressId === address.id && (
+                              <CheckCircle2 className="h-4 w-4 text-[#161412]" />
+                            )}
+                          </div>
+                          <p className="mt-3 text-sm leading-7 text-[#6b665f]">
+                            {address.formatted}
+                          </p>
+                        </button>
 
-                      <div className="flex flex-wrap gap-2">
-                        {!address.isDefault && (
+                        <div className="flex flex-wrap gap-2">
+                          {!address.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetDefaultAddress(address.id)}
+                              className="rounded-full border border-[#ddd7cc] bg-white px-3 py-2 text-xs font-bold text-[#161412]"
+                            >
+                              Set default
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleSetDefaultAddress(address.id)}
-                            className="rounded-full border border-[#ddd7cc] bg-white px-3 py-2 text-xs font-bold text-[#161412]"
+                            onClick={() => startAddressEdit(address)}
+                            className="inline-flex items-center gap-1 rounded-full border border-[#ddd7cc] bg-white px-3 py-2 text-xs font-bold text-[#161412]"
                           >
-                            Set default
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => startAddressEdit(address)}
-                          className="inline-flex items-center gap-1 rounded-full border border-[#ddd7cc] bg-white px-3 py-2 text-xs font-bold text-[#161412]"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAddress(address.id)}
-                          className="rounded-full border border-[#efcdc7] bg-[#fff3f1] px-3 py-2 text-xs font-bold text-[#b34d3f]"
-                        >
-                          Delete
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAddress(address.id)}
+                            className="rounded-full border border-[#efcdc7] bg-[#fff3f1] px-3 py-2 text-xs font-bold text-[#b34d3f]"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <form onSubmit={handleAddressSubmit} className="mt-8 rounded-[30px] bg-[#f8f6f1] p-5">
-              <div className="flex items-center gap-2">
-                <div className="rounded-2xl bg-[#161412] p-3 text-white">
-                  <Home className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-black tracking-tight text-[#161412]">
-                    {editingAddressId ? 'Edit address' : 'Add address'}
-                  </p>
-                  <p className="text-xs text-[#6b665f]">
-                    City and state are filled from the pincode lookup.
-                  </p>
-                </div>
+                  ))
+                )}
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <InputField label="Full Name">
-                  <input
-                    value={addressForm.fullName}
-                    onChange={(event) =>
-                      setAddressForm((current) => ({ ...current, fullName: event.target.value }))
-                    }
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                    required
-                  />
-                </InputField>
+              <form onSubmit={handleAddressSubmit} className="mt-8 rounded-[30px] bg-[#f8f6f1] p-5">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-2xl bg-[#161412] p-3 text-white">
+                    <Home className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black tracking-tight text-[#161412]">
+                      {editingAddressId ? 'Edit address' : 'Add address'}
+                    </p>
+                    <p className="text-xs text-[#6b665f]">
+                      City and state are filled from the pincode lookup.
+                    </p>
+                  </div>
+                </div>
 
-                <InputField label="Mobile Number">
-                  <input
-                    value={addressForm.phone}
-                    onChange={(event) =>
-                      setAddressForm((current) => ({
-                        ...current,
-                        phone: event.target.value.replace(/\D/g, '').slice(0, 10),
-                      }))
-                    }
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                    inputMode="numeric"
-                    required
-                  />
-                </InputField>
-
-                <InputField label="Address Line 1" className="sm:col-span-2">
-                  <input
-                    value={addressForm.addressLine1}
-                    onChange={(event) =>
-                      setAddressForm((current) => ({
-                        ...current,
-                        addressLine1: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                    required
-                  />
-                </InputField>
-
-                <InputField label="Postal Code">
-                  <input
-                    value={addressForm.postalCode}
-                    onChange={(event) =>
-                      setAddressForm((current) => ({
-                        ...current,
-                        postalCode: event.target.value.replace(/\D/g, '').slice(0, 6),
-                      }))
-                    }
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                    inputMode="numeric"
-                    required
-                  />
-                  <p
-                    className={cn(
-                      'mt-2 text-xs',
-                      postalLookup.status === 'error' || postalLookup.status === 'invalid'
-                        ? 'text-[#b34d3f]'
-                        : postalLookup.status === 'resolved'
-                          ? 'text-[#2f5d46]'
-                          : 'text-[#6b665f]'
-                    )}
-                  >
-                    {postalLookup.status === 'loading'
-                      ? 'Fetching postal details...'
-                      : postalLookup.message}
-                  </p>
-                </InputField>
-
-                <InputField label="Area / Locality">
-                  {postalLookup.resolved ? (
-                    <>
-                      <select
-                        value={isManualLocality ? postalLookup.otherValue : selectedLocality}
-                        onChange={(event) => {
-                          const nextValue = event.target.value;
-                          if (nextValue === postalLookup.otherValue) {
-                            setIsManualLocality(true);
-                            setSelectedLocality(nextValue);
-                            setAddressForm((current) => ({ ...current, addressLine2: '' }));
-                            return;
-                          }
-
-                          setIsManualLocality(false);
-                          setSelectedLocality(nextValue);
-                          setManualLocality('');
-                          setAddressForm((current) => ({ ...current, addressLine2: nextValue }));
-                        }}
-                        className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                        required
-                      >
-                        <option value="" disabled>
-                          Select locality
-                        </option>
-                        {resolvedLocalityOptions.map((locality) => (
-                          <option key={locality} value={locality}>
-                            {locality === postalLookup.otherValue ? 'Other' : locality}
-                          </option>
-                        ))}
-                      </select>
-                      {isManualLocality && (
-                        <input
-                          value={manualLocality}
-                          onChange={(event) => setManualLocality(event.target.value)}
-                          className="mt-3 w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                          placeholder="Type your locality manually"
-                          required
-                        />
-                      )}
-                    </>
-                  ) : (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <InputField label="Full Name">
                     <input
-                      value={addressForm.addressLine2}
+                      value={addressForm.fullName}
+                      onChange={(event) =>
+                        setAddressForm((current) => ({ ...current, fullName: event.target.value }))
+                      }
+                      className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                      required
+                    />
+                  </InputField>
+
+                  <InputField label="Mobile Number">
+                    <input
+                      value={addressForm.phone}
                       onChange={(event) =>
                         setAddressForm((current) => ({
                           ...current,
-                          addressLine2: event.target.value,
+                          phone: event.target.value.replace(/\D/g, '').slice(0, 10),
                         }))
                       }
                       className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                      placeholder="Enter a valid pincode first"
-                      disabled
+                      inputMode="numeric"
+                      required
                     />
-                  )}
-                </InputField>
+                  </InputField>
 
-                <InputField label="City">
-                  <input
-                    value={addressForm.city}
-                    readOnly
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-[#f3efe8] px-4 py-4 text-sm outline-none"
-                  />
-                </InputField>
+                  <InputField label="Address Line 1" className="sm:col-span-2">
+                    <input
+                      value={addressForm.addressLine1}
+                      onChange={(event) =>
+                        setAddressForm((current) => ({
+                          ...current,
+                          addressLine1: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                      required
+                    />
+                  </InputField>
 
-                <InputField label="State">
-                  <input
-                    value={addressForm.state}
-                    readOnly
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-[#f3efe8] px-4 py-4 text-sm outline-none"
-                  />
-                </InputField>
+                  <InputField label="Postal Code">
+                    <input
+                      value={addressForm.postalCode}
+                      onChange={(event) =>
+                        setAddressForm((current) => ({
+                          ...current,
+                          postalCode: event.target.value.replace(/\D/g, '').slice(0, 6),
+                        }))
+                      }
+                      className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                      inputMode="numeric"
+                      required
+                    />
+                    <p
+                      className={cn(
+                        'mt-2 text-xs',
+                        postalLookup.status === 'error' || postalLookup.status === 'invalid'
+                          ? 'text-[#b34d3f]'
+                          : postalLookup.status === 'resolved'
+                            ? 'text-[#2f5d46]'
+                            : 'text-[#6b665f]'
+                      )}
+                    >
+                      {postalLookup.status === 'loading'
+                        ? 'Fetching postal details...'
+                        : postalLookup.message}
+                    </p>
+                  </InputField>
 
-                <InputField label="Landmark" className="sm:col-span-2">
-                  <input
-                    value={addressForm.landmark}
-                    onChange={(event) =>
-                      setAddressForm((current) => ({ ...current, landmark: event.target.value }))
-                    }
-                    className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-                    placeholder="Optional landmark"
-                  />
-                </InputField>
-              </div>
+                  <InputField label="Area / Locality">
+                    {postalLookup.resolved ? (
+                      <>
+                        <select
+                          value={isManualLocality ? postalLookup.otherValue : selectedLocality}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            if (nextValue === postalLookup.otherValue) {
+                              setIsManualLocality(true);
+                              setSelectedLocality(nextValue);
+                              setAddressForm((current) => ({ ...current, addressLine2: '' }));
+                              return;
+                            }
 
-              {addressError && <p className="mt-4 text-sm text-[#b34d3f]">{addressError}</p>}
+                            setIsManualLocality(false);
+                            setSelectedLocality(nextValue);
+                            setManualLocality('');
+                            setAddressForm((current) => ({ ...current, addressLine2: nextValue }));
+                          }}
+                          className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                          required
+                        >
+                          <option value="" disabled>
+                            Select locality
+                          </option>
+                          {resolvedLocalityOptions.map((locality) => (
+                            <option key={locality} value={locality}>
+                              {locality === postalLookup.otherValue ? 'Other' : locality}
+                            </option>
+                          ))}
+                        </select>
+                        {isManualLocality && (
+                          <input
+                            value={manualLocality}
+                            onChange={(event) => setManualLocality(event.target.value)}
+                            className="mt-3 w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                            placeholder="Type your locality manually"
+                            required
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        value={addressForm.addressLine2}
+                        onChange={(event) =>
+                          setAddressForm((current) => ({
+                            ...current,
+                            addressLine2: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                        placeholder="Enter a valid pincode first"
+                        disabled
+                      />
+                    )}
+                  </InputField>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={isSavingAddress}
-                  className="rounded-full bg-[#161412] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingAddress
-                    ? 'Saving address...'
-                    : editingAddressId
-                      ? 'Update address'
-                      : 'Save address'}
-                </button>
+                  <InputField label="City">
+                    <input
+                      value={addressForm.city}
+                      readOnly
+                      className="w-full rounded-[20px] border border-[#ddd7cc] bg-[#f3efe8] px-4 py-4 text-sm outline-none"
+                    />
+                  </InputField>
 
-                {(editingAddressId || addressForm.fullName || addressForm.postalCode) && (
+                  <InputField label="State">
+                    <input
+                      value={addressForm.state}
+                      readOnly
+                      className="w-full rounded-[20px] border border-[#ddd7cc] bg-[#f3efe8] px-4 py-4 text-sm outline-none"
+                    />
+                  </InputField>
+
+                  <InputField label="Landmark" className="sm:col-span-2">
+                    <input
+                      value={addressForm.landmark}
+                      onChange={(event) =>
+                        setAddressForm((current) => ({ ...current, landmark: event.target.value }))
+                      }
+                      className="w-full rounded-[20px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
+                      placeholder="Optional landmark"
+                    />
+                  </InputField>
+                </div>
+
+                {addressError && <p className="mt-4 text-sm text-[#b34d3f]">{addressError}</p>}
+
+                <div className="mt-6 flex flex-wrap gap-3">
                   <button
-                    type="button"
-                    onClick={resetAddressEditor}
-                    className="rounded-full border border-[#ddd7cc] bg-white px-5 py-3 text-sm font-bold text-[#161412]"
+                    type="submit"
+                    disabled={isSavingAddress}
+                    className="rounded-full bg-[#161412] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Cancel
+                    {isSavingAddress
+                      ? 'Saving address...'
+                      : editingAddressId
+                        ? 'Update address'
+                        : 'Save address'}
                   </button>
-                )}
-              </div>
-            </form>
-          </div>
+
+                  {(editingAddressId || addressForm.fullName || addressForm.postalCode) && (
+                    <button
+                      type="button"
+                      onClick={resetAddressEditor}
+                      className="rounded-full border border-[#ddd7cc] bg-white px-5 py-3 text-sm font-bold text-[#161412]"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="rounded-[34px] bg-white p-8 text-center shadow-[0_18px_45px_rgba(22,20,18,0.05)] border border-dashed border-[#ddd7cc] flex flex-col items-center justify-center min-h-[260px]">
+              <p className="text-xl font-black tracking-tight text-[#161412]">Shipping Details</p>
+              <p className="mt-2 text-sm text-[#6b665f] max-w-sm mx-auto leading-6">
+                Please sign in or create a customer account to save your delivery addresses and
+                proceed with checkout.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal'))}
+                className="mt-6 rounded-full bg-[#161412] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#2c2926]"
+              >
+                Login / Register to Checkout
+              </button>
+            </div>
+          )}
         </section>
 
         <aside className="space-y-6">
@@ -831,46 +854,50 @@ export default function Cart() {
                 Deliver to
               </p>
               <p className="mt-3 text-sm leading-7 text-white">
-                {selectedAddress?.formatted || 'Choose a saved address to continue.'}
+                {isAuthenticated
+                  ? selectedAddress?.formatted || 'Choose a saved address to continue.'
+                  : 'Log in to specify delivery address.'}
               </p>
             </div>
 
-            <div className="mt-6 space-y-3">
-              {[
-                {
-                  value: 'COD',
-                  label: 'Cash on Delivery',
-                  description: 'Pay when your order arrives.',
-                },
-                {
-                  value: 'PREPAID',
-                  label: 'Prepaid with Razorpay',
-                  description: 'Complete the payment securely online.',
-                },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setPaymentMethod(option.value)}
-                  className={cn(
-                    'w-full rounded-[24px] border p-4 text-left transition',
-                    paymentMethod === option.value
-                      ? 'border-white bg-white text-[#161412]'
-                      : 'border-white/15 bg-white/8 text-white'
-                  )}
-                >
-                  <p className="font-black tracking-tight">{option.label}</p>
-                  <p
+            {isAuthenticated && (
+              <div className="mt-6 space-y-3">
+                {[
+                  {
+                    value: 'COD',
+                    label: 'Cash on Delivery',
+                    description: 'Pay when your order arrives.',
+                  },
+                  {
+                    value: 'PREPAID',
+                    label: 'Prepaid with Razorpay',
+                    description: 'Complete the payment securely online.',
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(option.value)}
                     className={cn(
-                      'mt-2 text-xs leading-6',
-                      paymentMethod === option.value ? 'text-[#6b665f]' : 'text-[#d8d1c5]'
+                      'w-full rounded-[24px] border p-4 text-left transition',
+                      paymentMethod === option.value
+                        ? 'border-white bg-white text-[#161412]'
+                        : 'border-white/15 bg-white/8 text-white'
                     )}
                   >
-                    {option.description}
-                  </p>
-                </button>
-              ))}
-            </div>
+                    <p className="font-black tracking-tight">{option.label}</p>
+                    <p
+                      className={cn(
+                        'mt-2 text-xs leading-6',
+                        paymentMethod === option.value ? 'text-[#6b665f]' : 'text-[#d8d1c5]'
+                      )}
+                    >
+                      {option.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="mt-8 flex items-end justify-between">
               <div>
@@ -887,7 +914,13 @@ export default function Cart() {
             {checkoutError && <p className="mt-4 text-sm text-[#f4b4aa]">{checkoutError}</p>}
 
             <button
-              onClick={handleCheckout}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  window.dispatchEvent(new CustomEvent('open-auth-modal'));
+                  return;
+                }
+                handleCheckout();
+              }}
               disabled={isProcessing}
               className={cn(
                 'mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition',
@@ -896,11 +929,13 @@ export default function Cart() {
                   : 'bg-white text-[#161412] hover:bg-[#f3ede3]'
               )}
             >
-              {isProcessing
-                ? 'Processing order...'
-                : paymentMethod === 'PREPAID'
-                  ? 'Pay and place order'
-                  : 'Place secure order'}
+              {!isAuthenticated
+                ? 'Login to Checkout'
+                : isProcessing
+                  ? 'Processing order...'
+                  : paymentMethod === 'PREPAID'
+                    ? 'Pay and place order'
+                    : 'Place secure order'}
               {!isProcessing && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>

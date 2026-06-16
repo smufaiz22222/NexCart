@@ -1,26 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ShoppingCart, Plus, Minus, Trash2, Store as StoreIcon } from 'lucide-react';
 import apiClient from '../api/axios';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { useProducts, productKeys } from '../api/queries';
 
 export default function Store() {
-  const [products, setProducts] = useState([]);
+  const queryClient = useQueryClient();
   const [cart, setCart] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await apiClient.get('/products');
-        setProducts(response.data.products);
-      } catch (error) {
-        console.error('Failed to fetch products', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
+  const { data: products = [], isLoading, isError, error, isFetching, refetch } = useProducts();
 
   // --- CART LOGIC ---
   const addToCart = (product) => {
@@ -56,18 +46,33 @@ export default function Store() {
         items: cart.map((item) => ({ productId: item.productId, quantity: item.quantity })),
       });
 
-      alert('Order placed successfully! Invoice and Ledger updated.');
+      toast.success('Order placed successfully! Invoice and Ledger updated.');
       setCart([]); // Clear cart
 
-      // Re-fetch products to get updated stock numbers
-      const response = await apiClient.get('/products');
-      setProducts(response.data.products);
+      // Invalidate query to get updated stock numbers
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to place order');
+      toast.error(error.response?.data?.error || 'Failed to place order');
     } finally {
       setIsCheckingOut(false);
     }
   };
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-red-500 space-y-4 font-sans">
+        <p className="font-semibold text-center">
+          Failed to load storefront: {error?.message || 'Unknown error'}
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
+        >
+          Retry Loading
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -82,7 +87,14 @@ export default function Store() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 font-sans selection:bg-amber-500/30 selection:text-amber-200">
       {/* LEFT: Product Grid (Takes up 2/3 of the screen) */}
       <div className="lg:col-span-2 space-y-6">
-        <h2 className="text-2xl font-bold text-white tracking-wide">Available Products</h2>
+        <h2 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
+          Available Products
+          {isFetching && !isLoading && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+              Syncing...
+            </span>
+          )}
+        </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
           {products.map((product) => (

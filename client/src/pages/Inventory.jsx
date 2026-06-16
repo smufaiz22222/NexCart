@@ -1,12 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Archive, PlusSquare, FileText } from 'lucide-react';
-import apiClient from '../api/axios';
+import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
+import { useInventoryLogs, useProducts, useAdjustStock } from '../api/queries';
+import DataTable from '../components/DataTable';
+import { cn } from '../utils/cn';
 
 export default function Inventory() {
-  const [logs, setLogs] = useState([]);
-  const [products, setProducts] = useState([]); // Needed for the dropdown
-  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Non-URL-synced table states
+  const [columnVisibility, setColumnVisibility] = useState({});
+  const [rowSelection, setRowSelection] = useState({});
 
   // Form state for adjusting stock
   const [formData, setFormData] = useState({
@@ -15,25 +21,179 @@ export default function Inventory() {
     reason: 'MANUAL_ADJUSTMENT', // Default reason
   });
 
-  // Fetch both the logs and the products (for the dropdown)
-  const fetchData = async () => {
-    try {
-      const [logsRes, productsRes] = await Promise.all([
-        apiClient.get('/inventory'),
-        apiClient.get('/products'),
-      ]);
-      setLogs(logsRes.data.logs);
-      setProducts(productsRes.data.products);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const {
+    data: logs = [],
+    isLoading: isLoadingLogs,
+    isError: isErrorLogs,
+    error: errorLogs,
+    isFetching: isFetchingLogs,
+    refetch: refetchLogs,
+  } = useInventoryLogs();
+
+  const {
+    data: products = [],
+    isLoading: isLoadingProducts,
+    isError: isErrorProducts,
+  } = useProducts();
+
+  const adjustStockMutation = useAdjustStock();
+
+  const isLoading = isLoadingLogs || isLoadingProducts;
+  const isError = isErrorLogs || isErrorProducts;
+
+  // Derive controlled table state from URL query parameters
+  const page = Number(searchParams.get('page')) || 1;
+  const pageSize = Number(searchParams.get('pageSize')) || 10;
+
+  const pagination = useMemo(
+    () => ({
+      pageIndex: page - 1,
+      pageSize,
+    }),
+    [page, pageSize]
+  );
+
+  const sortParam = searchParams.get('sort') || 'createdAt:desc';
+  const sorting = useMemo(() => {
+    const [id, order] = sortParam.split(':');
+    if (!id) return [];
+    return [{ id, desc: order === 'desc' }];
+  }, [sortParam]);
+
+  const globalFilter = searchParams.get('q') || '';
+
+  // Table state synchronization updates browser URL query parameters
+  const setPagination = (updater) => {
+    const next = typeof updater === 'function' ? updater(pagination) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('page', String(next.pageIndex + 1));
+    nextParams.set('pageSize', String(next.pageSize));
+    setSearchParams(nextParams, { replace: true });
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const setSorting = (updater) => {
+    const next = typeof updater === 'function' ? updater(sorting) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next && next.length > 0) {
+      nextParams.set('sort', `${next[0].id}:${next[0].desc ? 'desc' : 'asc'}`);
+    } else {
+      nextParams.delete('sort');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setGlobalFilter = (updater) => {
+    const next = typeof updater === 'function' ? updater(globalFilter) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next) {
+      nextParams.set('q', next);
+      nextParams.set('page', '1'); // Reset pagination to page 1 on search filter
+    } else {
+      nextParams.delete('q');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  // Define table columns
+  const columns = useMemo(
+    () => [
+      {
+        id: 'select',
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={table.getToggleAllPageRowsSelectedHandler()}
+            className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/30 accent-amber-500 cursor-pointer"
+            aria-label="Select all rows"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            checked={row.getIsSelected()}
+            onChange={row.getToggleSelectedHandler()}
+            className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/30 accent-amber-500 cursor-pointer"
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        accessorKey: 'createdAt',
+        header: 'Date',
+        cell: ({ getValue }) => {
+          const val = getValue();
+          return (
+            <span className="font-mono text-zinc-400">
+              {new Date(val).toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'product',
+        accessorFn: (row) => row.product?.name,
+        header: 'Product',
+        cell: ({ row }) => {
+          const log = row.original;
+          return (
+            <div>
+              <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
+                {log.product?.name || 'Unknown'}
+              </div>
+              <div className="text-[11px] text-zinc-500 font-mono tracking-wider mt-0.5">
+                SKU: {log.product?.sku || '-'}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'reason',
+        header: 'Reason',
+        cell: ({ getValue }) => {
+          const reason = getValue() || '';
+          return (
+            <span className="px-2.5 py-1 inline-flex text-[10px] leading-5 font-bold uppercase tracking-widest rounded-sm bg-zinc-800 text-zinc-300 border border-zinc-700 shadow-inner">
+              {reason.replace(/_/g, ' ')}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'changeAmount',
+        header: 'Change',
+        cell: ({ getValue }) => {
+          const val = Number(getValue());
+          const isPositive = val > 0;
+          return (
+            <span
+              className={cn(
+                'text-sm font-black',
+                isPositive
+                  ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                  : 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.2)]'
+              )}
+            >
+              {isPositive ? `+${val}` : val}
+            </span>
+          );
+        },
+        meta: {
+          className: 'text-right',
+        },
+      },
+    ],
+    []
+  );
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -41,20 +201,23 @@ export default function Inventory() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      await apiClient.post('/inventory', {
+    adjustStockMutation.mutate(
+      {
         productId: formData.productId,
         changeAmount: parseInt(formData.changeAmount, 10),
         reason: formData.reason,
-      });
-
-      // Refresh the table, close modal, reset form
-      fetchData();
-      setIsModalOpen(false);
-      setFormData({ productId: '', changeAmount: '', reason: 'MANUAL_ADJUSTMENT' });
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to adjust inventory');
-    }
+      },
+      {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setFormData({ productId: '', changeAmount: '', reason: 'MANUAL_ADJUSTMENT' });
+          toast.success('Stock adjusted successfully!');
+        },
+        onError: (err) => {
+          toast.error(err.response?.data?.error || 'Failed to adjust inventory');
+        },
+      }
+    );
   };
 
   return (
@@ -62,7 +225,14 @@ export default function Inventory() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">Inventory Logs</h1>
+          <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
+            Inventory Logs
+            {isFetchingLogs && !isLoadingLogs && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                Syncing...
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-zinc-400 mt-1">Immutable record of all stock movements.</p>
         </div>
         <button
@@ -75,7 +245,20 @@ export default function Inventory() {
       </div>
 
       {/* Inventory Logs Table */}
-      {isLoading ? (
+      {isError ? (
+        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-red-500/20 p-12 flex flex-col items-center justify-center text-center">
+          <p className="text-red-400 text-sm font-semibold mb-4">
+            Failed to load inventory logs:{' '}
+            {errorLogs?.response?.data?.error || errorLogs?.message || 'Unknown error'}
+          </p>
+          <button
+            onClick={() => refetchLogs()}
+            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
+          >
+            Retry Loading
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
           <FileText className="h-8 w-8 animate-pulse" />
           <p className="font-medium tracking-widest uppercase text-sm">Loading logs...</p>
@@ -91,67 +274,23 @@ export default function Inventory() {
           </p>
         </div>
       ) : (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-800">
-              <thead className="bg-[#0a0a0a]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Product
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Reason
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Change
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-zinc-800/30 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400 font-mono">
-                      {new Date(log.createdAt).toLocaleString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
-                        {log.product.name}
-                      </div>
-                      <div className="text-[11px] text-zinc-500 font-mono tracking-wider mt-0.5">
-                        SKU: {log.product.sku}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2.5 py-1 inline-flex text-[10px] leading-5 font-bold uppercase tracking-widest rounded-sm bg-zinc-800 text-zinc-300 border border-zinc-700 shadow-inner">
-                        {log.reason.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <span
-                        className={`text-base font-black ${
-                          log.changeAmount > 0
-                            ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-                            : 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.2)]'
-                        }`}
-                      >
-                        {log.changeAmount > 0 ? `+${log.changeAmount}` : log.changeAmount}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={logs}
+          isLoading={isLoadingLogs}
+          sorting={sorting}
+          setSorting={setSorting}
+          pagination={pagination}
+          setPagination={setPagination}
+          globalFilter={globalFilter}
+          setGlobalFilter={setGlobalFilter}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          searchPlaceholder="Search product name or SKU..."
+          emptyStateMessage="No matching inventory logs found."
+        />
       )}
 
       {/* Adjust Stock Modal - Dark Glassmorphism */}

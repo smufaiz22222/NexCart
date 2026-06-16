@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Search, ShoppingBag, UserRound } from 'lucide-react';
+import { LogOut, LogIn, Search, ShoppingBag, UserRound } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
+import AuthModal from '../components/AuthModal';
 
 export default function CustomerLayout() {
-  const { logout } = useAuthStore();
+  const { logout, isAuthenticated } = useAuthStore();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const hydrateCart = useCartStore((state) => state.hydrateCart);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const resetCartState = useCartStore((state) => state.resetCartState);
@@ -18,6 +20,12 @@ export default function CustomerLayout() {
       hydrateCart().catch((error) => console.error('Failed to hydrate cart:', error));
     }
   }, [hasHydrated, hydrateCart]);
+
+  useEffect(() => {
+    const handleOpen = () => setIsAuthModalOpen(true);
+    window.addEventListener('open-auth-modal', handleOpen);
+    return () => window.removeEventListener('open-auth-modal', handleOpen);
+  }, []);
 
   const handleLogout = () => {
     resetCartState();
@@ -86,20 +94,32 @@ export default function CustomerLayout() {
             </button>
 
             <button
-              onClick={() => navigate('/store/orders')}
+              onClick={() =>
+                isAuthenticated ? navigate('/store/orders') : setIsAuthModalOpen(true)
+              }
               className="rounded-full border border-[#ddd7cc] bg-white p-3 text-[#161412] transition hover:border-[#161412]"
               aria-label="Orders"
             >
               <UserRound className="h-5 w-5" />
             </button>
 
-            <button
-              onClick={handleLogout}
-              className="hidden items-center gap-2 rounded-full border border-[#161412] px-4 py-3 text-sm font-bold text-[#161412] transition hover:bg-[#161412] hover:text-white sm:flex"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={handleLogout}
+                className="hidden items-center gap-2 rounded-full border border-[#161412] px-4 py-3 text-sm font-bold text-[#161412] transition hover:bg-[#161412] hover:text-white sm:flex"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="hidden items-center gap-2 rounded-full border border-[#161412] bg-[#161412] px-4 py-3 text-sm font-bold text-white transition hover:bg-transparent hover:text-[#161412] sm:flex"
+              >
+                <LogIn className="h-4 w-4" />
+                Login / Register
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -120,17 +140,17 @@ export default function CustomerLayout() {
           <FooterColumn
             title="Company"
             items={[
-              ['About', '/store'],
+              ['About Us', '/store/about'],
               ['Storefront', '/store'],
-              ['Orders', '/store/orders'],
+              ['Privacy Policy', '/store/privacy'],
             ]}
           />
           <FooterColumn
             title="Help"
             items={[
+              ['FAQ', '/store/faq'],
+              ['Contact Us', '/store/contact'],
               ['Cart', '/store/cart'],
-              ['Login', '/login'],
-              ['Register', '/register'],
             ]}
           />
           <FooterColumn
@@ -143,6 +163,7 @@ export default function CustomerLayout() {
           />
         </div>
       </footer>
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }

@@ -300,8 +300,15 @@ export const createPurchaseInteractions = async ({
 }) => {
   if (!orderItems.length) return;
 
+  const normalizedOrderItems = [];
+
   for (const item of orderItems) {
-    if (item.recommendationId) {
+    if (!item.recommendationId) {
+      normalizedOrderItems.push(item);
+      continue;
+    }
+
+    try {
       await validateRecommendationAttribution(
         {
           recommendationId: item.recommendationId,
@@ -310,11 +317,20 @@ export const createPurchaseInteractions = async ({
         },
         tx
       );
+      normalizedOrderItems.push(item);
+    } catch (error) {
+      console.warn(
+        `Skipping stale recommendation attribution for purchase ${item.productId}: ${error.message}`
+      );
+      normalizedOrderItems.push({
+        ...item,
+        recommendationId: null,
+      });
     }
   }
 
   await tx.recommendationInteraction.createMany({
-    data: orderItems.map((item) => ({
+    data: normalizedOrderItems.map((item) => ({
       userId: buyerId,
       productId: item.productId,
       action: 'purchase',
@@ -327,7 +343,7 @@ export const createPurchaseInteractions = async ({
     })),
   });
 
-  const attributedItems = orderItems.filter((item) => item.recommendationId);
+  const attributedItems = normalizedOrderItems.filter((item) => item.recommendationId);
 
   if (attributedItems.length) {
     await tx.recommendationEvent.createMany({

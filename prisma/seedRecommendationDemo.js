@@ -551,6 +551,8 @@ async function createOrderWithAttribution({ customer, items, createdAt }) {
         productId: item.product.id,
         quantity: item.quantity,
         price: item.product.price,
+        unitPriceAtPurchase: item.product.price,
+        subtotalAtPurchase: item.product.price * item.quantity,
       })),
     });
 

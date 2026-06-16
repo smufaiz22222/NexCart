@@ -39,9 +39,10 @@ NexCart SPA Routing Flow:
   1.  _Trending Listings_: Exponential time-decay popularity scoring showing trending items.
   2.  _Personalized Feed_: collaborative filtering showing items similar to previous user actions.
   3.  _Similar Products_: content-based TF-IDF suggestions on individual product detail cards.
-- **Shopping Cart & Attributed Checkout**: Supports combining multiple products under a single checkout. Integrates:
+- **Shopping Cart & Attributed Checkout**: Supports combining multiple products under a single checkout. The cart is hydrated from `GET /cart`, which always returns only the authenticated customer's cart. Cart hydration never exposes another customer's cart, and all cart reads and mutations enforce authenticated ownership before data is returned or modified. Integrates:
   - **Prepaid Transactions**: Integrates Razorpay SDK allowing cards/UPI checkouts.
   - **Cash on Delivery (COD)**: Bypasses third-party gateways, writing order states directly as pending.
+  - **Idempotent Payment Verification**: Razorpay payment verification is keyed by the unique Razorpay payment identifier. Repeated verification requests for the same successful payment never create duplicate orders and instead return the already-created order rather than executing checkout again.
 - **Order Issues (Claims Management)**: Enables customers to raise disputes, returns, or refunds for specific order line items. Wholesalers can review claims and refund amounts.
 
 ---
@@ -49,7 +50,7 @@ NexCart SPA Routing Flow:
 ## 3. Wholesaler Dashboard
 
 - **Analytics Panel**: Calculates key business metrics including Total Sales, Average Profit Margins, Active Debt Indexes (unpaid balances), and low-stock alerts.
-- **Inventory Adjustments Logging**: Records all item count changes in `InventoryLog` with explicit explanations (e.g. `MANUAL_ADJUSTMENT`, `SALE`, `REFUND`) to ensure audit traceability.
+- **Inventory Adjustments Logging**: Records all item count changes in `InventoryLog` with explicit explanations (e.g. `MANUAL_ADJUSTMENT`, `SALE`, `REFUND`) to ensure audit traceability. During checkout, stock updates are performed using atomic conditional database operations inside the transaction: inventory is decremented only when sufficient stock exists, concurrent checkout attempts cannot oversell inventory, and if another transaction consumes the remaining stock first, the current checkout fails cleanly and the transaction rolls back.
 - **Ledger Book**: Displays credit/debit transaction files for individual customer accounts.
 
 ---

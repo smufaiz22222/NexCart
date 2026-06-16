@@ -58,7 +58,7 @@ NexCart_updated/
 ## 3. Quick Start
 
 1. **Automatic Launch**: Open the workspace in VS Code to trigger the backend and frontend servers automatically.
-2. **Unified Command**: Run `npm run dev` in the root directory to start the entire stack:
+2. **Unified Command**: Run `pnpm run dev` in the root directory to start the entire stack:
    - **Backend Server** (Express)
    - **Frontend Dev Server** (Vite React)
    - **AI Service** (FastAPI)
@@ -71,18 +71,17 @@ NexCart_updated/
 
 1. **Install Dependencies**:
    ```bash
-   npm install
-   npm run client:install
+   pnpm install
    ```
 2. **Database Setup**:
    ```bash
-   npx prisma db push
-   npx prisma generate
-   npm run recommendations:seed-demo
+   pnpm prisma db push
+   pnpm prisma generate
+   pnpm run recommendations:seed-demo
    ```
 3. **Start Development**:
    ```bash
-   npm run dev
+   pnpm run dev
    ```
    - **Full Stack**: [http://localhost:5000](http://localhost:5000)
    - **Frontend (Vite)**: [http://localhost:5173](http://localhost:5173) (Proxied)
@@ -102,7 +101,7 @@ If you have Docker and Docker Compose installed, you can launch the entire stack
    - **Web App**: [http://localhost:5000](http://localhost:5000)
    - **AI Service**: [http://localhost:8000](http://localhost:8000)
    - **Database**: [http://localhost:5433](http://localhost:5433)
-2. **Create and Activate Virtual Environment**:
+3. **Create and Activate Virtual Environment**:
    - **Windows (Command Prompt)**:
      ```cmd
      python -m venv .venv
@@ -118,11 +117,11 @@ If you have Docker and Docker Compose installed, you can launch the entire stack
      python3 -m venv .venv
      source .venv/bin/activate
      ```
-3. **Install Requirements**:
+4. **Install Requirements**:
    ```bash
    pip install -r requirements.txt
    ```
-4. **Environment Configuration**:
+5. **Environment Configuration**:
    Create a `.env` file inside the `ai-service` directory matching [ai-service/.env](./ai-service/.env):
    ```properties
    LLM_PROVIDER=gemini
@@ -137,7 +136,7 @@ If you have Docker and Docker Compose installed, you can launch the entire stack
    RETRIEVAL_TOP_K=5
    AI_CORS_ORIGINS=http://localhost:5173,http://localhost:4173
    ```
-5. **Run Document Ingestion**:
+6. **Run Document Ingestion**:
    Load reference materials (such as the default [Shopify 101 Guide PDF](./ai-service/app/docs/Shopify%20101%20Complete%20Guide.pdf)) into the Chroma Vector Database:
    - Make sure uvicorn is running, or run the Python ingestion logic. You can start the server:
      ```bash

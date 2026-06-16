@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../api/axios.js';
+import useCartStore from './cartStore.js';
 
 const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
@@ -17,7 +18,12 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
-      set({ user, token, isAuthenticated: true, isLoading: false });
+      set({ user, token, isAuthenticated: true, isLoading: false, error: null });
+
+      // Sync local cart items to the database cart
+      if (user?.role === 'CUSTOMER') {
+        await useCartStore.getState().syncLocalCart();
+      }
 
       return user;
     } catch (error) {
@@ -32,8 +38,15 @@ const useAuthStore = create((set) => ({
   register: async (userData) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiClient.post('/auth/register', userData);
-      set({ isLoading: false });
+      const payload = {
+        ...userData,
+        email: userData.email.trim().toLowerCase(),
+      };
+
+      delete payload.confirmPassword;
+
+      const response = await apiClient.post('/auth/register', payload);
+      set({ isLoading: false, error: null });
       return response.data;
     } catch (error) {
       set({

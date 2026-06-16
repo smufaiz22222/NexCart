@@ -64,3 +64,31 @@ export const requireSuperAdmin = (req, res, next) => {
   }
   next();
 };
+
+export const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return next();
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      include: { wholesalerProfile: true },
+    });
+
+    if (user) {
+      req.user = {
+        userId: user.id,
+        role: user.role,
+        wholesalerId: user.wholesalerProfile?.id ?? null,
+      };
+    }
+    next();
+  } catch (error) {
+    // Treat invalid/expired token as guest instead of crashing/blocking
+    next();
+  }
+};
+

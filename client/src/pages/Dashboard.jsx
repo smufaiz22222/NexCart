@@ -1,55 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Package,
-  AlertCircle,
-  DollarSign,
-  Wallet,
   Activity,
-  MousePointerClick,
-  ShoppingCart,
-  Target,
-  RadioTower,
-  ShieldCheck,
-  TrendingUp,
+  AlertCircle,
+  ArrowRight,
+  Boxes,
+  ClipboardList,
+  DollarSign,
+  Hourglass,
+  PackageCheck,
+  Package,
+  RotateCcw,
+  Tags,
+  Truck,
+  Wallet,
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import apiClient from '../api/axios';
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [ledgerStats, setLedgerStats] = useState({ totalDebt: 0, totalCollection: 0 });
+  const [advisorContext, setAdvisorContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [advancedData, setAdvancedData] = useState({ chartData: [], topProducts: [] });
-  const [recommendationAnalytics, setRecommendationAnalytics] = useState(null);
-  const [timeframe, setTimeframe] = useState('monthly'); // Default to monthly
 
-  // Update the useEffect to watch for timeframe changes
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
-        const [prodRes, ledgerRes, advRes, recRes] = await Promise.all([
+        const [productsRes, ledgerRes, advisorRes, ordersRes] = await Promise.all([
           apiClient.get('/products'),
           apiClient.get('/stats/wholesaler-summary'),
-          apiClient.get(`/stats/advanced-summary?timeframe=${timeframe}`), // Pass timeframe here!
-          apiClient.get('/recommendations/analytics'),
+          apiClient.get('/stats/advisor-context'),
+          apiClient.get('/orders'),
         ]);
 
-        setProducts(prodRes.data.products);
-        setLedgerStats(ledgerRes.data);
-        setAdvancedData(advRes.data);
-        setRecommendationAnalytics(recRes.data);
+        setProducts(productsRes.data.products || []);
+        setLedgerStats(ledgerRes.data || { totalDebt: 0, totalCollection: 0 });
+        setAdvisorContext(advisorRes.data || null);
+        setOrders(ordersRes.data.orders || []);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -58,226 +48,174 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [timeframe]); // Re-run when timeframe changes
+  }, []);
 
-  // --- Inventory Calculations ---
   const totalProducts = products.length;
-  const totalInventoryValue = products.reduce((sum, p) => sum + p.price * p.currentStock, 0);
-  const lowStockProducts = products.filter((p) => p.currentStock < 10 && p.currentStock > 0);
-  const outOfStockProducts = products.filter((p) => p.currentStock === 0);
+  const totalUnitsInStock = products.reduce(
+    (sum, product) => sum + Number(product.currentStock || 0),
+    0
+  );
+  const lowStockProducts = products.filter(
+    (product) => Number(product.currentStock || 0) > 0 && Number(product.currentStock || 0) < 10
+  );
+  const outOfStockProducts = products.filter((product) => Number(product.currentStock || 0) === 0);
 
-  // --- Prepare Chart Data (Combining Inventory Value & Stock) ---
-  const chartData = products.slice(0, 8).map((p) => ({
-    name: p.name.split(' ')[0], // Shorten name for chart
-    stock: p.currentStock,
-    value: p.price * p.currentStock,
+  const chartData = products.slice(0, 8).map((product) => ({
+    name: product.name.split(' ').slice(0, 2).join(' '),
+    stock: Number(product.currentStock || 0),
+    value: Number(product.price || 0) * Number(product.currentStock || 0),
   }));
-  const funnelData = recommendationAnalytics?.funnel
-    ? [
-        { name: 'Impression', count: recommendationAnalytics.funnel.impression || 0 },
-        { name: 'Click', count: recommendationAnalytics.funnel.click || 0 },
-        { name: 'Cart', count: recommendationAnalytics.funnel.cart || 0 },
-        { name: 'Purchase', count: recommendationAnalytics.funnel.purchase || 0 },
-      ]
-    : [];
+
+  const pendingOrders = orders.filter((order) => order.status === 'PENDING').length;
+  const processingOrders = orders.filter((order) => order.status === 'PROCESSING').length;
+  const shippedOrders = orders.filter((order) => order.status === 'SHIPPED').length;
+  const returnRequests = orders.reduce(
+    (sum, order) => sum + order.items.filter((item) => item.returnStatus === 'REQUESTED').length,
+    0
+  );
+  const refundExceptions = orders.reduce(
+    (sum, order) =>
+      sum +
+      order.items.filter(
+        (item) =>
+          item.returnRefundStatus === 'FAILED' ||
+          (item.status === 'CANCELLED' && ['FAILED', 'PENDING'].includes(item.refundStatus))
+      ).length,
+    0
+  );
+  const recentOrders = orders.slice(0, 5);
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4 font-sans">
-        <Activity className="h-8 w-8 animate-pulse" />
-        <p className="font-medium tracking-widest uppercase text-sm">
-          Loading business analytics...
-        </p>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-zinc-400">
+        <Activity className="h-8 w-8 animate-pulse text-amber-500" />
+        <p className="text-sm font-bold uppercase tracking-[0.24em]">Loading operations desk</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 font-sans selection:bg-amber-500/30 selection:text-amber-200 text-white">
-      <div>
-        <h1 className="text-2xl font-bold tracking-wide">Wholesaler Command Center</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Real-time overview of your inventory and market credit.
-        </p>
-      </div>
+    <div className="space-y-6 text-white">
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-[28px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.35)]">
+          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-500/80">
+            Operations Desk
+          </p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-4xl">
+            Daily execution up front, deeper analytics one click away.
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400">
+            Use this screen to monitor stock pressure, collections, and marketplace movement. When
+            you need profit, retention, slow movers, or recommendation performance, jump to the
+            analytics workspace.
+          </p>
 
-      {/* --- FINANCIAL & INVENTORY STATS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <QuickStrip
+              label="Pending Orders"
+              value={pendingOrders}
+              detail="New orders waiting for acceptance or packing"
+            />
+            <QuickStrip
+              label="Return Requests"
+              value={returnRequests}
+              detail="Customer returns currently waiting on a decision"
+            />
+            <QuickStrip
+              label="Refund Exceptions"
+              value={refundExceptions}
+              detail="Refund failures or pending item-level follow-ups"
+            />
+          </div>
+        </div>
+
+        <Link
+          to="/wholesaler/analytics"
+          className="group rounded-[28px] border border-amber-500/20 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.2),transparent_40%),linear-gradient(180deg,#171717_0%,#0a0a0a_100%)] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.35)] transition hover:border-amber-500/40"
+        >
+          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-300/90">
+            Analytics Workspace
+          </p>
+          <div className="mt-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-white">
+                Open the deeper business board
+              </h2>
+              <p className="mt-3 max-w-md text-sm leading-7 text-zinc-400">
+                Review net profit, margins, best-selling SKUs, slow inventory, customer lifetime
+                value, churn risk, and recommendation performance in one place.
+              </p>
+            </div>
+            <div className="rounded-full border border-amber-500/20 bg-amber-500/10 p-3 text-amber-300 transition group-hover:translate-x-1">
+              <ArrowRight className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            <InfoTile
+              label="Top Category"
+              value={advisorContext?.topSellingCategory || 'N/A'}
+              detail="Still useful, but the full sales mix lives in analytics"
+            />
+            <InfoTile
+              label="Unsold Inventory"
+              value={advisorContext?.unsoldInventory || 0}
+              detail="Products with no historical order items"
+            />
+          </div>
+        </Link>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Market Debt"
-          value={`₹${ledgerStats.totalDebt?.toLocaleString()}`}
+          value={`₹${Number(ledgerStats.totalDebt || 0).toLocaleString()}`}
           icon={AlertCircle}
-          color="text-red-400"
-          bg="bg-red-500/10 border-red-500/20"
-          desc="Money owed to you"
+          tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
+          desc="Money currently owed to you"
         />
         <StatCard
           title="Total Collection"
-          value={`₹${ledgerStats.totalCollection?.toLocaleString()}`}
+          value={`₹${Number(ledgerStats.totalCollection || 0).toLocaleString()}`}
           icon={Wallet}
-          color="text-emerald-400"
-          bg="bg-emerald-500/10 border-emerald-500/20"
-          desc="Cash received"
+          tone="text-emerald-300 border-emerald-500/20 bg-emerald-500/10"
+          desc="Cash received through the marketplace"
         />
         <StatCard
-          title="Inventory Value"
-          value={`₹${totalInventoryValue.toLocaleString()}`}
-          icon={DollarSign}
-          color="text-amber-500"
-          bg="bg-amber-500/10 border-amber-500/20"
-          desc="Stock asset value"
+          title="Orders In Progress"
+          value={(processingOrders + shippedOrders).toLocaleString()}
+          icon={Truck}
+          tone="text-sky-300 border-sky-500/20 bg-sky-500/10"
+          desc={`${processingOrders} processing and ${shippedOrders} shipped`}
         />
         <StatCard
-          title="Products"
-          value={totalProducts}
-          icon={Package}
-          color="text-zinc-300"
-          bg="bg-zinc-800/50 border-zinc-700"
-          desc="Unique SKUs"
+          title="Total Units In Stock"
+          value={totalUnitsInStock.toLocaleString()}
+          icon={Boxes}
+          tone="text-zinc-200 border-zinc-700 bg-zinc-800/70"
+          desc={`${totalProducts} active catalog products`}
         />
-      </div>
+        <StatCard
+          title="Low / Out Of Stock"
+          value={`${lowStockProducts.length} / ${outOfStockProducts.length}`}
+          icon={PackageCheck}
+          tone="text-amber-300 border-amber-500/20 bg-amber-500/10"
+          desc="Low stock first, out of stock second"
+        />
+      </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Reco CTR"
-          value={`${((recommendationAnalytics?.recommendationCtr || 0) * 100).toFixed(1)}%`}
-          icon={MousePointerClick}
-          color="text-sky-400"
-          bg="bg-sky-500/10 border-sky-500/20"
-          desc="Clicks from recommendations"
-        />
-        <StatCard
-          title="Reco Cart Rate"
-          value={`${((recommendationAnalytics?.recommendationCartRate || 0) * 100).toFixed(1)}%`}
-          icon={ShoppingCart}
-          color="text-violet-400"
-          bg="bg-violet-500/10 border-violet-500/20"
-          desc="Recommendation to cart"
-        />
-        <StatCard
-          title="Reco Conversion"
-          value={`${((recommendationAnalytics?.recommendationConversionRate || 0) * 100).toFixed(1)}%`}
-          icon={Target}
-          color="text-emerald-400"
-          bg="bg-emerald-500/10 border-emerald-500/20"
-          desc="Recommendation to purchase"
-        />
-        <StatCard
-          title="Coverage"
-          value={`${((recommendationAnalytics?.coverage || 0) * 100).toFixed(1)}%`}
-          icon={RadioTower}
-          color="text-amber-500"
-          bg="bg-amber-500/10 border-amber-500/20"
-          desc="Catalog recommended"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-6">
-          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6">
-            Recommendation Funnel
-          </h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={funnelData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <Tooltip
-                  cursor={{ fill: '#27272a', opacity: 0.4 }}
-                  contentStyle={{
-                    backgroundColor: '#0a0a0a',
-                    border: '1px solid #3f3f46',
-                    borderRadius: '8px',
-                    color: '#fff',
-                  }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Events" />
-              </BarChart>
-            </ResponsiveContainer>
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+          <div className="mb-5">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+              Inventory Snapshot
+            </p>
+            <h2 className="mt-2 text-lg font-black text-white">Stock asset pressure</h2>
           </div>
-        </div>
-
-        <div className="bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-6">
-          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6 flex items-center">
-            <ShieldCheck className="h-4 w-4 mr-2" />
-            Recommendation Health
-          </h3>
-          <div className="space-y-3">
-            <div
-              className={`rounded-lg border p-4 ${
-                recommendationAnalytics?.health?.status === 'healthy'
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                  : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-              }`}
-            >
-              <p className="text-sm font-bold capitalize">
-                {recommendationAnalytics?.health?.status || 'unknown'}
-              </p>
-              <p className="text-xs mt-1 text-zinc-400">
-                {recommendationAnalytics?.health?.trackedImpressions || 0} impressions tracked
-                across {((recommendationAnalytics?.health?.coverage || 0) * 100).toFixed(1)}%
-                coverage.
-              </p>
-            </div>
-            {(recommendationAnalytics?.health?.warnings || []).length > 0 ? (
-              recommendationAnalytics.health.warnings.map((warning) => (
-                <div
-                  key={warning}
-                  className="bg-[#0a0a0a] border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400"
-                >
-                  {warning}
-                </div>
-              ))
-            ) : (
-              <div className="bg-[#0a0a0a] border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400">
-                No recommendation health warnings.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecommendationTable
-          title="Top Recommended Products"
-          icon={RadioTower}
-          rows={recommendationAnalytics?.topRecommendedProducts || []}
-          valueLabel="Impressions"
-          getValue={(row) => row.impressions || 0}
-        />
-        <RecommendationTable
-          title="Top Converting Recommendations"
-          icon={TrendingUp}
-          rows={recommendationAnalytics?.topConvertingRecommendations || []}
-          valueLabel="Purchases"
-          getValue={(row) =>
-            `${row.purchases || 0} (${((row.conversionRate || 0) * 100).toFixed(1)}%)`
-          }
-        />
-      </div>
-
-      {/* --- ROW 1: STOCK CHART & ALERTS --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-6">
-          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6">
-            Stock Assets vs Quantity
-          </h3>
-          <div className="h-80 w-full">
+          <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                <CartesianGrid stroke="#27272a" vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
@@ -286,261 +224,234 @@ export default function Dashboard() {
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 12 }} />
                 <Tooltip
-                  cursor={{ fill: '#27272a', opacity: 0.4 }}
+                  cursor={{ fill: '#18181b', opacity: 0.4 }}
                   contentStyle={{
-                    backgroundColor: '#0a0a0a',
-                    border: '1px solid #3f3f46',
-                    borderRadius: '8px',
+                    backgroundColor: '#09090b',
+                    border: '1px solid #27272a',
+                    borderRadius: '12px',
                     color: '#fff',
                   }}
-                  itemStyle={{ color: '#fff' }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar dataKey="stock" fill="#d4d4d8" radius={[4, 4, 0, 0]} name="Units in Hand" />
+                <Bar dataKey="stock" fill="#d4d4d8" radius={[4, 4, 0, 0]} name="Units in stock" />
                 <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Value (₹)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-6">
-          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6 flex items-center">
-            <AlertCircle className="h-4 w-4 mr-2" />
-            Critical Stock Alerts
-          </h3>
+        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+          <div className="mb-5">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+              Operational Alerts
+            </p>
+            <h2 className="mt-2 text-lg font-black text-white">What needs attention</h2>
+          </div>
+
+          <div className="grid gap-3">
+            <AlertRow
+              icon={Hourglass}
+              label="Pending queue"
+              value={pendingOrders}
+              detail="Orders waiting for your first operational action"
+              tone="text-orange-300 border-orange-500/20 bg-orange-500/10"
+            />
+            <AlertRow
+              icon={RotateCcw}
+              label="Return requests"
+              value={returnRequests}
+              detail="Items blocked until you approve or reject the return"
+              tone="text-violet-300 border-violet-500/20 bg-violet-500/10"
+            />
+            <AlertRow
+              icon={AlertCircle}
+              label="Refund exceptions"
+              value={refundExceptions}
+              detail="Items where refund recovery still needs attention"
+              tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
+            />
+          </div>
+
+          <div className="mt-5 rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+              Immediate next step
+            </p>
+            <p className="mt-3 text-sm leading-7 text-zinc-400">
+              Review the analytics page for the profit view, slow movers by value, customer risk,
+              and deeper recommendation performance before deciding what to restock or promote.
+            </p>
+            <Link
+              to="/wholesaler/analytics"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-amber-400"
+            >
+              Open Analytics
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+          <div className="mb-5">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+              Catalog Watchlist
+            </p>
+            <h2 className="mt-2 text-lg font-black text-white">Restock and dormancy scan</h2>
+          </div>
+
           <div className="space-y-3">
-            {outOfStockProducts.length === 0 && lowStockProducts.length === 0 ? (
-              <div className="bg-[#0a0a0a] border border-zinc-800 rounded-lg p-6 text-center">
-                <Package className="h-8 w-8 text-zinc-600 mx-auto mb-2" />
-                <p className="text-sm font-medium text-zinc-400">Inventory looks healthy.</p>
-                <p className="text-xs text-zinc-500 mt-1">Everything is currently in stock.</p>
-              </div>
-            ) : (
-              <div className="overflow-y-auto max-h-[300px] pr-2 custom-scrollbar space-y-2">
-                {outOfStockProducts.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex justify-between items-center p-3.5 bg-red-500/10 rounded-lg border border-red-500/20 group hover:bg-red-500/20 transition-colors"
-                  >
-                    <span className="text-sm font-semibold text-red-400 truncate mr-2">
-                      {p.name}
-                    </span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-red-500 bg-[#0a0a0a] px-2 py-1 rounded shadow-sm border border-red-900/50 flex-shrink-0">
-                      Out
-                    </span>
-                  </div>
-                ))}
-                {lowStockProducts.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex justify-between items-center p-3.5 bg-orange-500/10 rounded-lg border border-orange-500/20 group hover:bg-orange-500/20 transition-colors"
-                  >
-                    <span className="text-sm font-semibold text-orange-400 truncate mr-2">
-                      {p.name}
-                    </span>
-                    <span className="text-xs font-bold text-orange-500 flex-shrink-0">
-                      {p.currentStock} left
-                    </span>
-                  </div>
-                ))}
+            {outOfStockProducts.slice(0, 3).map((product) => (
+              <WatchRow
+                key={`out-${product.id}`}
+                name={product.name}
+                meta="Out of stock"
+                detail="Unavailable for sale until restocked"
+                tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
+              />
+            ))}
+            {lowStockProducts.slice(0, 3).map((product) => (
+              <WatchRow
+                key={`low-${product.id}`}
+                name={product.name}
+                meta={`${product.currentStock} left`}
+                detail="Reorder soon to avoid availability gaps"
+                tone="text-amber-300 border-amber-500/20 bg-amber-500/10"
+              />
+            ))}
+            {outOfStockProducts.length === 0 && lowStockProducts.length === 0 && (
+              <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 px-4 py-5 text-sm text-emerald-100">
+                No immediate stock pressure. The catalog is currently clear of low-stock and
+                out-of-stock alerts.
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* --- ROW 2: PROFIT TRENDS & TOP PRODUCTS (NEW) --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Profit Area Chart with Timeframe Toggle */}
-        <div className="bg-[#1c1c1c] p-6 rounded-xl shadow-xl border border-zinc-800">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest">
-              Profit & Revenue Trends
-            </h3>
-            <div className="flex bg-[#0a0a0a] p-1 rounded-md border border-zinc-800">
-              {['daily', 'monthly', 'yearly'].map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  className={`px-3.5 py-1.5 text-xs font-bold rounded capitalize transition-all duration-200 ${
-                    timeframe === tf
-                      ? 'bg-amber-500 text-[#0a0a0a] shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
+        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+          <div className="mb-5">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+              Recent Orders
+            </p>
+            <h2 className="mt-2 text-lg font-black text-white">Latest marketplace movement</h2>
+          </div>
+
+          <div className="space-y-3">
+            {recentOrders.length > 0 ? (
+              recentOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4"
                 >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={advancedData?.chartData || []}>
-                <defs>
-                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0a0a0a',
-                    border: '1px solid #3f3f46',
-                    borderRadius: '8px',
-                    color: '#fff',
-                  }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorRevenue)"
-                  name="Sales (₹)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="profit"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorProfit)"
-                  name="Net Profit (₹)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        {order.buyer?.name || order.buyer?.email || 'Customer'}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        {order.id.slice(0, 8).toUpperCase()}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-zinc-800 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300">
+                      {order.status}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <MiniMetric
+                      label="Placed"
+                      value={new Date(order.createdAt).toLocaleDateString()}
+                    />
+                    <MiniMetric label="Items" value={order.items?.length || 0} />
+                    <MiniMetric
+                      label="Order Total"
+                      value={`₹${Number(order.totalAmount || 0).toLocaleString()}`}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] px-4 py-6 text-sm text-zinc-500">
+                No recent orders yet.
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Top Products Table */}
-        <div className="bg-[#1c1c1c] p-6 rounded-xl shadow-xl border border-zinc-800">
-          <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6">
-            Top Performance (Volume)
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-zinc-500 text-[10px] uppercase tracking-widest border-b border-zinc-800">
-                  <th className="pb-3 font-bold">Product</th>
-                  <th className="pb-3 font-bold">Price</th>
-                  <th className="pb-3 font-bold text-center">Sold</th>
-                  <th className="pb-3 font-bold text-right">Profit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/50">
-                {advancedData?.topProducts && advancedData.topProducts.length > 0 ? (
-                  advancedData.topProducts.map((p, i) => (
-                    <tr key={i} className="hover:bg-zinc-800/30 transition-colors group">
-                      <td className="py-3.5 pr-2 font-semibold text-white group-hover:text-amber-400 transition-colors text-sm">
-                        {p.name}
-                      </td>
-                      <td className="py-3.5 pr-2 text-zinc-400 text-sm font-mono">₹{p.price}</td>
-                      <td className="py-3.5 px-2 text-center text-sm font-bold text-zinc-300">
-                        <span className="bg-zinc-800 px-2.5 py-1 rounded text-xs">{p.sold}</span>
-                      </td>
-                      <td className="py-3.5 pl-2 text-right font-bold text-emerald-400 text-sm drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-                        +₹{p.profit?.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="4" className="py-12 text-center">
-                      <div className="flex flex-col items-center justify-center text-zinc-500">
-                        <Package className="h-8 w-8 mb-2 opacity-50" />
-                        <span className="text-sm">No sales data available yet.</span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
 
-// Upgraded StatCard Component
-function StatCard({ title, value, icon, color, bg, desc }) {
-  const Icon = icon;
+function StatCard({ title, value, icon: Icon, tone, desc }) {
   return (
-    <div className="bg-[#1c1c1c] rounded-xl shadow-xl border border-zinc-800 p-5 group hover:border-amber-500/30 transition-all duration-300">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-2.5 rounded-lg border ${bg} ${color}`}>
-          <Icon className="h-5 w-5" />
+    <div className="rounded-[22px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+      <div className="mb-4 flex items-center justify-between">
+        <div className={`rounded-xl border px-3 py-2 ${tone}`}>
+          <Icon className="h-4 w-4" />
         </div>
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+        <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
           {title}
         </span>
       </div>
-      <p className={`text-2xl font-black text-white tracking-wide`}>{value}</p>
-      <p className="text-xs text-zinc-400 mt-1.5 font-medium">{desc}</p>
+      <p className="text-2xl font-black tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-zinc-500">{desc}</p>
     </div>
   );
 }
 
-function RecommendationTable({ title, icon, rows, valueLabel, getValue }) {
-  const Icon = icon;
+function QuickStrip({ label, value, detail }) {
   return (
-    <div className="bg-[#1c1c1c] p-6 rounded-xl shadow-xl border border-zinc-800">
-      <h3 className="text-sm font-bold text-amber-500/80 uppercase tracking-widest mb-6 flex items-center">
-        <Icon className="h-4 w-4 mr-2" />
-        {title}
-      </h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-zinc-500 text-[10px] uppercase tracking-widest border-b border-zinc-800">
-              <th className="pb-3 font-bold">Product</th>
-              <th className="pb-3 font-bold">Category</th>
-              <th className="pb-3 font-bold text-right">{valueLabel}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/50">
-            {rows.length > 0 ? (
-              rows.map((row) => (
-                <tr
-                  key={row.product?.id || row.product?.name}
-                  className="hover:bg-zinc-800/30 transition-colors"
-                >
-                  <td className="py-3.5 pr-2 font-semibold text-white text-sm">
-                    {row.product?.name || 'Unknown product'}
-                  </td>
-                  <td className="py-3.5 pr-2 text-zinc-400 text-sm">
-                    {row.product?.category || 'General'}
-                  </td>
-                  <td className="py-3.5 pl-2 text-right font-bold text-amber-400 text-sm">
-                    {getValue(row)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="3" className="py-10 text-center text-sm text-zinc-500">
-                  No recommendation data available yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+    <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] px-4 py-4">
+      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">{label}</p>
+      <p className="mt-2 text-lg font-black text-white">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-zinc-500">{detail}</p>
+    </div>
+  );
+}
+
+function InfoTile({ label, value, detail }) {
+  return (
+    <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4">
+      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</p>
+      <p className="mt-3 text-xl font-black text-white">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-zinc-500">{detail}</p>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-[#111111] px-3 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="mt-2 text-sm font-bold text-white">{value}</p>
+    </div>
+  );
+}
+
+function AlertRow({ icon: Icon, label, value, detail, tone }) {
+  return (
+    <div className={`rounded-[18px] border p-4 ${tone}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Icon className="mt-0.5 h-4 w-4" />
+          <div>
+            <p className="text-sm font-bold">{label}</p>
+            <p className="mt-1 text-xs leading-5 opacity-80">{detail}</p>
+          </div>
+        </div>
+        <span className="text-lg font-black">{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function WatchRow({ name, meta, detail, tone }) {
+  return (
+    <div className={`rounded-[18px] border p-4 ${tone}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold">{name}</p>
+          <p className="mt-1 text-xs leading-5 opacity-80">{detail}</p>
+        </div>
+        <span className="text-[11px] font-black uppercase tracking-[0.18em]">{meta}</span>
       </div>
     </div>
   );

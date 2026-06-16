@@ -79,6 +79,7 @@ export const getRecommendationAnalytics = async (req, res) => {
       mostViewed,
       mostPurchased,
       eventCounts,
+      attributedPurchaseSummary,
       totalRecommendationLogs,
       recommendedProducts,
       totalProducts,
@@ -93,19 +94,27 @@ export const getRecommendationAnalytics = async (req, res) => {
         orderBy: { _count: { productId: 'desc' } },
         take: 10,
       }),
-      prisma.recommendationInteraction.groupBy({
+      prisma.orderItem.groupBy({
         by: ['productId'],
-        where: { action: 'purchase' },
-        _count: { productId: true },
-        orderBy: { _count: { productId: 'desc' } },
+        where: { status: 'ACTIVE' },
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
         take: 10,
       }),
       prisma.recommendationEvent.groupBy({
         by: ['eventType'],
         where: {
           recommendationLog: { isEvaluation: false },
+          eventType: { in: ['impression', 'click', 'cart'] },
         },
         _count: { eventType: true },
+      }),
+      prisma.orderItem.aggregate({
+        where: {
+          status: 'ACTIVE',
+          recommendationId: { not: null },
+        },
+        _sum: { quantity: true },
       }),
       prisma.recommendationLog.count({
         where: { isEvaluation: false },
@@ -128,14 +137,14 @@ export const getRecommendationAnalytics = async (req, res) => {
         orderBy: { _count: { productId: 'desc' } },
         take: 10,
       }),
-      prisma.recommendationEvent.groupBy({
+      prisma.orderItem.groupBy({
         by: ['productId'],
         where: {
-          eventType: 'purchase',
-          recommendationLog: { isEvaluation: false },
+          status: 'ACTIVE',
+          recommendationId: { not: null },
         },
-        _count: { productId: true },
-        orderBy: { _count: { productId: 'desc' } },
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
         take: 10,
       }),
       getRecommendationHealthSummary(),
@@ -171,6 +180,7 @@ export const getRecommendationAnalytics = async (req, res) => {
     const counts = Object.fromEntries(
       eventCounts.map((item) => [item.eventType, item._count.eventType])
     );
+    counts.purchase = attributedPurchaseSummary._sum.quantity || 0;
 
     res.json({
       totalRecommendationLogs,
@@ -197,7 +207,7 @@ export const getRecommendationAnalytics = async (req, res) => {
       })),
       mostPurchased: mostPurchased.map((item) => ({
         product: productsById.get(item.productId),
-        count: item._count.productId,
+        count: item._sum.quantity || 0,
       })),
       topRecommendedProducts: topRecommendedGroups.map((item) => ({
         product: productsById.get(item.productId),
@@ -207,9 +217,9 @@ export const getRecommendationAnalytics = async (req, res) => {
         const impressionCount = impressionsByProductId.get(item.productId) || 0;
         return {
           product: productsById.get(item.productId),
-          purchases: item._count.productId,
+          purchases: item._sum.quantity || 0,
           conversionRate: impressionCount
-            ? Number((item._count.productId / impressionCount).toFixed(4))
+            ? Number(((item._sum.quantity || 0) / impressionCount).toFixed(4))
             : 0,
         };
       }),

@@ -10,14 +10,13 @@ import {
   resetRecommendationAnalytics,
   resetRecommendationEvaluation,
 } from '../controllers/recommendationController.js';
-import { authenticate, requireRoles } from '../middlewares/authMiddleware.js';
+import { authenticate, optionalAuthenticate, requireRoles } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(authenticate);
-router.get('/products/:id/similar', getSimilarProducts);
-router.get('/user', getUserRecommendations);
-router.get('/popular', getPopularRecommendations);
+router.get('/products/:id/similar', optionalAuthenticate, getSimilarProducts);
+router.get('/user', authenticate, getUserRecommendations);
+router.get('/popular', optionalAuthenticate, getPopularRecommendations);
 router.get('/analytics', requireRoles('WHOLESALER', 'SUPER_ADMIN'), getRecommendationAnalytics);
 router.get('/health', requireRoles('WHOLESALER', 'SUPER_ADMIN'), getRecommendationHealth);
 router.get('/evaluation', requireRoles('SUPER_ADMIN'), getRecommendationEvaluation);

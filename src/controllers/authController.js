@@ -1,12 +1,27 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
+import { normalizeEmail, validateRegistrationPayload } from '../utils/authValidation.js';
+
+const isUniqueEmailConstraintError = (error) => error?.code === 'P2002';
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role, businessName } = req.body;
+    const validation = validateRegistrationPayload(req.body || {});
+    if (validation.error) {
+      return res.status(400).json({ error: validation.error });
+    }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const { name, email, password, role, businessName } = validation.value;
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: 'insensitive',
+        },
+      },
+    });
     if (existingUser) {
       return res.status(400).json({ error: 'Email already in use' });
     }
@@ -14,9 +29,6 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     if (role === 'WHOLESALER') {
-      if (!businessName)
-        return res.status(400).json({ error: 'Business name is required for Wholesalers' });
-
       await prisma.user.create({
         data: {
           name,
@@ -42,17 +54,31 @@ export const register = async (req, res) => {
 
     res.status(201).json({ message: 'Registration successful. Please log in.' });
   } catch (error) {
+    if (isUniqueEmailConstraintError(error)) {
+      return res.status(400).json({ error: 'Email already in use' });
+    }
+
     console.error('REGISTER ERROR:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
 };
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body?.email);
+    const { password } = req.body || {};
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    if (!email || !password) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: 'insensitive',
+        },
+      },
       include: { wholesalerProfile: true },
     });
 
@@ -88,6 +114,6 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error('LOGIN ERROR:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ error: 'Login failed. Please try again.' });
   }
 };
