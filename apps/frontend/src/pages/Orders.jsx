@@ -54,6 +54,18 @@ export default function Orders() {
         }
     };
 
+    const getPaymentBadge = (method, status) => {
+        const isPaid = status === 'PAID';
+        const baseClass = isPaid
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+            : 'bg-zinc-800 border-zinc-700 text-zinc-300';
+        return (
+            <span className={`px-3 py-1 rounded-sm text-[10px] uppercase tracking-widest font-bold border ${baseClass}`}>
+                {method} · {status}
+            </span>
+        );
+    };
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
@@ -122,6 +134,10 @@ export default function Orders() {
                                         <p className="text-sm font-semibold text-zinc-200">
                                             {user?.role === 'WHOLESALER' ? order.buyer?.name : order.seller?.businessName}
                                         </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Payment</p>
+                                        {getPaymentBadge(order.paymentMethod, order.paymentStatus)}
                                     </div>
                                 </div>
 

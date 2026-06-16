@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, Archive, ShoppingCart, BookOpen, LogOut, Menu, X, Camera } from 'lucide-react';
+import { LayoutDashboard, Package, Archive, ShoppingCart, BookOpen, LogOut, Menu, X, Camera, BrainCircuit } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 export default function WholesalerLayout() {
@@ -20,6 +20,7 @@ export default function WholesalerLayout() {
     { name: 'Inventory Logs', href: '/wholesaler/inventory', icon: Archive },
     { name: 'Orders', href: '/wholesaler/orders', icon: ShoppingCart },
     { name: 'Financial Ledger', href: '/wholesaler/ledger', icon: BookOpen },
+    { name: 'Business Advisor', href: '/wholesaler/advisor', icon: BrainCircuit },
     { name: 'AI Khatta Scan', href: '/wholesaler/khatta', icon: Camera },
   ];
 

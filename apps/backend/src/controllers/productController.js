@@ -1,24 +1,26 @@
 import { prisma } from '../config/db.js';
 
+const normalizeProductInput = (body) => ({
+  name: body.name,
+  sku: body.sku,
+  description: body.description || null,
+  imageUrl: body.imageUrl || null,
+  category: body.category || undefined,
+  price: parseFloat(body.price),
+  costPrice: parseFloat(body.costPrice || 0),
+  currentStock: parseInt(body.currentStock || 0, 10),
+  minStock: parseInt(body.minStock || 10, 10)
+});
+
 export const createProduct = async (req, res) => {
   try {
-    // 1. UPDATED: Extracted 'category' from the frontend request
-    const { name, sku, category, price, costPrice, currentStock, minStock, description, imageUrl } = req.body;
     const wholesalerId = req.user.wholesalerId;
+    const productData = normalizeProductInput(req.body);
 
     const newProduct = await prisma.product.create({
       data: {
         wholesalerId,
-        name,
-        sku,
-        description,
-        imageUrl,
-        // 2. UPDATED: Save the category. If it's blank, send undefined so Prisma uses @default("General")
-        category: category || undefined, 
-        price: parseFloat(price),
-        costPrice: parseFloat(costPrice || 0),
-        currentStock: parseInt(currentStock || 0),
-        minStock: parseInt(minStock || 10)
+        ...productData
       }
     });
 
@@ -65,8 +67,10 @@ export const getMarketplaceProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const product = await prisma.product.findFirst({
+      where: req.user.role === 'WHOLESALER'
+        ? { id, wholesalerId: req.user.wholesalerId }
+        : { id },
       include: {
         wholesaler: { select: { businessName: true } },
         reviews: {
@@ -81,6 +85,48 @@ export const getProductById = async (req, res) => {
   } catch (error) {
     console.error('Get Product Error:', error);
     res.status(500).json({ error: 'Failed to fetch product details' });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const wholesalerId = req.user.wholesalerId;
+    const existingProduct = await prisma.product.findFirst({
+      where: { id, wholesalerId }
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const productData = normalizeProductInput(req.body);
+    const stockChange = productData.currentStock - existingProduct.currentStock;
+
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id },
+        data: productData
+      });
+
+      if (stockChange !== 0) {
+        await tx.inventoryLog.create({
+          data: {
+            wholesalerId,
+            productId: id,
+            changeAmount: stockChange,
+            reason: 'MANUAL_ADJUSTMENT'
+          }
+        });
+      }
+
+      return product;
+    });
+
+    res.status(200).json({ message: 'Product updated', product: updatedProduct });
+  } catch (error) {
+    console.error('Update Product Error:', error);
+    res.status(500).json({ error: 'Failed to update product' });
   }
 };
 export const addReview = async (req, res) => {

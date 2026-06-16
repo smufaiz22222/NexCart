@@ -4,16 +4,34 @@ import { useNavigate } from 'react-router-dom';
 import useCartStore from '../store/cartStore';
 import apiClient from '../api/axios';
 
+const loadRazorpayScript = () =>
+  new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, getTotalPrice, clearCart } = useCartStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingAddress, setShippingAddress] = useState(''); 
+  const [paymentMethod, setPaymentMethod] = useState('');
   const navigate = useNavigate();
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     if (!shippingAddress.trim()) {
       return alert("Please enter a shipping address before placing your order.");
+    }
+    if (!paymentMethod) {
+      return alert('Please select a payment method before placing your order.');
     }
     
     setIsProcessing(true);
@@ -25,13 +43,69 @@ export default function Cart() {
         recommendationId: item.recommendationContext?.recommendationId
       }));
 
-      await apiClient.post('/orders/checkout', { items: orderItems, shippingAddress });
-      
-      alert('Order placed successfully!');
-      clearCart();
-      navigate('/store/orders');
+      if (paymentMethod === 'COD') {
+        await apiClient.post('/orders/checkout', {
+          items: orderItems,
+          shippingAddress,
+          paymentMethod: 'COD'
+        });
+
+        alert('COD order placed successfully!');
+        clearCart();
+        navigate('/store/orders');
+        return;
+      }
+
+      const razorpayLoaded = await loadRazorpayScript();
+      if (!razorpayLoaded) {
+        throw new Error('Failed to load Razorpay checkout. Please try again.');
+      }
+
+      const createResponse = await apiClient.post('/orders/prepaid/create', {
+        items: orderItems,
+        shippingAddress,
+        paymentMethod: 'PREPAID'
+      });
+
+      const { keyId, razorpayOrderId, amount, currency } = createResponse.data;
+
+      await new Promise((resolve, reject) => {
+        const razorpay = new window.Razorpay({
+          key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+          amount,
+          currency,
+          name: 'NexCart',
+          description: 'Marketplace prepaid order',
+          order_id: razorpayOrderId,
+          handler: async (response) => {
+            try {
+              await apiClient.post('/orders/prepaid/verify', {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              });
+
+              clearCart();
+              navigate('/store/orders');
+              alert('Prepaid order placed successfully!');
+              resolve();
+            } catch (verificationError) {
+              reject(new Error(verificationError.response?.data?.error || 'Payment verification failed'));
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error('Payment cancelled by user'))
+          },
+          theme: {
+            color: '#f59e0b'
+          },
+          prefill: {}
+        });
+
+        razorpay.open();
+      });
     } catch (error) {
-      alert(error.response?.data?.error || 'Checkout failed');
+      alert(error.response?.data?.error || error.message || 'Checkout failed');
     } finally {
       setIsProcessing(false);
     }
@@ -141,6 +215,40 @@ export default function Cart() {
           ></textarea>
         </div>
 
+        <div className="p-6 border-t border-zinc-800 bg-[#1c1c1c]">
+          <h3 className="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">
+            Payment Method
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                value: 'COD',
+                label: 'Cash on Delivery',
+                description: 'Place the order now and pay when it arrives.'
+              },
+              {
+                value: 'PREPAID',
+                label: 'Prepaid (Razorpay)',
+                description: 'Pay securely online with Razorpay before order confirmation.'
+              }
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPaymentMethod(option.value)}
+                className={`rounded-lg border p-4 text-left transition-all ${
+                  paymentMethod === option.value
+                    ? 'border-amber-400 bg-amber-500/10 text-white'
+                    : 'border-zinc-700 bg-[#0a0a0a] text-zinc-300 hover:border-zinc-500'
+                }`}
+              >
+                <p className="font-bold tracking-wide">{option.label}</p>
+                <p className="mt-1 text-xs leading-5 text-zinc-400">{option.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-[#0a0a0a] p-6 sm:p-8 border-t border-zinc-800">
           <div className="flex justify-between items-end mb-8">
             <span className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Subtotal</span>
@@ -158,7 +266,7 @@ export default function Cart() {
                 : 'bg-amber-500 text-[#0a0a0a] hover:bg-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] active:scale-[0.99]'
             }`}
           >
-            {isProcessing ? 'Processing Order...' : 'Place Secure Order'}
+            {isProcessing ? 'Processing Order...' : paymentMethod === 'PREPAID' ? 'Pay & Place Order' : 'Place Secure Order'}
             {!isProcessing && <ArrowRight className="ml-2.5 h-5 w-5" />}
           </button>
         </div>

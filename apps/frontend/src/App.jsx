@@ -12,6 +12,8 @@ import Store from './pages/Store';
 import Orders from './pages/Orders';
 import Ledger from './pages/Ledger';
 import AiKhatta from './pages/AiKhatta';
+import BusinessAdvisor from './pages/BusinessAdvisor';
+import SellerProductDetails from './pages/SellerProductDetails';
 import Storefront from './pages/Storefront';
 import Cart from './pages/Cart';
 import ProductDetails from './pages/ProductDetails';
@@ -79,9 +81,11 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
+          <Route path="products/:id" element={<SellerProductDetails />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="orders" element={<Orders />} />
           <Route path="ledger" element={<Ledger />} />
+          <Route path="advisor" element={<BusinessAdvisor />} />
           <Route path="khatta" element={<AiKhatta />} />
         </Route>
 

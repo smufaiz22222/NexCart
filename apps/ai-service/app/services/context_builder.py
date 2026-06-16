@@ -19,10 +19,15 @@ def build_context_paragraph(ctx: dict) -> str:
     if category != "N/A":
         lines.append(f"The top-performing category is '{category}'.")
 
-    repeat_rate = ctx.get("repeatCustomerRate", "0%")
-    rate_value = float(repeat_rate.strip("%") or 0)
+    repeat_rate = ctx.get("repeatCustomerRate", 0)
+    if isinstance(repeat_rate, str):
+        rate_label = repeat_rate
+        rate_value = float(repeat_rate.strip("%") or 0)
+    else:
+        rate_value = float(repeat_rate or 0)
+        rate_label = f"{rate_value:.2f}%"
     lines.append(
-        f"Repeat customer rate is {repeat_rate}. "
+        f"Repeat customer rate is {rate_label}. "
         + ("This is healthy." if rate_value >= 30 else "Retention needs improvement.")
     )
 

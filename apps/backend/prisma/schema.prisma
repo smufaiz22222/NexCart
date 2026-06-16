@@ -29,6 +29,17 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  COD
+  PREPAID
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 enum InteractionAction {
   view
   wishlist
@@ -59,6 +70,7 @@ model User {
   interactions RecommendationInteraction[]
   recommendationLogs RecommendationLog[]
   recommendationEvents RecommendationEvent[]
+  prepaidCheckoutSessions PrepaidCheckoutSession[]
 
   wholesalerProfile Wholesaler? 
 
@@ -139,6 +151,10 @@ model Order {
   buyer        User        @relation("BuyerOrders", fields: [buyerId], references: [id])
   
   status       OrderStatus @default(PENDING)
+  paymentMethod PaymentMethod @default(COD)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentProvider String?
+  paymentReference String?
   totalAmount  Decimal     @db.Decimal(10, 2)
   shippingAddress String?
 
@@ -147,6 +163,23 @@ model Order {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PrepaidCheckoutSession {
+  id              String        @id @default(uuid())
+  buyerId         String
+  buyer           User          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  razorpayOrderId String        @unique
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("INR")
+  payload         Json
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentReference String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([buyerId])
+  @@index([paymentStatus])
 }
 
 model OrderItem {

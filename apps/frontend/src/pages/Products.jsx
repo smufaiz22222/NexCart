@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, PackageSearch, Package } from 'lucide-react';
 import apiClient from '../api/axios';
 
 export default function Products() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -92,8 +94,8 @@ export default function Products() {
         </div>
       ) : (
         <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-800">
+          <div className="w-full overflow-x-auto">
+            <table className="min-w-[820px] w-full divide-y divide-zinc-800">
               <thead className="bg-[#0a0a0a]">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">Product</th>
@@ -106,9 +108,13 @@ export default function Products() {
               </thead>
               <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
                 {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-zinc-800/40 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                  <tr
+                    key={product.id}
+                    onClick={() => navigate(`/wholesaler/products/${product.id}`)}
+                    className="cursor-pointer hover:bg-zinc-800/40 transition-colors group"
+                  >
+                    <td className="px-4 py-4 sm:px-6 align-top">
+                      <div className="flex items-start min-w-0">
                         <div className="flex-shrink-0 h-12 w-12 bg-[#F5F5F0] rounded-md overflow-hidden flex items-center justify-center border border-zinc-700 group-hover:border-amber-500/30 transition-colors">
                           {product.imageUrl ? (
                             <img src={product.imageUrl} alt="" className="h-full w-full object-contain mix-blend-multiply p-1" />
@@ -116,18 +122,22 @@ export default function Products() {
                             <span className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">No Img</span>
                           )}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors">{product.name}</div>
-                          <div className="text-xs text-zinc-500 truncate max-w-[200px] mt-0.5">{product.description || 'No description'}</div>
+                        <div className="ml-4 min-w-0">
+                          <div className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors break-words leading-5">
+                            {product.name}
+                          </div>
+                          <div className="mt-0.5 max-w-[280px] text-xs leading-5 text-zinc-500 break-words line-clamp-2">
+                            {product.description || 'No description'}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400 font-mono">{product.sku}</td>
+                    <td className="px-4 py-4 sm:px-6 text-sm text-zinc-400 font-mono break-all align-top">{product.sku}</td>
                     
                     {/* 4. UPDATED: Display Category in Table */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 sm:px-6 align-top">
                       {product.category ? (
-                        <span className="bg-zinc-800 px-2 py-1 rounded text-xs text-zinc-300 border border-zinc-700">
+                        <span className="inline-flex max-w-[180px] break-words bg-zinc-800 px-2 py-1 rounded text-xs text-zinc-300 border border-zinc-700">
                           {product.category}
                         </span>
                       ) : (
@@ -135,10 +145,10 @@ export default function Products() {
                       )}
                     </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-500">
+                    <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm font-bold text-amber-500 align-top">
                       ₹{parseFloat(product.price).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 sm:px-6 whitespace-nowrap align-top">
                       <span className={`px-2.5 py-1 inline-flex text-[11px] leading-5 font-bold uppercase tracking-wide rounded-sm border ${
                         product.currentStock > (product.minStock || 10) 
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
@@ -181,7 +191,7 @@ export default function Products() {
                 </div>
 
                 {/* 5. UPDATED: SKU and Category placed side-by-side */}
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">SKU Code *</label>
                     <input required type="text" name="sku" value={formData.sku} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all font-mono" />
@@ -192,7 +202,7 @@ export default function Products() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Selling Price (₹) *</label>
                     <input required type="number" step="0.01" min="0" name="price" value={formData.price} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all" />
@@ -203,7 +213,7 @@ export default function Products() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Initial Stock</label>
                     <input type="number" min="0" name="currentStock" value={formData.currentStock} onChange={handleChange} className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all" />
@@ -222,7 +232,7 @@ export default function Products() {
             </div>
             
             {/* Sticky Footer */}
-            <div className="px-6 py-4 border-t border-zinc-800 bg-[#0a0a0a] flex justify-end space-x-3 sticky bottom-0 z-10">
+            <div className="px-6 py-4 border-t border-zinc-800 bg-[#0a0a0a] flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:space-x-3 sticky bottom-0 z-10">
               <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 border border-zinc-700 rounded-md text-sm font-medium text-zinc-300 bg-[#1c1c1c] hover:bg-zinc-800 transition-colors">
                 Cancel
               </button>

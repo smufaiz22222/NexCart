@@ -10,6 +10,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from app.services.document_utils import normalize_chunk_metadata
 from app.vectorstore.chroma_store import add_documents, get_vectorstore
 
 router = APIRouter()
@@ -59,6 +60,8 @@ async def ingest_documents():
             separators=["\n\n", "\n", ". ", " ", ""],
         )
         chunks = splitter.split_documents(raw_docs)
+        for chunk in chunks:
+            chunk.metadata = normalize_chunk_metadata(chunk.metadata, page_is_zero_based=True)
         print(f"[Ingest] Split into {len(chunks)} chunks")
 
         # ── Store in ChromaDB ──────────────────────────────────────────────
