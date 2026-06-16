@@ -1,5 +1,9 @@
 import express from 'express';
-import { recordPayment, getCustomerLedger, getAllLedgerEntries } from '../controllers/ledgerController.js';
+import {
+  recordPayment,
+  getCustomerLedger,
+  getAllLedgerEntries,
+} from '../controllers/ledgerController.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();

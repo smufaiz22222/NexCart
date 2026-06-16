@@ -16,13 +16,13 @@ router.get('/wholesaler-summary', authenticate, requireWholesaler, async (req, r
     const wholesalerId = req.user.wholesalerId;
 
     const entries = await prisma.ledgerEntry.findMany({
-      where: { wholesalerId }
+      where: { wholesalerId },
     });
 
     let totalCollection = 0;
     let netBalance = 0;
 
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       const amount = parseFloat(entry.amount);
       netBalance += amount;
       if (amount > 0) {
@@ -53,9 +53,9 @@ router.get('/advisor-context', authenticate, requireWholesaler, async (req, res)
           currentStock: true,
           minStock: true,
           _count: {
-            select: { orderItems: true }
-          }
-        }
+            select: { orderItems: true },
+          },
+        },
       }),
       prisma.order.findMany({
         where: { sellerId: wholesalerId },
@@ -67,12 +67,12 @@ router.get('/advisor-context', authenticate, requireWholesaler, async (req, res)
             select: {
               quantity: true,
               product: {
-                select: { category: true }
-              }
-            }
-          }
-        }
-      })
+                select: { category: true },
+              },
+            },
+          },
+        },
+      }),
     ]);
 
     const monthlySales = orders
@@ -86,7 +86,9 @@ router.get('/advisor-context', authenticate, requireWholesaler, async (req, res)
       (product) => product.currentStock > 0 && product.currentStock < product.minStock
     ).length;
 
-    const unsoldInventory = products.filter((product) => (product._count?.orderItems || 0) === 0).length;
+    const unsoldInventory = products.filter(
+      (product) => (product._count?.orderItems || 0) === 0
+    ).length;
 
     const categorySales = {};
     orders.forEach((order) => {
@@ -96,7 +98,8 @@ router.get('/advisor-context', authenticate, requireWholesaler, async (req, res)
       });
     });
 
-    const topSellingCategory = Object.entries(categorySales).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+    const topSellingCategory =
+      Object.entries(categorySales).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
     const buyerOrderCounts = {};
     orders.forEach((order) => {
@@ -106,9 +109,8 @@ router.get('/advisor-context', authenticate, requireWholesaler, async (req, res)
 
     const distinctBuyers = Object.keys(buyerOrderCounts).length;
     const repeatBuyers = Object.values(buyerOrderCounts).filter((count) => count > 1).length;
-    const repeatCustomerRate = distinctBuyers > 0
-      ? Number((((repeatBuyers / distinctBuyers) * 100)).toFixed(2))
-      : 0;
+    const repeatCustomerRate =
+      distinctBuyers > 0 ? Number(((repeatBuyers / distinctBuyers) * 100).toFixed(2)) : 0;
 
     res.json({
       monthlySales: Number(monthlySales.toFixed(2)),
@@ -117,7 +119,7 @@ router.get('/advisor-context', authenticate, requireWholesaler, async (req, res)
       topSellingCategory,
       repeatCustomerRate,
       totalProducts: products.length,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Advisor Context Error:', error);
@@ -133,15 +135,15 @@ router.get('/advanced-summary', authenticate, requireWholesaler, async (req, res
     const orders = await prisma.order.findMany({
       where: { sellerId: wholesalerId },
       include: {
-        items: { include: { product: true } }
+        items: { include: { product: true } },
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
 
     const chartStats = {};
     const productStats = {};
 
-    orders.forEach(order => {
+    orders.forEach((order) => {
       const date = new Date(order.createdAt);
       let dateKey;
       if (timeframe === 'daily') {
@@ -151,12 +153,12 @@ router.get('/advanced-summary', authenticate, requireWholesaler, async (req, res
       } else {
         dateKey = date.toLocaleString('default', { month: 'short', year: '2-digit' });
       }
-      
+
       if (!chartStats[dateKey]) {
         chartStats[dateKey] = { name: dateKey, revenue: 0, profit: 0 };
       }
 
-      order.items.forEach(item => {
+      order.items.forEach((item) => {
         const qty = item.quantity;
         const price = parseFloat(item.price);
         const cost = item.product?.costPrice || 0;
@@ -173,7 +175,7 @@ router.get('/advanced-summary', authenticate, requireWholesaler, async (req, res
             name: item.product?.name || 'Deleted Item',
             price: price,
             sold: 0,
-            profit: 0
+            profit: 0,
           };
         }
         productStats[pId].sold += qty;
@@ -187,7 +189,7 @@ router.get('/advanced-summary', authenticate, requireWholesaler, async (req, res
 
     res.json({
       chartData: Object.values(chartStats),
-      topProducts
+      topProducts,
     });
   } catch (error) {
     console.error('Advanced Summary Error:', error);

@@ -13,17 +13,17 @@ const useAuthStore = create((set) => ({
     try {
       const response = await apiClient.post('/auth/login', { email, password });
       const { token, user } = response.data;
-      
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      
+
       set({ user, token, isAuthenticated: true, isLoading: false });
-      
+
       return user;
     } catch (error) {
-      set({ 
-        error: error.response?.data?.error || 'Login failed. Please check your credentials.', 
-        isLoading: false 
+      set({
+        error: error.response?.data?.error || 'Login failed. Please check your credentials.',
+        isLoading: false,
       });
       throw error;
     }
@@ -36,9 +36,9 @@ const useAuthStore = create((set) => ({
       set({ isLoading: false });
       return response.data;
     } catch (error) {
-      set({ 
-        error: error.response?.data?.error || 'Registration failed.', 
-        isLoading: false 
+      set({
+        error: error.response?.data?.error || 'Registration failed.',
+        isLoading: false,
       });
       throw error;
     }
@@ -50,6 +50,5 @@ const useAuthStore = create((set) => ({
     set({ user: null, token: null, isAuthenticated: false });
   },
 }));
-
 
 export default useAuthStore;

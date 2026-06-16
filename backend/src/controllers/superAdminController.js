@@ -6,10 +6,10 @@ export const getAllWholesalers = async (req, res) => {
       include: {
         user: { select: { email: true, createdAt: true, role: true } },
         _count: {
-          select: { customers: true, products: true, orders: true }
-        }
+          select: { customers: true, products: true, orders: true },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     res.status(200).json({ count: wholesalers.length, wholesalers });
@@ -27,16 +27,16 @@ export const getTenantData = async (req, res) => {
       include: {
         user: { select: { email: true } },
         products: { select: { id: true, name: true, currentStock: true, price: true } },
-        orders: { 
+        orders: {
           select: { id: true, status: true, totalAmount: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
-          take: 10
+          take: 10,
         },
         ledgerEntries: {
           orderBy: { createdAt: 'desc' },
-          take: 10
-        }
-      }
+          take: 10,
+        },
+      },
     });
 
     if (!tenantDetails) {
@@ -56,15 +56,15 @@ export const getGlobalStats = async (req, res) => {
       prisma.customer.count(),
       prisma.order.count(),
       prisma.order.aggregate({
-        _sum: { totalAmount: true }
-      })
+        _sum: { totalAmount: true },
+      }),
     ]);
 
     res.status(200).json({
       totalWholesalers,
       totalCustomers,
       totalOrders,
-      totalPlatformRevenue: totalRevenue._sum.totalAmount || 0
+      totalPlatformRevenue: totalRevenue._sum.totalAmount || 0,
     });
   } catch (error) {
     console.error('Global Stats Error:', error);

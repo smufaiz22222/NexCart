@@ -56,4 +56,11 @@ Thumbs.db
 # Cache and temporary files
 .cache/
 .pytest_cache/
+.eslintcache
+*.eslintcache
 *.crdownload
+
+# Agent and workspace files
+.agents/
+.codex/
+skills-lock.json

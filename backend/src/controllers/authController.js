@@ -13,36 +13,36 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    let newUser;
     if (role === 'WHOLESALER') {
-      if (!businessName) return res.status(400).json({ error: 'Business name is required for Wholesalers' });
-      
-      newUser = await prisma.user.create({
+      if (!businessName)
+        return res.status(400).json({ error: 'Business name is required for Wholesalers' });
+
+      await prisma.user.create({
         data: {
           name,
           email,
           password: hashedPassword,
           role: 'WHOLESALER',
           wholesalerProfile: {
-            create: { businessName }
-          }
+            create: { businessName },
+          },
         },
-        include: { wholesalerProfile: true }
+        include: { wholesalerProfile: true },
       });
     } else {
-      newUser = await prisma.user.create({
+      await prisma.user.create({
         data: {
           name,
           email,
           password: hashedPassword,
-          role: 'CUSTOMER'
-        }
+          role: 'CUSTOMER',
+        },
       });
     }
 
     res.status(201).json({ message: 'Registration successful. Please log in.' });
   } catch (error) {
-    console.error("REGISTER ERROR:", error);
+    console.error('REGISTER ERROR:', error);
     res.status(500).json({ error: 'Registration failed' });
   }
 };
@@ -53,7 +53,7 @@ export const login = async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { wholesalerProfile: true }
+      include: { wholesalerProfile: true },
     });
 
     if (!user) {
@@ -68,7 +68,9 @@ export const login = async (req, res) => {
     const payload = {
       userId: user.id,
       role: user.role,
-      ...(user.role === 'WHOLESALER' && user.wholesalerProfile ? { wholesalerId: user.wholesalerProfile.id } : {})
+      ...(user.role === 'WHOLESALER' && user.wholesalerProfile
+        ? { wholesalerId: user.wholesalerProfile.id }
+        : {}),
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -81,11 +83,11 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        businessName: user.wholesalerProfile?.businessName || null
-      }
+        businessName: user.wholesalerProfile?.businessName || null,
+      },
     });
   } catch (error) {
-    console.error("LOGIN ERROR:", error);
+    console.error('LOGIN ERROR:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 };

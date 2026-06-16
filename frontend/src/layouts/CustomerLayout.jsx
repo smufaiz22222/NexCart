@@ -6,7 +6,7 @@ export default function CustomerLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const _handleLogout = () => {
     logout();
     navigate('/login');
   };
@@ -14,7 +14,6 @@ export default function CustomerLayout() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
       <header className="h-14 bg-[#1c1c1c]/95 backdrop-blur-md border-b border-zinc-800 shadow-[0_1px_5px_rgba(0,0,0,0.5)] flex items-center justify-between px-6 z-50">
-      
         <div className="flex items-center">
           <div className="bg-amber-500/10 p-1.5 rounded-md border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.05)]">
             <Store className="h-4 w-4 text-amber-500" />

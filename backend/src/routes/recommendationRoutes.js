@@ -8,7 +8,7 @@ import {
   getSimilarProducts,
   getUserRecommendations,
   resetRecommendationAnalytics,
-  resetRecommendationEvaluation
+  resetRecommendationEvaluation,
 } from '../controllers/recommendationController.js';
 import { authenticate, requireRoles } from '../middlewares/authMiddleware.js';
 
@@ -22,7 +22,15 @@ router.get('/analytics', requireRoles('WHOLESALER', 'SUPER_ADMIN'), getRecommend
 router.get('/health', requireRoles('WHOLESALER', 'SUPER_ADMIN'), getRecommendationHealth);
 router.get('/evaluation', requireRoles('SUPER_ADMIN'), getRecommendationEvaluation);
 router.post('/maintenance/clear-logs', requireRoles('SUPER_ADMIN'), clearRecommendationLogs);
-router.post('/maintenance/reset-evaluation', requireRoles('SUPER_ADMIN'), resetRecommendationEvaluation);
-router.post('/maintenance/reset-analytics', requireRoles('SUPER_ADMIN'), resetRecommendationAnalytics);
+router.post(
+  '/maintenance/reset-evaluation',
+  requireRoles('SUPER_ADMIN'),
+  resetRecommendationEvaluation
+);
+router.post(
+  '/maintenance/reset-analytics',
+  requireRoles('SUPER_ADMIN'),
+  resetRecommendationAnalytics
+);
 
 export default router;

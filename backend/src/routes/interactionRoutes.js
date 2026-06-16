@@ -1,5 +1,9 @@
 import express from 'express';
-import { createInteraction, createRecommendationEvent, createRecommendationEvents } from '../controllers/interactionController.js';
+import {
+  createInteraction,
+  createRecommendationEvent,
+  createRecommendationEvents,
+} from '../controllers/interactionController.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();

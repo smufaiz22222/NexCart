@@ -5,16 +5,16 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
   const users = await prisma.user.findMany({
     where: {
       ordersPlaced: {
-        some: {}
-      }
+        some: {},
+      },
     },
     select: {
       id: true,
       ordersPlaced: {
         orderBy: { createdAt: 'asc' },
-        include: { items: true }
-      }
-    }
+        include: { items: true },
+      },
+    },
   });
 
   let evaluatedUsers = 0;
@@ -27,7 +27,9 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
   const recommendedProductIdsForDiversity = new Set();
 
   for (const user of users) {
-    const purchasedProductIds = user.ordersPlaced.flatMap((order) => order.items.map((item) => item.productId));
+    const purchasedProductIds = user.ordersPlaced.flatMap((order) =>
+      order.items.map((item) => item.productId)
+    );
     const uniquePurchases = [...new Set(purchasedProductIds)];
     if (uniquePurchases.length < 2) continue;
 
@@ -37,7 +39,7 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
       productId: anchorProductId,
       userId: user.id,
       limit: k,
-      trackingMode: 'none'
+      trackingMode: 'none',
     });
     const recommendedIds = result.recommendations.map((item) => item.product.id);
     recommendedIds.forEach((productId) => uniqueRecommendedProductIds.add(productId));
@@ -63,12 +65,12 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
       ndcgAtK: 0,
       hitRateAtK: 0,
       coverage: 0,
-      diversity: 0
+      diversity: 0,
     };
 
     if (storeReport) {
       const report = await prisma.recommendationEvaluationReport.create({
-        data: { k, metrics: emptyMetrics, notes }
+        data: { k, metrics: emptyMetrics, notes },
       });
       return { ...emptyMetrics, reportId: report.id };
     }
@@ -80,11 +82,13 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
     prisma.product.count(),
     prisma.product.findMany({
       where: { id: { in: [...recommendedProductIdsForDiversity] } },
-      select: { category: true }
-    })
+      select: { category: true },
+    }),
   ]);
 
-  const uniqueCategories = new Set(recommendedProducts.map((product) => product.category || 'General'));
+  const uniqueCategories = new Set(
+    recommendedProducts.map((product) => product.category || 'General')
+  );
   const metrics = {
     evaluatedUsers,
     precisionAtK: Number((precisionTotal / evaluatedUsers).toFixed(4)),
@@ -92,16 +96,18 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
     mapAtK: Number((mapTotal / evaluatedUsers).toFixed(4)),
     ndcgAtK: Number((ndcgTotal / evaluatedUsers).toFixed(4)),
     hitRateAtK: Number((hits / evaluatedUsers).toFixed(4)),
-    coverage: totalProducts ? Number((uniqueRecommendedProductIds.size / totalProducts).toFixed(4)) : 0,
+    coverage: totalProducts
+      ? Number((uniqueRecommendedProductIds.size / totalProducts).toFixed(4))
+      : 0,
     diversity: recommendedProducts.length
       ? Number((uniqueCategories.size / recommendedProducts.length).toFixed(4))
-      : 0
+      : 0,
   };
 
   if (storeReport) {
     const previousReport = await prisma.recommendationEvaluationReport.findFirst({
       where: { reportType: 'offline' },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     const report = await prisma.recommendationEvaluationReport.create({
@@ -110,19 +116,33 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
         k,
         metrics: {
           ...metrics,
-          comparison: previousReport ? {
-            previousReportId: previousReport.id,
-            previousCreatedAt: previousReport.createdAt,
-            precisionAtKDelta: Number((metrics.precisionAtK - (previousReport.metrics?.precisionAtK || 0)).toFixed(4)),
-            recallAtKDelta: Number((metrics.recallAtK - (previousReport.metrics?.recallAtK || 0)).toFixed(4)),
-            mapAtKDelta: Number((metrics.mapAtK - (previousReport.metrics?.mapAtK || 0)).toFixed(4)),
-            ndcgAtKDelta: Number((metrics.ndcgAtK - (previousReport.metrics?.ndcgAtK || 0)).toFixed(4)),
-            coverageDelta: Number((metrics.coverage - (previousReport.metrics?.coverage || 0)).toFixed(4)),
-            diversityDelta: Number((metrics.diversity - (previousReport.metrics?.diversity || 0)).toFixed(4))
-          } : null
+          comparison: previousReport
+            ? {
+                previousReportId: previousReport.id,
+                previousCreatedAt: previousReport.createdAt,
+                precisionAtKDelta: Number(
+                  (metrics.precisionAtK - (previousReport.metrics?.precisionAtK || 0)).toFixed(4)
+                ),
+                recallAtKDelta: Number(
+                  (metrics.recallAtK - (previousReport.metrics?.recallAtK || 0)).toFixed(4)
+                ),
+                mapAtKDelta: Number(
+                  (metrics.mapAtK - (previousReport.metrics?.mapAtK || 0)).toFixed(4)
+                ),
+                ndcgAtKDelta: Number(
+                  (metrics.ndcgAtK - (previousReport.metrics?.ndcgAtK || 0)).toFixed(4)
+                ),
+                coverageDelta: Number(
+                  (metrics.coverage - (previousReport.metrics?.coverage || 0)).toFixed(4)
+                ),
+                diversityDelta: Number(
+                  (metrics.diversity - (previousReport.metrics?.diversity || 0)).toFixed(4)
+                ),
+              }
+            : null,
         },
-        notes
-      }
+        notes,
+      },
     });
 
     return { ...metrics, reportId: report.id };

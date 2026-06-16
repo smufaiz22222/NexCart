@@ -14,8 +14,8 @@ export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
       productId: true,
       action: true,
       quantity: true,
-      createdAt: true
-    }
+      createdAt: true,
+    },
   });
 
   const scores = new Map();
@@ -32,8 +32,8 @@ export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
     select: {
       productId: true,
       quantity: true,
-      order: { select: { createdAt: true } }
-    }
+      order: { select: { createdAt: true } },
+    },
   });
 
   for (const item of purchasedItems) {
@@ -45,7 +45,11 @@ export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
   return scores;
 };
 
-export const getPopularProducts = async ({ scope = 'trending', limit = 12, excludeProductIds = [] } = {}) => {
+export const getPopularProducts = async ({
+  scope = 'trending',
+  limit = 12,
+  excludeProductIds = [],
+} = {}) => {
   const scores = await getPopularityScores({ scope });
   const rankedIds = [...scores.entries()]
     .filter(([productId]) => !excludeProductIds.includes(productId))
@@ -58,11 +62,11 @@ export const getPopularProducts = async ({ scope = 'trending', limit = 12, exclu
     products = await prisma.product.findMany({
       where: {
         id: { in: rankedIds },
-        currentStock: { gt: 0 }
+        currentStock: { gt: 0 },
       },
       include: {
-        wholesaler: { select: { businessName: true } }
-      }
+        wholesaler: { select: { businessName: true } },
+      },
     });
   }
 
@@ -74,8 +78,10 @@ export const getPopularProducts = async ({ scope = 'trending', limit = 12, exclu
       return {
         product,
         score: scores.get(productId) || 0,
-        reasons: [scope === 'trending' ? 'Trending from recent activity' : 'Popular with NexCart shoppers'],
-        sourceScores: { popularity: scores.get(productId) || 0 }
+        reasons: [
+          scope === 'trending' ? 'Trending from recent activity' : 'Popular with NexCart shoppers',
+        ],
+        sourceScores: { popularity: scores.get(productId) || 0 },
       };
     })
     .filter(Boolean);
@@ -85,13 +91,13 @@ export const getPopularProducts = async ({ scope = 'trending', limit = 12, exclu
   const fallbackProducts = await prisma.product.findMany({
     where: {
       currentStock: { gt: 0 },
-      id: { notIn: [...rankedIds, ...excludeProductIds] }
+      id: { notIn: [...rankedIds, ...excludeProductIds] },
     },
     include: {
-      wholesaler: { select: { businessName: true } }
+      wholesaler: { select: { businessName: true } },
     },
     orderBy: { createdAt: 'desc' },
-    take: limit - rankedProducts.length
+    take: limit - rankedProducts.length,
   });
 
   return [
@@ -100,7 +106,7 @@ export const getPopularProducts = async ({ scope = 'trending', limit = 12, exclu
       product,
       score: 0,
       reasons: ['Newly available product'],
-      sourceScores: { popularity: 0 }
-    }))
+      sourceScores: { popularity: 0 },
+    })),
   ];
 };

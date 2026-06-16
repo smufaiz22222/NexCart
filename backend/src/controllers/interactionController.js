@@ -1,4 +1,8 @@
-import { logInteraction, logRecommendationEvent, logRecommendationEvents } from '../services/interactionService.js';
+import {
+  logInteraction,
+  logRecommendationEvent,
+  logRecommendationEvents,
+} from '../services/interactionService.js';
 
 export const createInteraction = async (req, res) => {
   try {
@@ -10,13 +14,15 @@ export const createInteraction = async (req, res) => {
       quantity: req.body.quantity,
       source: req.body.source,
       recommendationId: req.body.recommendationId,
-      metadata: req.body.metadata || {}
+      metadata: req.body.metadata || {},
     });
 
     res.status(201).json({ message: 'Interaction logged', interaction });
   } catch (error) {
     console.error('Interaction Log Error:', error);
-    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to log interaction' });
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to log interaction' });
   }
 };
 
@@ -27,13 +33,15 @@ export const createRecommendationEvent = async (req, res) => {
       productId: req.body.productId,
       eventType: req.body.eventType,
       userId: req.user?.userId,
-      sessionId: req.body.sessionId
+      sessionId: req.body.sessionId,
     });
 
     res.status(201).json({ message: 'Recommendation event logged', event });
   } catch (error) {
     console.error('Recommendation Event Error:', error);
-    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to log recommendation event' });
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to log recommendation event' });
   }
 };
 
@@ -43,15 +51,17 @@ export const createRecommendationEvents = async (req, res) => {
       recommendationId: req.body.recommendationId,
       events: req.body.events,
       userId: req.user?.userId,
-      sessionId: req.body.sessionId
+      sessionId: req.body.sessionId,
     });
 
     res.status(201).json({
       message: 'Recommendation events logged',
-      count: result.count
+      count: result.count,
     });
   } catch (error) {
     console.error('Recommendation Events Error:', error);
-    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to log recommendation events' });
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to log recommendation events' });
   }
 };

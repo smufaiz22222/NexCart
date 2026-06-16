@@ -1,8 +1,13 @@
 import { prisma } from '../config/db.js';
-import { VALID_INTERACTION_ACTIONS, VALID_RECOMMENDATION_EVENTS } from './recommendationConstants.js';
+import {
+  VALID_INTERACTION_ACTIONS,
+  VALID_RECOMMENDATION_EVENTS,
+} from './recommendationConstants.js';
 
 const VIEW_DEDUPLICATION_WINDOW_MINUTES = 30;
-const IMPRESSION_DEDUPLICATION_WINDOW_MINUTES = Number(process.env.RECOMMENDATION_IMPRESSION_DEDUP_MINUTES || 60);
+const IMPRESSION_DEDUPLICATION_WINDOW_MINUTES = Number(
+  process.env.RECOMMENDATION_IMPRESSION_DEDUP_MINUTES || 60
+);
 const ATTRIBUTION_WINDOW_HOURS = Number(process.env.RECOMMENDATION_ATTRIBUTION_WINDOW_HOURS || 24);
 
 const getProductIdsFromRecommendationLog = (log) => {
@@ -10,11 +15,10 @@ const getProductIdsFromRecommendationLog = (log) => {
   return [];
 };
 
-export const validateRecommendationAttribution = async ({
-  recommendationId,
-  productId,
-  userId
-}, client = prisma) => {
+export const validateRecommendationAttribution = async (
+  { recommendationId, productId, userId },
+  client = prisma
+) => {
   if (!recommendationId) return null;
 
   const log = await client.recommendationLog.findUnique({
@@ -24,8 +28,8 @@ export const validateRecommendationAttribution = async ({
       userId: true,
       productIds: true,
       isEvaluation: true,
-      createdAt: true
-    }
+      createdAt: true,
+    },
   });
 
   if (!log) {
@@ -62,16 +66,14 @@ export const validateRecommendationAttribution = async ({
   return log;
 };
 
-const findDuplicateImpression = async ({
-  recommendationId,
-  productId,
-  userId,
-  sessionId
-}, client = prisma) => {
+const findDuplicateImpression = async (
+  { recommendationId, productId, userId, sessionId },
+  client = prisma
+) => {
   const since = new Date(Date.now() - IMPRESSION_DEDUPLICATION_WINDOW_MINUTES * 60 * 1000);
   const log = await client.recommendationLog.findUnique({
     where: { id: recommendationId },
-    select: { surface: true }
+    select: { surface: true },
   });
 
   if (!log) return null;
@@ -83,26 +85,26 @@ const findDuplicateImpression = async ({
       createdAt: { gte: since },
       recommendationLog: {
         surface: log.surface,
-        isEvaluation: false
+        isEvaluation: false,
       },
-      OR: [
-        userId ? { userId } : undefined,
-        sessionId ? { sessionId } : undefined
-      ].filter(Boolean)
-    }
+      OR: [userId ? { userId } : undefined, sessionId ? { sessionId } : undefined].filter(Boolean),
+    },
   });
 };
 
-export const logInteraction = async ({
-  userId,
-  sessionId,
-  productId,
-  action,
-  quantity = 1,
-  source = 'unknown',
-  recommendationId,
-  metadata = {}
-}, client = prisma) => {
+export const logInteraction = async (
+  {
+    userId,
+    sessionId,
+    productId,
+    action,
+    quantity = 1,
+    source = 'unknown',
+    recommendationId,
+    metadata = {},
+  },
+  client = prisma
+) => {
   if (!VALID_INTERACTION_ACTIONS.includes(action)) {
     const error = new Error(`Unsupported interaction action: ${action}`);
     error.statusCode = 400;
@@ -111,7 +113,7 @@ export const logInteraction = async ({
 
   const product = await client.product.findUnique({
     where: { id: productId },
-    select: { id: true }
+    select: { id: true },
   });
 
   if (!product) {
@@ -127,11 +129,10 @@ export const logInteraction = async ({
         productId,
         action: 'view',
         createdAt: { gte: since },
-        OR: [
-          userId ? { userId } : undefined,
-          sessionId ? { sessionId } : undefined
-        ].filter(Boolean)
-      }
+        OR: [userId ? { userId } : undefined, sessionId ? { sessionId } : undefined].filter(
+          Boolean
+        ),
+      },
     });
 
     if (existingView) return existingView;
@@ -150,8 +151,8 @@ export const logInteraction = async ({
       quantity: Math.max(1, Number(quantity) || 1),
       source,
       recommendationId: recommendationId || null,
-      metadata
-    }
+      metadata,
+    },
   });
 
   if (recommendationId && VALID_RECOMMENDATION_EVENTS.includes(action)) {
@@ -161,8 +162,8 @@ export const logInteraction = async ({
         productId,
         userId: userId || null,
         sessionId: sessionId || null,
-        eventType: action
-      }
+        eventType: action,
+      },
     });
   }
 
@@ -174,7 +175,7 @@ export const logRecommendationEvent = async ({
   productId,
   eventType,
   userId,
-  sessionId
+  sessionId,
 }) => {
   if (!recommendationId) {
     const error = new Error('Recommendation ID is required');
@@ -197,7 +198,12 @@ export const logRecommendationEvent = async ({
   await validateRecommendationAttribution({ recommendationId, productId, userId });
 
   if (eventType === 'impression') {
-    const duplicate = await findDuplicateImpression({ recommendationId, productId, userId, sessionId });
+    const duplicate = await findDuplicateImpression({
+      recommendationId,
+      productId,
+      userId,
+      sessionId,
+    });
     if (duplicate) return duplicate;
   }
 
@@ -207,8 +213,8 @@ export const logRecommendationEvent = async ({
       productId,
       userId: userId || null,
       sessionId: sessionId || null,
-      eventType
-    }
+      eventType,
+    },
   });
 };
 
@@ -216,7 +222,7 @@ export const logRecommendationEvents = async ({
   recommendationId,
   events = [],
   userId,
-  sessionId
+  sessionId,
 }) => {
   if (!recommendationId) {
     const error = new Error('Recommendation ID is required');
@@ -253,7 +259,7 @@ export const logRecommendationEvents = async ({
       productId: event.productId,
       userId: userId || null,
       sessionId: sessionId || null,
-      eventType: event.eventType
+      eventType: event.eventType,
     };
   });
 
@@ -262,7 +268,7 @@ export const logRecommendationEvents = async ({
     await validateRecommendationAttribution({
       recommendationId,
       productId: event.productId,
-      userId
+      userId,
     });
     validatedProducts.add(event.productId);
   }
@@ -274,7 +280,7 @@ export const logRecommendationEvents = async ({
         recommendationId,
         productId: item.productId,
         userId,
-        sessionId
+        sessionId,
       });
       if (duplicate) continue;
     }
@@ -286,16 +292,24 @@ export const logRecommendationEvents = async ({
   return prisma.recommendationEvent.createMany({ data: dedupedData });
 };
 
-export const createPurchaseInteractions = async ({ tx, buyerId, orderItems, source = 'checkout' }) => {
+export const createPurchaseInteractions = async ({
+  tx,
+  buyerId,
+  orderItems,
+  source = 'checkout',
+}) => {
   if (!orderItems.length) return;
 
   for (const item of orderItems) {
     if (item.recommendationId) {
-      await validateRecommendationAttribution({
-        recommendationId: item.recommendationId,
-        productId: item.productId,
-        userId: buyerId
-      }, tx);
+      await validateRecommendationAttribution(
+        {
+          recommendationId: item.recommendationId,
+          productId: item.productId,
+          userId: buyerId,
+        },
+        tx
+      );
     }
   }
 
@@ -308,9 +322,9 @@ export const createPurchaseInteractions = async ({ tx, buyerId, orderItems, sour
       source,
       recommendationId: item.recommendationId || null,
       metadata: {
-        orderItemPrice: item.price?.toString?.() ?? item.price
-      }
-    }))
+        orderItemPrice: item.price?.toString?.() ?? item.price,
+      },
+    })),
   });
 
   const attributedItems = orderItems.filter((item) => item.recommendationId);
@@ -321,8 +335,8 @@ export const createPurchaseInteractions = async ({ tx, buyerId, orderItems, sour
         recommendationLogId: item.recommendationId,
         productId: item.productId,
         userId: buyerId,
-        eventType: 'purchase'
-      }))
+        eventType: 'purchase',
+      })),
     });
   }
 };

@@ -10,7 +10,7 @@ try {
     const metrics = await evaluateRecommendations({
       k,
       storeReport: true,
-      notes: `Benchmark run for Precision@${k}, Recall@${k}, MAP@${k}, NDCG@${k}, coverage, and diversity`
+      notes: `Benchmark run for Precision@${k}, Recall@${k}, MAP@${k}, NDCG@${k}, coverage, and diversity`,
     });
     reports.push({ k, metrics });
   }

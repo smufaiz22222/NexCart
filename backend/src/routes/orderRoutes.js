@@ -6,7 +6,7 @@ import {
   getOrders,
   updateOrderIssue,
   updateOrderStatus,
-  verifyPrepaidOrder
+  verifyPrepaidOrder,
 } from '../controllers/orderController.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 

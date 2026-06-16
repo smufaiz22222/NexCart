@@ -5,7 +5,7 @@ try {
   const metrics = await evaluateRecommendations({
     k: 5,
     storeReport: true,
-    notes: 'Generated from npm run recommendations:evaluate'
+    notes: 'Generated from npm run recommendations:evaluate',
   });
   console.log('Recommendation evaluation:', metrics);
 } catch (error) {

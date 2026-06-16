@@ -5,7 +5,7 @@ import Razorpay from 'razorpay';
 
 const PAYMENT_METHODS = {
   COD: 'COD',
-  PREPAID: 'PREPAID'
+  PREPAID: 'PREPAID',
 };
 
 const PAYMENT_STATUSES = {
@@ -13,13 +13,13 @@ const PAYMENT_STATUSES = {
   PAID: 'PAID',
   FAILED: 'FAILED',
   REFUND_PENDING: 'REFUND_PENDING',
-  REFUNDED: 'REFUNDED'
+  REFUNDED: 'REFUNDED',
 };
 
 const ORDER_ISSUE_TYPES = {
   RETURN: 'RETURN',
   REFUND: 'REFUND',
-  DISPUTE: 'DISPUTE'
+  DISPUTE: 'DISPUTE',
 };
 
 const ORDER_ISSUE_STATUSES = {
@@ -27,7 +27,7 @@ const ORDER_ISSUE_STATUSES = {
   IN_REVIEW: 'IN_REVIEW',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
-  RESOLVED: 'RESOLVED'
+  RESOLVED: 'RESOLVED',
 };
 
 const ORDER_ISSUE_RESOLUTIONS = {
@@ -35,7 +35,7 @@ const ORDER_ISSUE_RESOLUTIONS = {
   REFUND: 'REFUND',
   REPLACEMENT: 'REPLACEMENT',
   STORE_CREDIT: 'STORE_CREDIT',
-  RETURNLESS_REFUND: 'RETURNLESS_REFUND'
+  RETURNLESS_REFUND: 'RETURNLESS_REFUND',
 };
 
 const ORDER_INCLUDE_FOR_RESPONSE = {
@@ -48,12 +48,12 @@ const ORDER_INCLUDE_FOR_RESPONSE = {
       requester: { select: { id: true, name: true, role: true } },
       orderItem: {
         include: {
-          product: { select: { id: true, name: true, imageUrl: true } }
-        }
-      }
+          product: { select: { id: true, name: true, imageUrl: true } },
+        },
+      },
     },
-    orderBy: { createdAt: 'desc' }
-  }
+    orderBy: { createdAt: 'desc' },
+  },
 };
 
 const getRazorpayClient = () => {
@@ -90,7 +90,7 @@ const validateCheckoutInput = ({ items, shippingAddress, paymentMethod }) => {
 const buildOrdersBySeller = async (items) => {
   const productIds = items.map((item) => item.productId);
   const dbProducts = await prisma.product.findMany({
-    where: { id: { in: productIds } }
+    where: { id: { in: productIds } },
   });
 
   const ordersBySeller = {};
@@ -119,12 +119,12 @@ const buildOrdersBySeller = async (items) => {
       productId: product.id,
       quantity: item.quantity,
       price: product.price,
-      recommendationId: item.recommendationId || null
+      recommendationId: item.recommendationId || null,
     });
 
     ordersBySeller[sellerId].inventoryLogs.push({
       productId: product.id,
-      quantity: item.quantity
+      quantity: item.quantity,
     });
 
     ordersBySeller[sellerId].totalAmount += product.price * item.quantity;
@@ -148,7 +148,13 @@ const normalizeIssueResolution = (value) => {
     : ORDER_ISSUE_RESOLUTIONS.NONE;
 };
 
-const applyIssueResolutionSideEffects = async ({ tx, issue, order, nextStatus, nextResolution }) => {
+const applyIssueResolutionSideEffects = async ({
+  tx,
+  issue,
+  order,
+  nextStatus,
+  nextResolution,
+}) => {
   const updates = {};
 
   const shouldRestock =
@@ -156,7 +162,11 @@ const applyIssueResolutionSideEffects = async ({ tx, issue, order, nextStatus, n
     nextStatus === ORDER_ISSUE_STATUSES.RESOLVED &&
     !issue.inventoryAdjusted &&
     issue.orderItem &&
-    [ORDER_ISSUE_RESOLUTIONS.REFUND, ORDER_ISSUE_RESOLUTIONS.REPLACEMENT, ORDER_ISSUE_RESOLUTIONS.STORE_CREDIT].includes(nextResolution);
+    [
+      ORDER_ISSUE_RESOLUTIONS.REFUND,
+      ORDER_ISSUE_RESOLUTIONS.REPLACEMENT,
+      ORDER_ISSUE_RESOLUTIONS.STORE_CREDIT,
+    ].includes(nextResolution);
 
   if (shouldRestock) {
     await tx.inventoryLog.create({
@@ -164,32 +174,37 @@ const applyIssueResolutionSideEffects = async ({ tx, issue, order, nextStatus, n
         wholesalerId: order.sellerId,
         productId: issue.orderItem.productId,
         changeAmount: issue.requestedQuantity,
-        reason: 'REFUND'
-      }
+        reason: 'REFUND',
+      },
     });
 
     await tx.product.update({
       where: { id: issue.orderItem.productId },
-      data: { currentStock: { increment: issue.requestedQuantity } }
+      data: { currentStock: { increment: issue.requestedQuantity } },
     });
 
     updates.inventoryAdjusted = true;
   }
 
-  const isRefundResolution = [ORDER_ISSUE_RESOLUTIONS.REFUND, ORDER_ISSUE_RESOLUTIONS.RETURNLESS_REFUND].includes(nextResolution);
-  const orderWasPaid = [PAYMENT_STATUSES.PAID, PAYMENT_STATUSES.REFUND_PENDING].includes(order.paymentStatus);
+  const isRefundResolution = [
+    ORDER_ISSUE_RESOLUTIONS.REFUND,
+    ORDER_ISSUE_RESOLUTIONS.RETURNLESS_REFUND,
+  ].includes(nextResolution);
+  const orderWasPaid = [PAYMENT_STATUSES.PAID, PAYMENT_STATUSES.REFUND_PENDING].includes(
+    order.paymentStatus
+  );
 
   if (isRefundResolution && orderWasPaid && nextStatus === ORDER_ISSUE_STATUSES.APPROVED) {
     await tx.order.update({
       where: { id: order.id },
-      data: { paymentStatus: PAYMENT_STATUSES.REFUND_PENDING }
+      data: { paymentStatus: PAYMENT_STATUSES.REFUND_PENDING },
     });
   }
 
   if (isRefundResolution && orderWasPaid && nextStatus === ORDER_ISSUE_STATUSES.RESOLVED) {
     await tx.order.update({
       where: { id: order.id },
-      data: { paymentStatus: PAYMENT_STATUSES.REFUNDED }
+      data: { paymentStatus: PAYMENT_STATUSES.REFUNDED },
     });
   }
 
@@ -208,7 +223,7 @@ const createOrdersFromGroupedData = async ({
   paymentMethod,
   paymentStatus,
   paymentProvider = null,
-  paymentReference = null
+  paymentReference = null,
 }) => {
   const createdOrders = [];
 
@@ -225,28 +240,28 @@ const createOrdersFromGroupedData = async ({
         paymentReference,
         shippingAddress,
         items: {
-          create: data.orderItems.map(({ recommendationId, ...orderItem }) => orderItem)
-        }
+          create: data.orderItems.map(({ recommendationId: _, ...orderItem }) => orderItem),
+        },
       },
       include: {
         items: { include: { product: true } },
-        invoice: true
-      }
+        invoice: true,
+      },
     });
 
     await createPurchaseInteractions({
       tx,
       buyerId,
       orderItems: data.orderItems,
-      source: 'checkout'
+      source: 'checkout',
     });
 
     const invoice = await tx.invoice.create({
       data: {
         wholesalerId: sellerId,
         orderId: order.id,
-        amount: data.totalAmount
-      }
+        amount: data.totalAmount,
+      },
     });
 
     await tx.ledgerEntry.create({
@@ -255,8 +270,8 @@ const createOrdersFromGroupedData = async ({
         userId: buyerId,
         amount: -data.totalAmount,
         description: `Marketplace Order ${order.id}`,
-        referenceId: invoice.id
-      }
+        referenceId: invoice.id,
+      },
     });
 
     for (const log of data.inventoryLogs) {
@@ -265,13 +280,13 @@ const createOrdersFromGroupedData = async ({
           wholesalerId: sellerId,
           productId: log.productId,
           changeAmount: -log.quantity,
-          reason: 'SALE'
-        }
+          reason: 'SALE',
+        },
       });
 
       await tx.product.update({
         where: { id: log.productId },
-        data: { currentStock: { decrement: log.quantity } }
+        data: { currentStock: { decrement: log.quantity } },
       });
     }
 
@@ -300,14 +315,16 @@ export const checkout = async (req, res) => {
         ordersBySeller,
         shippingAddress,
         paymentMethod: PAYMENT_METHODS.COD,
-        paymentStatus: PAYMENT_STATUSES.PENDING
+        paymentStatus: PAYMENT_STATUSES.PENDING,
       });
     });
 
     res.status(201).json({ message: 'Checkout successful!', orders: createdOrders });
   } catch (error) {
     console.error('Checkout Error:', error);
-    res.status(error.statusCode || 400).json({ error: error.message || 'Failed to process checkout' });
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to process checkout' });
   }
 };
 
@@ -322,13 +339,16 @@ export const createPrepaidOrder = async (req, res) => {
     }
 
     const ordersBySeller = await buildOrdersBySeller(items);
-    const totalAmount = Object.values(ordersBySeller).reduce((sum, sellerOrder) => sum + sellerOrder.totalAmount, 0);
+    const totalAmount = Object.values(ordersBySeller).reduce(
+      (sum, sellerOrder) => sum + sellerOrder.totalAmount,
+      0
+    );
 
     const razorpay = getRazorpayClient();
     const razorpayOrder = await razorpay.orders.create({
       amount: Math.round(totalAmount * 100),
       currency: 'INR',
-      receipt: `nexcart_${buyerId.slice(0, 8)}_${Date.now()}`
+      receipt: `nexcart_${buyerId.slice(0, 8)}_${Date.now()}`,
     });
 
     await prisma.prepaidCheckoutSession.create({
@@ -340,10 +360,10 @@ export const createPrepaidOrder = async (req, res) => {
         payload: {
           items,
           shippingAddress,
-          paymentMethod
+          paymentMethod,
         },
-        paymentStatus: PAYMENT_STATUSES.PENDING
-      }
+        paymentStatus: PAYMENT_STATUSES.PENDING,
+      },
     });
 
     res.status(201).json({
@@ -352,21 +372,19 @@ export const createPrepaidOrder = async (req, res) => {
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
       buyerId,
-      shippingAddress
+      shippingAddress,
     });
   } catch (error) {
     console.error('Create Prepaid Order Error:', error);
-    res.status(error.statusCode || 400).json({ error: error.message || 'Failed to initialize prepaid checkout' });
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to initialize prepaid checkout' });
   }
 };
 
 export const verifyPrepaidOrder = async (req, res) => {
   try {
-    const {
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature
-    } = req.body;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     const buyerId = req.user.userId;
 
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
@@ -374,7 +392,7 @@ export const verifyPrepaidOrder = async (req, res) => {
     }
 
     const session = await prisma.prepaidCheckoutSession.findUnique({
-      where: { razorpayOrderId }
+      where: { razorpayOrderId },
     });
 
     if (!session || session.buyerId !== buyerId) {
@@ -395,8 +413,8 @@ export const verifyPrepaidOrder = async (req, res) => {
         where: { razorpayOrderId },
         data: {
           paymentStatus: PAYMENT_STATUSES.FAILED,
-          paymentReference: razorpayPaymentId
-        }
+          paymentReference: razorpayPaymentId,
+        },
       });
       return res.status(400).json({ error: 'Invalid Razorpay payment signature' });
     }
@@ -412,15 +430,15 @@ export const verifyPrepaidOrder = async (req, res) => {
         paymentMethod: PAYMENT_METHODS.PREPAID,
         paymentStatus: PAYMENT_STATUSES.PAID,
         paymentProvider: 'razorpay',
-        paymentReference: `${razorpayOrderId}:${razorpayPaymentId}`
+        paymentReference: `${razorpayOrderId}:${razorpayPaymentId}`,
       });
 
       await tx.prepaidCheckoutSession.update({
         where: { razorpayOrderId },
         data: {
           paymentStatus: PAYMENT_STATUSES.PAID,
-          paymentReference: razorpayPaymentId
-        }
+          paymentReference: razorpayPaymentId,
+        },
       });
 
       return orders;
@@ -428,11 +446,13 @@ export const verifyPrepaidOrder = async (req, res) => {
 
     res.status(201).json({
       message: 'Prepaid checkout successful!',
-      orders: createdOrders
+      orders: createdOrders,
     });
   } catch (error) {
     console.error('Verify Prepaid Order Error:', error);
-    res.status(error.statusCode || 400).json({ error: error.message || 'Failed to verify prepaid checkout' });
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to verify prepaid checkout' });
   }
 };
 export const getOrders = async (req, res) => {
@@ -443,13 +463,13 @@ export const getOrders = async (req, res) => {
       orders = await prisma.order.findMany({
         where: { sellerId: req.user.wholesalerId },
         include: ORDER_INCLUDE_FOR_RESPONSE,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
     } else {
       orders = await prisma.order.findMany({
         where: { buyerId: req.user.userId },
         include: ORDER_INCLUDE_FOR_RESPONSE,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
     }
 
@@ -472,7 +492,7 @@ export const updateOrderStatus = async (req, res) => {
 
     const updatedOrder = await prisma.order.update({
       where: { id },
-      data: { status }
+      data: { status },
     });
 
     res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
@@ -485,7 +505,9 @@ export const updateOrderStatus = async (req, res) => {
 export const createOrderIssue = async (req, res) => {
   try {
     if (req.user.role !== 'CUSTOMER') {
-      return res.status(403).json({ error: 'Only customers can create return, refund, or dispute requests' });
+      return res
+        .status(403)
+        .json({ error: 'Only customers can create return, refund, or dispute requests' });
     }
 
     const { id: orderId } = req.params;
@@ -495,7 +517,7 @@ export const createOrderIssue = async (req, res) => {
       preferredResolution,
       reason,
       description,
-      requestedQuantity = 1
+      requestedQuantity = 1,
     } = req.body;
 
     if (!Object.values(ORDER_ISSUE_TYPES).includes(type)) {
@@ -509,8 +531,8 @@ export const createOrderIssue = async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        items: true
-      }
+        items: true,
+      },
     });
 
     if (!order || order.buyerId !== req.user.userId) {
@@ -518,7 +540,9 @@ export const createOrderIssue = async (req, res) => {
     }
 
     if (!canOpenIssueForOrder(order.status, type)) {
-      return res.status(400).json({ error: 'This order is not eligible for that request type yet' });
+      return res
+        .status(400)
+        .json({ error: 'This order is not eligible for that request type yet' });
     }
 
     let item = null;
@@ -543,16 +567,16 @@ export const createOrderIssue = async (req, res) => {
         preferredResolution: normalizeIssueResolution(preferredResolution),
         reason: reason.trim(),
         description: description?.trim() || null,
-        requestedQuantity: parsedQuantity
+        requestedQuantity: parsedQuantity,
       },
       include: {
         requester: { select: { id: true, name: true, role: true } },
         orderItem: {
           include: {
-            product: { select: { id: true, name: true, imageUrl: true } }
-          }
-        }
-      }
+            product: { select: { id: true, name: true, imageUrl: true } },
+          },
+        },
+      },
     });
 
     res.status(201).json({ message: 'Order issue created successfully', issue });
@@ -579,8 +603,8 @@ export const updateOrderIssue = async (req, res) => {
       where: { id: issueId },
       include: {
         order: true,
-        orderItem: true
-      }
+        orderItem: true,
+      },
     });
 
     if (!issue || issue.order.sellerId !== req.user.wholesalerId) {
@@ -599,7 +623,7 @@ export const updateOrderIssue = async (req, res) => {
         issue,
         order: issue.order,
         nextStatus: status,
-        nextResolution
+        nextResolution,
       });
 
       return tx.orderIssue.update({
@@ -609,25 +633,29 @@ export const updateOrderIssue = async (req, res) => {
           finalResolution: nextResolution,
           sellerResponse: sellerResponse?.trim() || null,
           refundAmount: Number.isFinite(parsedRefundAmount) ? parsedRefundAmount : null,
-          ...sideEffectUpdates
+          ...sideEffectUpdates,
         },
         include: {
           requester: { select: { id: true, name: true, role: true } },
           orderItem: {
             include: {
-              product: { select: { id: true, name: true, imageUrl: true } }
-            }
-          }
-        }
+              product: { select: { id: true, name: true, imageUrl: true } },
+            },
+          },
+        },
       });
     });
 
     const updatedOrder = await prisma.order.findUnique({
       where: { id: issue.orderId },
-      include: ORDER_INCLUDE_FOR_RESPONSE
+      include: ORDER_INCLUDE_FOR_RESPONSE,
     });
 
-    res.status(200).json({ message: 'Order issue updated successfully', issue: updatedIssue, order: updatedOrder });
+    res.status(200).json({
+      message: 'Order issue updated successfully',
+      issue: updatedIssue,
+      order: updatedOrder,
+    });
   } catch (error) {
     console.error('Update Order Issue Error:', error);
     res.status(500).json({ error: 'Failed to update order issue' });

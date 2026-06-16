@@ -11,17 +11,19 @@ export const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: { wholesalerProfile: true }
+      include: { wholesalerProfile: true },
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'User for this token no longer exists. Please log in again.' });
+      return res
+        .status(401)
+        .json({ error: 'User for this token no longer exists. Please log in again.' });
     }
 
     req.user = {
       userId: user.id,
       role: user.role,
-      wholesalerId: user.wholesalerProfile?.id ?? null
+      wholesalerId: user.wholesalerProfile?.id ?? null,
     };
     next();
   } catch (error) {
@@ -34,19 +36,21 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-export const requireRoles = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
-  }
+export const requireRoles =
+  (...roles) =>
+  (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
+    }
 
-  next();
-};
+    next();
+  };
 
 export const requireWholesaler = (req, res, next) => {
   if (req.user.role !== 'WHOLESALER') {
     return res.status(403).json({ error: 'Access denied. Wholesaler account required.' });
   }
-  
+
   if (!req.user.wholesalerId) {
     return res.status(400).json({ error: 'Tenant context missing.' });
   }

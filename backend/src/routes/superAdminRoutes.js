@@ -1,5 +1,9 @@
 import express from 'express';
-import { getAllWholesalers, getTenantData, getGlobalStats } from '../controllers/superAdminController.js';
+import {
+  getAllWholesalers,
+  getTenantData,
+  getGlobalStats,
+} from '../controllers/superAdminController.js';
 import { authenticate, requireSuperAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();

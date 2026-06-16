@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, Archive, ShoppingCart, BookOpen, LogOut, Menu, X, Camera, BrainCircuit } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Package,
+  Archive,
+  ShoppingCart,
+  BookOpen,
+  LogOut,
+  Menu,
+  X,
+  Camera,
+  BrainCircuit,
+} from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 export default function WholesalerLayout() {
@@ -26,14 +37,14 @@ export default function WholesalerLayout() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex font-sans selection:bg-amber-500/30 selection:text-amber-200">
-
       <aside className="hidden md:flex w-64 flex-col bg-[#0a0a0a] border-r border-zinc-800 z-20">
         <div className="h-16 flex items-center px-6 font-black text-lg border-b border-zinc-800 tracking-widest text-white">
-          <span className="text-amber-500 mr-2 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">✦</span> <h1 className="text-xl font-bold text-white tracking-tight">
-              Nex<span className="text-amber-500">Cart</span>
-            </h1>
+          <span className="text-amber-500 mr-2 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">✦</span>{' '}
+          <h1 className="text-xl font-bold text-white tracking-tight">
+            Nex<span className="text-amber-500">Cart</span>
+          </h1>
         </div>
-        
+
         <nav className="flex-1 py-6 space-y-1.5 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
@@ -43,15 +54,17 @@ export default function WholesalerLayout() {
                 key={item.name}
                 to={item.href}
                 className={`flex items-center px-6 py-3 text-sm font-bold tracking-wide transition-all duration-300 relative ${
-                  isActive 
-                    ? 'text-amber-500 bg-[#1c1c1c]' 
+                  isActive
+                    ? 'text-amber-500 bg-[#1c1c1c]'
                     : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200'
                 }`}
               >
                 {isActive && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
                 )}
-                <Icon className={`h-5 w-5 mr-3 transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_5px_rgba(245,158,11,0.3)]' : ''}`} />
+                <Icon
+                  className={`h-5 w-5 mr-3 transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_5px_rgba(245,158,11,0.3)]' : ''}`}
+                />
                 {item.name}
               </Link>
             );
@@ -60,9 +73,7 @@ export default function WholesalerLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#0a0a0a]">
-
         <header className="h-16 bg-[#1c1c1c]/90 backdrop-blur-md border-b border-zinc-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-          
           <div className="md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -102,8 +113,8 @@ export default function WholesalerLayout() {
                     to={item.href}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center px-4 py-3 text-sm font-bold tracking-wide rounded-md transition-all duration-200 ${
-                      isActive 
-                        ? 'bg-[#0a0a0a] text-amber-500 border border-zinc-800 shadow-inner' 
+                      isActive
+                        ? 'bg-[#0a0a0a] text-amber-500 border border-zinc-800 shadow-inner'
                         : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
                     }`}
                   >

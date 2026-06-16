@@ -10,7 +10,7 @@ export default function Register() {
     role: 'CUSTOMER',
     businessName: '',
   });
-  
+
   const navigate = useNavigate();
   const { register, isLoading, error } = useAuthStore();
 
@@ -32,7 +32,6 @@ export default function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] font-sans selection:bg-amber-500/30 selection:text-amber-200 px-4 py-12">
       <div className="max-w-md w-full bg-[#1c1c1c] rounded-lg shadow-2xl border border-zinc-800 p-8 space-y-8">
-        
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-white tracking-wide">Create Account</h2>
           <p className="mt-2 text-sm text-zinc-400">Join the Global Marketplace</p>
@@ -46,13 +45,20 @@ export default function Register() {
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">I want to...</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+              I want to...
+            </label>
             <select
               name="role"
               value={formData.role}
               onChange={handleChange}
               className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all appearance-none cursor-pointer"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right .5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em` }}
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                backgroundPosition: `right .5rem center`,
+                backgroundRepeat: `no-repeat`,
+                backgroundSize: `1.5em 1.5em`,
+              }}
             >
               <option value="CUSTOMER">Buy Products (Customer)</option>
               <option value="WHOLESALER">Sell Products (Wholesaler)</option>
@@ -60,7 +66,9 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Full Name</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+              Full Name
+            </label>
             <input
               type="text"
               name="name"
@@ -73,7 +81,9 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Email</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+              Email
+            </label>
             <input
               type="email"
               name="email"
@@ -86,7 +96,9 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Password</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+              Password
+            </label>
             <input
               type="password"
               name="password"
@@ -101,7 +113,9 @@ export default function Register() {
           {/* Dynamic Field: Only show if Wholesaler */}
           {formData.role === 'WHOLESALER' && (
             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-              <label className="block text-xs font-bold text-amber-500/80 uppercase tracking-wider mb-1.5">Business / Shop Name</label>
+              <label className="block text-xs font-bold text-amber-500/80 uppercase tracking-wider mb-1.5">
+                Business / Shop Name
+              </label>
               <input
                 type="text"
                 name="businessName"
@@ -113,7 +127,7 @@ export default function Register() {
               />
             </div>
           )}
-          
+
           <button
             type="submit"
             disabled={isLoading}
@@ -125,7 +139,10 @@ export default function Register() {
 
         <p className="text-center text-sm text-zinc-400 border-t border-zinc-800 pt-6">
           Already have an account?{' '}
-          <Link to="/login" className="font-bold text-amber-500 hover:text-amber-400 hover:underline transition-colors">
+          <Link
+            to="/login"
+            className="font-bold text-amber-500 hover:text-amber-400 hover:underline transition-colors"
+          >
             Sign in
           </Link>
         </p>

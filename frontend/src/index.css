@@ -1,6 +1,36 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+@theme {
+  /* Dynamic optimized typography */
+  --font-sans:
+    'Outfit', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, Open Sans, sans-serif;
+
+  /* Custom Premium Theme & Semantic Colors */
+  --color-brand-primary: var(--color-amber-500);
+  --color-brand-primary-hover: var(--color-amber-400);
+  --color-brand-primary-light: rgba(245, 158, 11, 0.1);
+
+  --color-bg-main: #0a0a0a;
+  --color-bg-card: #1c1c1c;
+  --color-bg-card-hover: rgba(39, 39, 42, 0.4); /* zinc-800/40 equivalent */
+
+  --color-border-subtle: #27272a; /* zinc-800 equivalent */
+  --color-border-accent: rgba(245, 158, 11, 0.2); /* amber-500/20 equivalent */
+
+  --color-text-title: #ffffff;
+  --color-text-body: #a1a1aa; /* zinc-400 equivalent */
+  --color-text-muted: #52525b; /* zinc-600 equivalent */
+
+  --color-semantic-success: #10b981;
+  --color-semantic-success-light: rgba(16, 185, 129, 0.1);
+  --color-semantic-warning: #f59e0b;
+  --color-semantic-warning-light: rgba(245, 158, 11, 0.1);
+  --color-semantic-danger: #ef4444;
+  --color-semantic-danger-light: rgba(239, 68, 68, 0.1);
+}
 
 /* Basic reset for our app background */
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-bg-main text-text-body font-sans;
 }

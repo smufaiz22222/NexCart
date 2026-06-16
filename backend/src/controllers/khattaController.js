@@ -12,7 +12,7 @@ export const processKhattaImage = async (req, res) => {
     const mimeType = image.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
+
     const prompt = `
       Extract transaction lines from this invoice. 
       Return ONLY a raw JSON array.
@@ -23,10 +23,18 @@ export const processKhattaImage = async (req, res) => {
       "isTotal": (Boolean: true if this row is the Grand Total/Subtotal)
     `;
 
-    const result = await model.generateContent([{ inlineData: { data: base64Data, mimeType } }, prompt]);
-    const cleanJsonString = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    const result = await model.generateContent([
+      { inlineData: { data: base64Data, mimeType } },
+      prompt,
+    ]);
+    const cleanJsonString = result.response
+      .text()
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
     res.status(200).json({ entries: JSON.parse(cleanJsonString) });
   } catch (error) {
+    console.error('AI SCAN ERROR:', error);
     res.status(500).json({ error: 'AI Error' });
   }
 };
@@ -39,7 +47,7 @@ export const saveKhattaEntries = async (req, res) => {
       const results = [];
       for (const entry of entries) {
         const customer = await tx.customer.findFirst({
-          where: { user: { email: entry.customerEmail } }
+          where: { user: { email: entry.customerEmail } },
         });
 
         if (customer) {
@@ -49,8 +57,8 @@ export const saveKhattaEntries = async (req, res) => {
               customerId: customer.id,
               amount: parseFloat(entry.amount),
               description: `AI Scan: ${entry.notes}`,
-              referenceId: 'AI_UPLOAD'
-            }
+              referenceId: 'AI_UPLOAD',
+            },
           });
           results.push(newEntry);
         }
@@ -58,7 +66,9 @@ export const saveKhattaEntries = async (req, res) => {
       return results;
     });
 
-    res.status(201).json({ message: `Successfully created ${savedEntries.length} entries`, data: savedEntries });
+    res
+      .status(201)
+      .json({ message: `Successfully created ${savedEntries.length} entries`, data: savedEntries });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to save to database' });

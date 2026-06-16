@@ -13,8 +13,8 @@ const ensureSuperAdmin = async () => {
       name: 'Recommendation Admin',
       email: 'admin@example.com',
       password: hashedPassword,
-      role: 'SUPER_ADMIN'
-    }
+      role: 'SUPER_ADMIN',
+    },
   });
 };
 
@@ -22,7 +22,7 @@ const login = async (email) => {
   const response = await fetch(`${baseUrl}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
   });
 
   if (!response.ok) {
@@ -35,7 +35,7 @@ const login = async (email) => {
 
 const getStatus = async (token, path) => {
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
   return response.status;
 };
@@ -57,9 +57,12 @@ try {
     customerAnalytics: await getStatus(customerToken, '/recommendations/analytics'),
     customerEvaluation: await getStatus(customerToken, '/recommendations/evaluation?store=false'),
     wholesalerAnalytics: await getStatus(wholesalerToken, '/recommendations/analytics'),
-    wholesalerEvaluation: await getStatus(wholesalerToken, '/recommendations/evaluation?store=false'),
+    wholesalerEvaluation: await getStatus(
+      wholesalerToken,
+      '/recommendations/evaluation?store=false'
+    ),
     adminAnalytics: await getStatus(adminToken, '/recommendations/analytics'),
-    adminEvaluation: await getStatus(adminToken, '/recommendations/evaluation?store=false')
+    adminEvaluation: await getStatus(adminToken, '/recommendations/evaluation?store=false'),
   };
 
   assertStatus(results.customerAnalytics, 403, 'customer analytics');

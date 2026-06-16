@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, BrainCircuit, Database, Loader2, RefreshCcw, Send, TriangleAlert } from 'lucide-react';
+import {
+  Bot,
+  BrainCircuit,
+  Database,
+  Loader2,
+  RefreshCcw,
+  Send,
+  TriangleAlert,
+} from 'lucide-react';
 import apiClient from '../api/axios';
 import aiAdvisorClient from '../api/aiAdvisor';
 
@@ -34,7 +42,10 @@ const renderAssistantText = (text) => {
           if (!cleaned) return null;
 
           return isBold ? (
-            <strong key={`segment-${lineIndex}-${segmentIndex}`} className="font-extrabold text-white">
+            <strong
+              key={`segment-${lineIndex}-${segmentIndex}`}
+              className="font-extrabold text-white"
+            >
               {cleaned}
             </strong>
           ) : (
@@ -89,7 +100,9 @@ export default function BusinessAdvisor() {
         setMessages(response.data.messages || []);
         setHistoryError('');
       } catch (fetchError) {
-        setHistoryError(fetchError.response?.data?.detail || 'Failed to load previous advisor conversation.');
+        setHistoryError(
+          fetchError.response?.data?.detail || 'Failed to load previous advisor conversation.'
+        );
       } finally {
         setIsLoadingHistory(false);
       }
@@ -130,7 +143,8 @@ export default function BusinessAdvisor() {
         },
       ]);
     } catch (sendError) {
-      const message = sendError.response?.data?.detail || 'The advisor could not generate a response.';
+      const message =
+        sendError.response?.data?.detail || 'The advisor could not generate a response.';
       setError(message);
       setMessages((current) => [
         ...current,
@@ -183,7 +197,9 @@ export default function BusinessAdvisor() {
                 NexCart Business Advisor
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-300">
-                Ask about sales health, inventory pressure, retention risk, or operational strategy. The advisor starts with your live business metrics and only reaches for the knowledge base when external guidance is actually needed.
+                Ask about sales health, inventory pressure, retention risk, or operational strategy.
+                The advisor starts with your live business metrics and only reaches for the
+                knowledge base when external guidance is actually needed.
               </p>
             </div>
           </div>
@@ -204,7 +220,11 @@ export default function BusinessAdvisor() {
               disabled={isIngesting}
               className="inline-flex items-center rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isIngesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+              {isIngesting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Database className="mr-2 h-4 w-4" />
+              )}
               Ingest Documents
             </button>
           </div>
@@ -225,8 +245,13 @@ export default function BusinessAdvisor() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {metricCards.map((card) => (
-          <div key={card.key} className="rounded-[24px] border border-zinc-800 bg-[#141414] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">{card.label}</p>
+          <div
+            key={card.key}
+            className="rounded-[24px] border border-zinc-800 bg-[#141414] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+              {card.label}
+            </p>
             <p className="mt-4 text-2xl font-black tracking-tight text-white">
               {isLoadingContext ? '...' : formatMetricValue(card.key, businessContext?.[card.key])}
             </p>
@@ -238,13 +263,20 @@ export default function BusinessAdvisor() {
         <div className="overflow-hidden rounded-[28px] border border-zinc-800 bg-[#101010] shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-500">Advisor Transcript</p>
-              <p className="mt-1 text-sm text-zinc-400">Session-linked conversation memory stays attached to this browser session.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-500">
+                Advisor Transcript
+              </p>
+              <p className="mt-1 text-sm text-zinc-400">
+                Session-linked conversation memory stays attached to this browser session.
+              </p>
             </div>
             <Bot className="h-5 w-5 text-amber-400" />
           </div>
 
-          <div ref={transcriptRef} className="h-[500px] space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(24,24,27,0.5),rgba(9,9,11,0.9))] p-5">
+          <div
+            ref={transcriptRef}
+            className="h-[500px] space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(24,24,27,0.5),rgba(9,9,11,0.9))] p-5"
+          >
             {historyError && !messages.length ? (
               <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {historyError}
@@ -261,9 +293,12 @@ export default function BusinessAdvisor() {
             ) : messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center rounded-[24px] border border-dashed border-zinc-700 bg-black/20 px-6 text-center">
                 <BrainCircuit className="h-10 w-10 text-amber-400" />
-                <h2 className="mt-4 font-serif text-2xl font-black text-white">Ask the advisor what matters now.</h2>
+                <h2 className="mt-4 font-serif text-2xl font-black text-white">
+                  Ask the advisor what matters now.
+                </h2>
                 <p className="mt-2 max-w-md text-sm leading-6 text-zinc-400">
-                  Try questions like “How is my business performing?”, “What inventory issues should I focus on?”, or “What is inventory turnover?”
+                  Try questions like “How is my business performing?”, “What inventory issues should
+                  I focus on?”, or “What is inventory turnover?”
                 </p>
               </div>
             ) : (
@@ -288,7 +323,9 @@ export default function BusinessAdvisor() {
                   </div>
                   {message.sources?.length ? (
                     <div className="mt-4 border-t border-zinc-800/80 pt-3">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500">Sources</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500">
+                        Sources
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {message.sources.map((source) => (
                           <span
@@ -307,7 +344,9 @@ export default function BusinessAdvisor() {
 
             {isSending ? (
               <div className="max-w-xl rounded-[24px] border border-zinc-800 bg-zinc-900/90 px-4 py-4 text-zinc-200">
-                <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-zinc-500">Advisor</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-zinc-500">
+                  Advisor
+                </p>
                 <div className="mt-3 flex items-center text-sm">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-400" />
                   Thinking through your metrics and knowledge base...
@@ -339,19 +378,24 @@ export default function BusinessAdvisor() {
 
         <aside className="space-y-6">
           <div className="rounded-[28px] border border-zinc-800 bg-[#141414] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
-            <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-500">Metric Snapshot</p>
+            <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-500">
+              Metric Snapshot
+            </p>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
               {businessContext?.generatedAt
                 ? `Metrics were generated at ${new Date(businessContext.generatedAt).toLocaleString()}.`
                 : 'Metrics will appear here once the advisor context loads.'}
             </p>
             <div className="mt-4 rounded-[20px] border border-zinc-800 bg-black/25 p-4 text-sm text-zinc-400">
-              The advisor prioritizes live business metrics first, rule-based insights second, and document knowledge only when the question needs it.
+              The advisor prioritizes live business metrics first, rule-based insights second, and
+              document knowledge only when the question needs it.
             </div>
           </div>
 
           <div className="rounded-[28px] border border-zinc-800 bg-[#141414] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
-            <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-500">Suggested Prompts</p>
+            <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-500">
+              Suggested Prompts
+            </p>
             <div className="mt-4 space-y-3">
               {[
                 'How is my business performing?',
@@ -375,9 +419,12 @@ export default function BusinessAdvisor() {
             <div className="flex items-start">
               <TriangleAlert className="mt-0.5 h-5 w-5 text-red-300" />
               <div className="ml-3">
-                <p className="text-xs font-bold uppercase tracking-[0.32em] text-red-200">Guardrails</p>
+                <p className="text-xs font-bold uppercase tracking-[0.32em] text-red-200">
+                  Guardrails
+                </p>
                 <p className="mt-3 text-sm leading-6 text-red-100/90">
-                  The advisor will refuse to invent unavailable revenue, inventory, customer, or document facts. If the knowledge base is weak or missing, it will say so directly.
+                  The advisor will refuse to invent unavailable revenue, inventory, customer, or
+                  document facts. If the knowledge base is weak or missing, it will say so directly.
                 </p>
               </div>
             </div>

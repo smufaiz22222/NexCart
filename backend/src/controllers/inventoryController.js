@@ -10,7 +10,7 @@ export const adjustStock = async (req, res) => {
     }
 
     const product = await prisma.product.findFirst({
-      where: { id: productId, wholesalerId }
+      where: { id: productId, wholesalerId },
     });
 
     if (!product) {
@@ -23,25 +23,24 @@ export const adjustStock = async (req, res) => {
           wholesalerId,
           productId,
           changeAmount: parseInt(changeAmount, 10),
-          reason
-        }
+          reason,
+        },
       });
 
       const updatedProduct = await tx.product.update({
         where: { id: productId },
         data: {
-          currentStock: { increment: parseInt(changeAmount, 10) }
-        }
+          currentStock: { increment: parseInt(changeAmount, 10) },
+        },
       });
 
       return { log, updatedProduct };
     });
 
-    res.status(200).json({ 
-      message: 'Stock adjusted successfully', 
-      data: result 
+    res.status(200).json({
+      message: 'Stock adjusted successfully',
+      data: result,
     });
-
   } catch (error) {
     console.error('Inventory Adjustment Error:', error);
     res.status(500).json({ error: 'Failed to adjust inventory' });
@@ -59,7 +58,7 @@ export const getInventoryLogs = async (req, res) => {
     const logs = await prisma.inventoryLog.findMany({
       where: query,
       orderBy: { createdAt: 'desc' },
-      include: { product: { select: { name: true, sku: true } } }
+      include: { product: { select: { name: true, sku: true } } },
     });
 
     res.status(200).json({ count: logs.length, logs });

@@ -6,24 +6,25 @@ const steps = [
   [process.execPath, ['src/jobs/buildContentRecommendations.js']],
   [process.execPath, ['src/jobs/buildCollaborativeRecommendations.js']],
   [process.execPath, ['src/jobs/buildPopularityRecommendations.js']],
-  [process.execPath, ['src/jobs/benchmarkRecommendations.js']]
+  [process.execPath, ['src/jobs/benchmarkRecommendations.js']],
 ];
 
-const runStep = ([command, args]) => new Promise((resolve, reject) => {
-  const child = spawn(command, args, {
-    stdio: 'inherit',
-    shell: false
-  });
+const runStep = ([command, args]) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: 'inherit',
+      shell: false,
+    });
 
-  child.on('exit', (code) => {
-    if (code === 0) {
-      resolve();
-      return;
-    }
+    child.on('exit', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
 
-    reject(new Error(`Step failed: ${command} ${args.join(' ')}`));
+      reject(new Error(`Step failed: ${command} ${args.join(' ')}`));
+    });
   });
-});
 
 try {
   for (const step of steps) {

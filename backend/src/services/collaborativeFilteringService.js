@@ -26,16 +26,16 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
       userId: true,
       productId: true,
       action: true,
-      quantity: true
-    }
+      quantity: true,
+    },
   });
 
   const orderItems = await prisma.orderItem.findMany({
     select: {
       productId: true,
       quantity: true,
-      order: { select: { buyerId: true } }
-    }
+      order: { select: { buyerId: true } },
+    },
   });
 
   const itemUserMatrix = new Map();
@@ -47,7 +47,8 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
   };
 
   for (const interaction of interactions) {
-    const score = (INTERACTION_WEIGHTS[interaction.action] || 1) * Math.max(1, interaction.quantity || 1);
+    const score =
+      (INTERACTION_WEIGHTS[interaction.action] || 1) * Math.max(1, interaction.quantity || 1);
     addSignal(interaction.productId, interaction.userId, score);
   }
 
@@ -65,7 +66,7 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
       .map((candidateId) => ({
         productId,
         similarProductId: candidateId,
-        score: cosineSimilarity(itemUserMatrix.get(productId), itemUserMatrix.get(candidateId))
+        score: cosineSimilarity(itemUserMatrix.get(productId), itemUserMatrix.get(candidateId)),
       }))
       .filter((candidate) => candidate.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -73,7 +74,7 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
       .map((candidate, index) => ({
         ...candidate,
         method: 'COLLABORATIVE',
-        rank: index + 1
+        rank: index + 1,
       }));
 
     similarityRows.push(...ranked);
@@ -88,7 +89,7 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
 
   return {
     productsProcessed: productIds.length,
-    similaritiesCreated: similarityRows.length
+    similaritiesCreated: similarityRows.length,
   };
 };
 
@@ -97,16 +98,16 @@ export const getCollaborativeSimilarProducts = async ({ productId, limit = 8 }) 
     where: {
       productId,
       method: 'COLLABORATIVE',
-      similarProduct: { currentStock: { gt: 0 } }
+      similarProduct: { currentStock: { gt: 0 } },
     },
     include: {
       similarProduct: {
         include: {
-          wholesaler: { select: { businessName: true } }
-        }
-      }
+          wholesaler: { select: { businessName: true } },
+        },
+      },
     },
     orderBy: { rank: 'asc' },
-    take: limit
+    take: limit,
   });
 };

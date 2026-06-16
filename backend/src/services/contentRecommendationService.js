@@ -15,7 +15,7 @@ const buildCorpus = (product) => {
     product.description,
     product.sku,
     product.sizes?.join(' '),
-    product.wholesaler?.businessName
+    product.wholesaler?.businessName,
   ];
 
   return parts.filter(Boolean).join(' ');
@@ -42,8 +42,8 @@ const cosineSimilarity = (left, right) => {
 export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
   const products = await prisma.product.findMany({
     include: {
-      wholesaler: { select: { businessName: true } }
-    }
+      wholesaler: { select: { businessName: true } },
+    },
   });
 
   if (products.length === 0) {
@@ -86,13 +86,13 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
         update: {
           textCorpus: item.textCorpus,
           tfidfVector: item.vector,
-          version: { increment: 1 }
+          version: { increment: 1 },
         },
         create: {
           productId: item.productId,
           textCorpus: item.textCorpus,
-          tfidfVector: item.vector
-        }
+          tfidfVector: item.vector,
+        },
       });
     }
 
@@ -105,7 +105,7 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
         .map((candidate) => ({
           productId: source.productId,
           similarProductId: candidate.productId,
-          score: cosineSimilarity(source.vector, candidate.vector)
+          score: cosineSimilarity(source.vector, candidate.vector),
         }))
         .filter((candidate) => candidate.score > 0)
         .sort((a, b) => b.score - a.score)
@@ -113,7 +113,7 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
         .map((candidate, index) => ({
           ...candidate,
           method: 'CONTENT',
-          rank: index + 1
+          rank: index + 1,
         }));
 
       similarityRows.push(...ranked);
@@ -133,16 +133,16 @@ export const getContentSimilarProducts = async ({ productId, limit = 8 }) => {
     where: {
       productId,
       method: 'CONTENT',
-      similarProduct: { currentStock: { gt: 0 } }
+      similarProduct: { currentStock: { gt: 0 } },
     },
     include: {
       similarProduct: {
         include: {
-          wholesaler: { select: { businessName: true } }
-        }
-      }
+          wholesaler: { select: { businessName: true } },
+        },
+      },
     },
     orderBy: { rank: 'asc' },
-    take: limit
+    take: limit,
   });
 };

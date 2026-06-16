@@ -6,14 +6,14 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
-  
+
   const { login, isLoading, error } = useAuthStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const user = await login(email, password);
-      
+
       if (user.role === 'SUPER_ADMIN') {
         navigate('/admin');
       } else if (user.role === 'WHOLESALER') {
@@ -29,7 +29,6 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] font-sans selection:bg-amber-500/30 selection:text-amber-200 px-4 py-12">
       <div className="max-w-md w-full bg-[#1c1c1c] rounded-lg shadow-2xl border border-zinc-800 p-8 space-y-8">
-        
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-white tracking-wide">Sign In</h2>
           <p className="mt-2 text-sm text-zinc-400">Access your account</p>
@@ -43,7 +42,9 @@ export default function Login() {
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Email</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+              Email
+            </label>
             <input
               type="email"
               required
@@ -53,13 +54,15 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          
+
           <div>
             {/* --- Updated Label Container with Forgot Password Link --- */}
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Password</label>
-              <Link 
-                to="/forgot-password" 
+              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
                 className="text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors"
                 tabIndex="-1" // Optional: Prevents it from interfering with tab flow from email to password
               >
@@ -88,7 +91,10 @@ export default function Login() {
 
         <p className="text-center text-sm text-zinc-400 border-t border-zinc-800 pt-6">
           Don't have an account?{' '}
-          <Link to="/register" className="font-bold text-amber-500 hover:text-amber-400 hover:underline transition-colors">
+          <Link
+            to="/register"
+            className="font-bold text-amber-500 hover:text-amber-400 hover:underline transition-colors"
+          >
             Register here
           </Link>
         </p>

@@ -16,7 +16,7 @@ const addCandidate = (candidates, product, source, score, reason) => {
   const current = candidates.get(product.id) || {
     product,
     sourceScores: { content: 0, collaborative: 0, popularity: 0, review: 0 },
-    reasons: new Set()
+    reasons: new Set(),
   };
 
   current.sourceScores[source] = Math.max(current.sourceScores[source] || 0, score);
@@ -32,7 +32,7 @@ const addReviewScores = async (candidateMap) => {
     by: ['productId'],
     where: { productId: { in: productIds } },
     _avg: { rating: true },
-    _count: { rating: true }
+    _count: { rating: true },
   });
 
   for (const rating of ratings) {
@@ -53,7 +53,7 @@ const finalizeCandidates = async ({
   userId,
   sessionId,
   trackingMode = 'production',
-  isEvaluation = false
+  isEvaluation = false,
 }) => {
   await addReviewScores(candidates);
 
@@ -69,7 +69,7 @@ const finalizeCandidates = async ({
         product: candidate.product,
         score,
         reasons: [...candidate.reasons].slice(0, 3),
-        sourceScores: candidate.sourceScores
+        sourceScores: candidate.sourceScores,
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -79,7 +79,7 @@ const finalizeCandidates = async ({
     return {
       recommendationId: null,
       algorithm,
-      recommendations: ranked
+      recommendations: ranked,
     };
   }
 
@@ -90,14 +90,14 @@ const finalizeCandidates = async ({
       surface,
       algorithm,
       productIds: ranked.map((item) => item.product.id),
-      isEvaluation
-    }
+      isEvaluation,
+    },
   });
 
   return {
     recommendationId: log.id,
     algorithm,
-    recommendations: ranked
+    recommendations: ranked,
   };
 };
 
@@ -107,34 +107,52 @@ export const getSimilarHybridRecommendations = async ({
   userId,
   sessionId,
   trackingMode = 'production',
-  isEvaluation = false
+  isEvaluation = false,
 }) => {
   const candidates = new Map();
 
   const [contentRows, collaborativeRows] = await Promise.all([
     getContentSimilarProducts({ productId, limit }),
-    getCollaborativeSimilarProducts({ productId, limit })
+    getCollaborativeSimilarProducts({ productId, limit }),
   ]);
 
   const normalizedContent = normalize(contentRows);
   const normalizedCollaborative = normalize(collaborativeRows);
 
   for (const row of normalizedContent) {
-    addCandidate(candidates, row.similarProduct, 'content', row.normalizedScore, 'Similar product details');
+    addCandidate(
+      candidates,
+      row.similarProduct,
+      'content',
+      row.normalizedScore,
+      'Similar product details'
+    );
   }
 
   for (const row of normalizedCollaborative) {
-    addCandidate(candidates, row.similarProduct, 'collaborative', row.normalizedScore, 'Frequently bought or viewed together');
+    addCandidate(
+      candidates,
+      row.similarProduct,
+      'collaborative',
+      row.normalizedScore,
+      'Frequently bought or viewed together'
+    );
   }
 
   const popularRows = await getPopularProducts({
     scope: 'trending',
     limit,
-    excludeProductIds: [productId, ...candidates.keys()]
+    excludeProductIds: [productId, ...candidates.keys()],
   });
   const normalizedPopular = normalize(popularRows);
   for (const row of normalizedPopular) {
-    addCandidate(candidates, row.product, 'popularity', row.normalizedScore, row.reasons[0] || 'Trending product');
+    addCandidate(
+      candidates,
+      row.product,
+      'popularity',
+      row.normalizedScore,
+      row.reasons[0] || 'Trending product'
+    );
   }
 
   candidates.delete(productId);
@@ -147,7 +165,7 @@ export const getSimilarHybridRecommendations = async ({
     userId,
     sessionId,
     trackingMode,
-    isEvaluation
+    isEvaluation,
   });
 };
 
@@ -156,13 +174,13 @@ export const getUserHybridRecommendations = async ({
   sessionId,
   limit = 12,
   trackingMode = 'production',
-  isEvaluation = false
+  isEvaluation = false,
 }) => {
   const candidates = new Map();
   const recentInteractions = await prisma.recommendationInteraction.findMany({
     where: userId ? { userId } : { sessionId: sessionId || '' },
     orderBy: { createdAt: 'desc' },
-    take: 8
+    take: 8,
   });
 
   const seenProductIds = [...new Set(recentInteractions.map((item) => item.productId))];
@@ -170,15 +188,27 @@ export const getUserHybridRecommendations = async ({
   for (const productId of seenProductIds.slice(0, 4)) {
     const [contentRows, collaborativeRows] = await Promise.all([
       getContentSimilarProducts({ productId, limit: 6 }),
-      getCollaborativeSimilarProducts({ productId, limit: 6 })
+      getCollaborativeSimilarProducts({ productId, limit: 6 }),
     ]);
 
     for (const row of normalize(contentRows)) {
-      addCandidate(candidates, row.similarProduct, 'content', row.normalizedScore, 'Based on products you explored');
+      addCandidate(
+        candidates,
+        row.similarProduct,
+        'content',
+        row.normalizedScore,
+        'Based on products you explored'
+      );
     }
 
     for (const row of normalize(collaborativeRows)) {
-      addCandidate(candidates, row.similarProduct, 'collaborative', row.normalizedScore, 'Customers with similar behavior also liked this');
+      addCandidate(
+        candidates,
+        row.similarProduct,
+        'collaborative',
+        row.normalizedScore,
+        'Customers with similar behavior also liked this'
+      );
     }
   }
 
@@ -189,11 +219,17 @@ export const getUserHybridRecommendations = async ({
   const popularRows = await getPopularProducts({
     scope: 'trending',
     limit,
-    excludeProductIds: [...seenProductIds, ...candidates.keys()]
+    excludeProductIds: [...seenProductIds, ...candidates.keys()],
   });
 
   for (const row of normalize(popularRows)) {
-    addCandidate(candidates, row.product, 'popularity', row.normalizedScore, row.reasons[0] || 'Trending product');
+    addCandidate(
+      candidates,
+      row.product,
+      'popularity',
+      row.normalizedScore,
+      row.reasons[0] || 'Trending product'
+    );
   }
 
   return finalizeCandidates({
@@ -204,6 +240,6 @@ export const getUserHybridRecommendations = async ({
     userId,
     sessionId,
     trackingMode,
-    isEvaluation
+    isEvaluation,
   });
 };

@@ -1,6 +1,9 @@
 import { prisma } from '../config/db.js';
 import { evaluateRecommendations } from '../services/evaluationService.js';
-import { getSimilarHybridRecommendations, getUserHybridRecommendations } from '../services/hybridRecommendationService.js';
+import {
+  getSimilarHybridRecommendations,
+  getUserHybridRecommendations,
+} from '../services/hybridRecommendationService.js';
 import { getPopularProducts } from '../services/popularityService.js';
 
 const toPositiveLimit = (value, fallback) => {
@@ -16,7 +19,7 @@ export const getSimilarProducts = async (req, res) => {
       productId: req.params.id,
       limit,
       userId: req.user?.userId,
-      sessionId: req.query.sessionId
+      sessionId: req.query.sessionId,
     });
 
     res.json(result);
@@ -32,7 +35,7 @@ export const getUserRecommendations = async (req, res) => {
     const result = await getUserHybridRecommendations({
       userId: req.user?.userId,
       sessionId: req.query.sessionId,
-      limit
+      limit,
     });
 
     res.json(result);
@@ -55,14 +58,14 @@ export const getPopularRecommendations = async (req, res) => {
         surface: `storefront_${scope}`,
         algorithm: `popularity_${scope}_v1`,
         productIds: recommendations.map((item) => item.product.id),
-        isEvaluation: false
-      }
+        isEvaluation: false,
+      },
     });
 
     res.json({
       recommendationId: log.id,
       algorithm: `popularity_${scope}_v1`,
-      recommendations
+      recommendations,
     });
   } catch (error) {
     console.error('Popular Recommendations Error:', error);
@@ -81,75 +84,73 @@ export const getRecommendationAnalytics = async (req, res) => {
       totalProducts,
       topRecommendedGroups,
       topPurchaseGroups,
-      health
+      health,
     ] = await Promise.all([
       prisma.recommendationInteraction.groupBy({
         by: ['productId'],
         where: { action: 'view' },
         _count: { productId: true },
         orderBy: { _count: { productId: 'desc' } },
-        take: 10
+        take: 10,
       }),
       prisma.recommendationInteraction.groupBy({
         by: ['productId'],
         where: { action: 'purchase' },
         _count: { productId: true },
         orderBy: { _count: { productId: 'desc' } },
-        take: 10
+        take: 10,
       }),
       prisma.recommendationEvent.groupBy({
         by: ['eventType'],
         where: {
-          recommendationLog: { isEvaluation: false }
+          recommendationLog: { isEvaluation: false },
         },
-        _count: { eventType: true }
+        _count: { eventType: true },
       }),
       prisma.recommendationLog.count({
-        where: { isEvaluation: false }
+        where: { isEvaluation: false },
       }),
       prisma.recommendationEvent.groupBy({
         by: ['productId'],
         where: {
           eventType: 'impression',
-          recommendationLog: { isEvaluation: false }
-        }
+          recommendationLog: { isEvaluation: false },
+        },
       }),
-      prisma.product.count()
-      ,
+      prisma.product.count(),
       prisma.recommendationEvent.groupBy({
         by: ['productId'],
         where: {
           eventType: 'impression',
-          recommendationLog: { isEvaluation: false }
+          recommendationLog: { isEvaluation: false },
         },
         _count: { productId: true },
         orderBy: { _count: { productId: 'desc' } },
-        take: 10
+        take: 10,
       }),
       prisma.recommendationEvent.groupBy({
         by: ['productId'],
         where: {
           eventType: 'purchase',
-          recommendationLog: { isEvaluation: false }
+          recommendationLog: { isEvaluation: false },
         },
         _count: { productId: true },
         orderBy: { _count: { productId: 'desc' } },
-        take: 10
+        take: 10,
       }),
-      getRecommendationHealthSummary()
+      getRecommendationHealthSummary(),
     ]);
 
     const productIds = [
-      ...new Set([
-        ...mostViewed,
-        ...mostPurchased,
-        ...topRecommendedGroups,
-        ...topPurchaseGroups
-      ].map((item) => item.productId))
+      ...new Set(
+        [...mostViewed, ...mostPurchased, ...topRecommendedGroups, ...topPurchaseGroups].map(
+          (item) => item.productId
+        )
+      ),
     ];
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, name: true, category: true }
+      select: { id: true, name: true, category: true },
     });
     const topPurchaseProductIds = topPurchaseGroups.map((item) => item.productId);
     const purchaseProductImpressions = topPurchaseProductIds.length
@@ -158,51 +159,61 @@ export const getRecommendationAnalytics = async (req, res) => {
           where: {
             productId: { in: topPurchaseProductIds },
             eventType: 'impression',
-            recommendationLog: { isEvaluation: false }
+            recommendationLog: { isEvaluation: false },
           },
-          _count: { productId: true }
+          _count: { productId: true },
         })
       : [];
     const impressionsByProductId = new Map(
       purchaseProductImpressions.map((item) => [item.productId, item._count.productId])
     );
     const productsById = new Map(products.map((product) => [product.id, product]));
-    const counts = Object.fromEntries(eventCounts.map((item) => [item.eventType, item._count.eventType]));
+    const counts = Object.fromEntries(
+      eventCounts.map((item) => [item.eventType, item._count.eventType])
+    );
 
     res.json({
       totalRecommendationLogs,
-      recommendationCtr: counts.impression ? Number(((counts.click || 0) / counts.impression).toFixed(4)) : 0,
-      recommendationCartRate: counts.impression ? Number(((counts.cart || 0) / counts.impression).toFixed(4)) : 0,
-      recommendationConversionRate: counts.impression ? Number(((counts.purchase || 0) / counts.impression).toFixed(4)) : 0,
+      recommendationCtr: counts.impression
+        ? Number(((counts.click || 0) / counts.impression).toFixed(4))
+        : 0,
+      recommendationCartRate: counts.impression
+        ? Number(((counts.cart || 0) / counts.impression).toFixed(4))
+        : 0,
+      recommendationConversionRate: counts.impression
+        ? Number(((counts.purchase || 0) / counts.impression).toFixed(4))
+        : 0,
       coverage: totalProducts ? Number((recommendedProducts.length / totalProducts).toFixed(4)) : 0,
       eventCounts: counts,
       funnel: {
         impression: counts.impression || 0,
         click: counts.click || 0,
         cart: counts.cart || 0,
-        purchase: counts.purchase || 0
+        purchase: counts.purchase || 0,
       },
       mostViewed: mostViewed.map((item) => ({
         product: productsById.get(item.productId),
-        count: item._count.productId
+        count: item._count.productId,
       })),
       mostPurchased: mostPurchased.map((item) => ({
         product: productsById.get(item.productId),
-        count: item._count.productId
+        count: item._count.productId,
       })),
       topRecommendedProducts: topRecommendedGroups.map((item) => ({
         product: productsById.get(item.productId),
-        impressions: item._count.productId
+        impressions: item._count.productId,
       })),
       topConvertingRecommendations: topPurchaseGroups.map((item) => {
         const impressionCount = impressionsByProductId.get(item.productId) || 0;
         return {
           product: productsById.get(item.productId),
           purchases: item._count.productId,
-          conversionRate: impressionCount ? Number((item._count.productId / impressionCount).toFixed(4)) : 0
+          conversionRate: impressionCount
+            ? Number((item._count.productId / impressionCount).toFixed(4))
+            : 0,
         };
       }),
-      health
+      health,
     });
   } catch (error) {
     console.error('Recommendation Analytics Error:', error);
@@ -217,7 +228,7 @@ export const getRecommendationEvaluation = async (req, res) => {
     const metrics = await evaluateRecommendations({
       k,
       storeReport: shouldStoreReport,
-      notes: 'Generated from recommendations evaluation endpoint'
+      notes: 'Generated from recommendations evaluation endpoint',
     });
     res.json({ k, metrics });
   } catch (error) {
@@ -241,7 +252,7 @@ export const clearRecommendationLogs = async (req, res) => {
       await tx.recommendationEvent.deleteMany();
       await tx.recommendationInteraction.updateMany({
         where: { recommendationId: { not: null } },
-        data: { recommendationId: null }
+        data: { recommendationId: null },
       });
       await tx.recommendationLog.deleteMany();
     });
@@ -269,7 +280,7 @@ export const resetRecommendationAnalytics = async (req, res) => {
       await tx.recommendationEvent.deleteMany();
       await tx.recommendationInteraction.updateMany({
         where: { recommendationId: { not: null } },
-        data: { recommendationId: null }
+        data: { recommendationId: null },
       });
       await tx.recommendationLog.deleteMany();
     });
@@ -290,7 +301,7 @@ const getRecommendationHealthSummary = async () => {
     logs,
     impressions,
     recommendedProductGroups,
-    latestEvaluation
+    latestEvaluation,
   ] = await Promise.all([
     prisma.product.count(),
     prisma.product.count({ where: { currentStock: { gt: 0 } } }),
@@ -300,29 +311,37 @@ const getRecommendationHealthSummary = async () => {
     prisma.recommendationEvent.count({
       where: {
         eventType: 'impression',
-        recommendationLog: { isEvaluation: false }
-      }
+        recommendationLog: { isEvaluation: false },
+      },
     }),
     prisma.recommendationEvent.groupBy({
       by: ['productId'],
       where: {
         eventType: 'impression',
-        recommendationLog: { isEvaluation: false }
-      }
+        recommendationLog: { isEvaluation: false },
+      },
     }),
     prisma.recommendationEvaluationReport.findFirst({
-      orderBy: { createdAt: 'desc' }
-    })
+      orderBy: { createdAt: 'desc' },
+    }),
   ]);
 
-  const coverage = totalProducts ? Number((recommendedProductGroups.length / totalProducts).toFixed(4)) : 0;
+  const coverage = totalProducts
+    ? Number((recommendedProductGroups.length / totalProducts).toFixed(4))
+    : 0;
   const warnings = [];
 
-  if (availableProducts === 0) warnings.push('No in-stock products are available for recommendations.');
-  if (totalProducts > 1 && contentRows === 0) warnings.push('Content similarity rows are missing. Run recommendations:build-content.');
-  if (totalProducts > 1 && collaborativeRows === 0) warnings.push('Collaborative similarity rows are missing or sparse. Run recommendations:build-cf after interaction/order data exists.');
+  if (availableProducts === 0)
+    warnings.push('No in-stock products are available for recommendations.');
+  if (totalProducts > 1 && contentRows === 0)
+    warnings.push('Content similarity rows are missing. Run recommendations:build-content.');
+  if (totalProducts > 1 && collaborativeRows === 0)
+    warnings.push(
+      'Collaborative similarity rows are missing or sparse. Run recommendations:build-cf after interaction/order data exists.'
+    );
   if (logs === 0) warnings.push('No production recommendation logs have been created yet.');
-  if (impressions === 0) warnings.push('No rendered recommendation impressions have been tracked yet.');
+  if (impressions === 0)
+    warnings.push('No rendered recommendation impressions have been tracked yet.');
   if (coverage > 0 && coverage < 0.2) warnings.push('Recommendation coverage is low.');
 
   return {
@@ -334,12 +353,14 @@ const getRecommendationHealthSummary = async () => {
     productionRecommendationLogs: logs,
     trackedImpressions: impressions,
     coverage,
-    latestEvaluation: latestEvaluation ? {
-      id: latestEvaluation.id,
-      k: latestEvaluation.k,
-      metrics: latestEvaluation.metrics,
-      createdAt: latestEvaluation.createdAt
-    } : null,
-    warnings
+    latestEvaluation: latestEvaluation
+      ? {
+          id: latestEvaluation.id,
+          k: latestEvaluation.k,
+          metrics: latestEvaluation.metrics,
+          createdAt: latestEvaluation.createdAt,
+        }
+      : null,
+    warnings,
   };
 };

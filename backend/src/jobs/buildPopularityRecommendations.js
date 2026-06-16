@@ -6,7 +6,7 @@ try {
   const allTime = await getPopularProducts({ scope: 'allTime', limit: 12 });
   console.log('Popularity recommendations checked:', {
     trending: trending.length,
-    allTime: allTime.length
+    allTime: allTime.length,
   });
 } catch (error) {
   console.error('Failed to check popularity recommendations:', error);

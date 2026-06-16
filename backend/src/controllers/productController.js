@@ -9,7 +9,7 @@ const normalizeProductInput = (body) => ({
   price: parseFloat(body.price),
   costPrice: parseFloat(body.costPrice || 0),
   currentStock: parseInt(body.currentStock || 0, 10),
-  minStock: parseInt(body.minStock || 10, 10)
+  minStock: parseInt(body.minStock || 10, 10),
 });
 
 export const createProduct = async (req, res) => {
@@ -20,13 +20,13 @@ export const createProduct = async (req, res) => {
     const newProduct = await prisma.product.create({
       data: {
         wholesalerId,
-        ...productData
-      }
+        ...productData,
+      },
     });
 
     res.status(201).json({ message: 'Product created', product: newProduct });
   } catch (error) {
-    console.error("PRODUCT CREATE ERROR:", error);
+    console.error('PRODUCT CREATE ERROR:', error);
     res.status(500).json({ error: 'Failed to create product' });
   }
 };
@@ -36,7 +36,7 @@ export const getProducts = async (req, res) => {
 
     const products = await prisma.product.findMany({
       where: { wholesalerId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     res.status(200).json({ count: products.length, products });
@@ -50,17 +50,17 @@ export const getMarketplaceProducts = async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       where: { currentStock: { gt: 0 } },
-      include: { 
+      include: {
         wholesaler: {
-          select: { businessName: true }
-        } 
+          select: { businessName: true },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
     console.log('Marketplace products:', products);
     res.status(200).json({ count: products.length, products });
   } catch (error) {
-    
+    console.error('Marketplace fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch marketplace products' });
   }
 };
@@ -68,16 +68,14 @@ export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
     const product = await prisma.product.findFirst({
-      where: req.user.role === 'WHOLESALER'
-        ? { id, wholesalerId: req.user.wholesalerId }
-        : { id },
+      where: req.user.role === 'WHOLESALER' ? { id, wholesalerId: req.user.wholesalerId } : { id },
       include: {
         wholesaler: { select: { businessName: true } },
         reviews: {
           include: { user: { select: { name: true } } },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!product) return res.status(404).json({ error: 'Product not found' });
@@ -93,7 +91,7 @@ export const updateProduct = async (req, res) => {
     const { id } = req.params;
     const wholesalerId = req.user.wholesalerId;
     const existingProduct = await prisma.product.findFirst({
-      where: { id, wholesalerId }
+      where: { id, wholesalerId },
     });
 
     if (!existingProduct) {
@@ -106,7 +104,7 @@ export const updateProduct = async (req, res) => {
     const updatedProduct = await prisma.$transaction(async (tx) => {
       const product = await tx.product.update({
         where: { id },
-        data: productData
+        data: productData,
       });
 
       if (stockChange !== 0) {
@@ -115,8 +113,8 @@ export const updateProduct = async (req, res) => {
             wholesalerId,
             productId: id,
             changeAmount: stockChange,
-            reason: 'MANUAL_ADJUSTMENT'
-          }
+            reason: 'MANUAL_ADJUSTMENT',
+          },
         });
       }
 
@@ -144,8 +142,8 @@ export const addReview = async (req, res) => {
         productId: id,
         userId,
         rating: Number(rating),
-        comment
-      }
+        comment,
+      },
     });
 
     res.status(201).json({ message: 'Review added successfully!', review });
