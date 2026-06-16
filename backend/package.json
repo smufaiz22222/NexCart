@@ -17,6 +17,7 @@
     "recommendations:seed-demo": "node prisma/seedRecommendationDemo.js",
     "recommendations:prepare-demo": "node src/jobs/prepareRecommendationDemo.js",
     "recommendations:test-access": "node src/jobs/testRecommendationAccess.js",
+    "db:reset": "prisma migrate reset --force",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -25,6 +26,7 @@
   "description": "",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@faker-js/faker": "^10.4.0",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^25.3.0",
     "eslint": "^10.5.0",

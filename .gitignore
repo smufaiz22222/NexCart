@@ -64,3 +64,11 @@ Thumbs.db
 .agents/
 .codex/
 skills-lock.json
+
+# SQL dumps and database backups
+*.sql
+*.sql.gz
+*.sql.tar
+*.sql.zip
+*.dump
+*.sql.dump
