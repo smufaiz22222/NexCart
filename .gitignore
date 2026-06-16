@@ -1,60 +1,59 @@
-# dependencies
+# Node.js dependencies
 node_modules/
 
-# =========================
-# ENV FILES
-# =========================
+# Build outputs
+dist/
+dist-ssr/
+build/
+out/
+
+# Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.env
 
-# build outputs
-dist/
-build/
-
-# prisma generated
-apps/backend/src/generated/
-# logs
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# =========================
-# PYTHON
-# =========================
+# Prisma generated files
+backend/src/generated/
+
+# Python / AI Service
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
+.Python
+env/
 venv/
 .venv/
+ai-service/chroma_db/
 
-apps/ai-service/venv/
-apps/ai-service/.venv/
-apps/ai-service/__pycache__/
-
-# =========================
-# AI SERVICE
-# =========================
-apps/ai-service/chroma_db/
-
-# =========================
-# OS FILES
-# =========================
+# Operating System Files
 .DS_Store
 Thumbs.db
 
-# =========================
-# IDE FILES
-# =========================
-.vscode/
+# IDE Files (except shared config)
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# =========================
-# CACHE
-# =========================
+# Cache and temporary files
 .cache/
 .pytest_cache/
-
-# =========================
-# TEMP FILES
-# =========================
 *.crdownload
