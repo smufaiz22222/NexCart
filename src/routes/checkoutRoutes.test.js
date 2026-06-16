@@ -153,6 +153,7 @@ test('POST /api/orders/checkout creates snapshot-based orders from backend cart 
     unitPriceAtPurchase: 250,
     subtotalAtPurchase: 500,
     selectedSize: null,
+    recommendationId: 'rec-1',
   });
   assert.deepEqual(interactionCreateData, [
     {

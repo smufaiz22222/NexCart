@@ -1,6 +1,11 @@
 import { prisma } from '../config/db.js';
 
 const formatCurrencyValue = (value) => Number(value || 0);
+const getReturnedAmount = (adjustments = []) =>
+  adjustments.reduce((sum, adjustment) => {
+    if (adjustment.type !== 'RETURN') return sum;
+    return sum + formatCurrencyValue(adjustment.amount);
+  }, 0);
 
 const buildOrderStatusSummary = (orders) => {
   const summary = {
@@ -48,7 +53,10 @@ const buildMonthlyRevenue = (orders) => {
     const date = new Date(order.createdAt);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     const current = buckets.get(key) || { revenue: 0, orders: 0 };
-    current.revenue += formatCurrencyValue(order.totalAmount);
+    current.revenue += Math.max(
+      0,
+      formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)
+    );
     current.orders += 1;
     buckets.set(key, current);
   }
@@ -64,101 +72,106 @@ const buildMonthlyRevenue = (orders) => {
 };
 
 const buildAdminOverview = async () => {
-  const [
-    users,
-    wholesalers,
-    products,
-    orders,
-    revenueAggregate,
-    lowStockProducts,
-    outOfStockProducts,
-    openIssues,
-  ] = await Promise.all([
-    prisma.user.findMany({
-      select: {
-        id: true,
-        role: true,
-        createdAt: true,
-      },
-    }),
-    prisma.wholesaler.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            createdAt: true,
+  const [users, wholesalers, products, orders, lowStockProducts, outOfStockProducts, openIssues] =
+    await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          role: true,
+          createdAt: true,
+        },
+      }),
+      prisma.wholesaler.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              createdAt: true,
+            },
+          },
+          products: {
+            select: {
+              id: true,
+              currentStock: true,
+              minStock: true,
+              price: true,
+            },
+          },
+          orders: {
+            select: {
+              id: true,
+              totalAmount: true,
+              status: true,
+              createdAt: true,
+              adjustments: {
+                select: {
+                  amount: true,
+                  type: true,
+                },
+              },
+            },
           },
         },
-        products: {
-          select: {
-            id: true,
-            currentStock: true,
-            minStock: true,
-            price: true,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.product.findMany({
+        select: {
+          id: true,
+          currentStock: true,
+          minStock: true,
+          price: true,
+          createdAt: true,
+        },
+      }),
+      prisma.order.findMany({
+        select: {
+          id: true,
+          status: true,
+          paymentStatus: true,
+          totalAmount: true,
+          createdAt: true,
+          adjustments: {
+            select: {
+              amount: true,
+              type: true,
+            },
           },
         },
-        orders: {
-          select: {
-            id: true,
-            totalAmount: true,
-            status: true,
-            createdAt: true,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.product.count({
+        where: {
+          currentStock: {
+            gt: 0,
+          },
+          OR: [
+            { minStock: { gt: 0 }, currentStock: { lte: 10 } },
+            { minStock: { lte: 10 }, currentStock: { lte: 10 } },
+          ],
+        },
+      }),
+      prisma.product.count({
+        where: { currentStock: 0 },
+      }),
+      prisma.orderIssue.count({
+        where: {
+          status: {
+            in: ['OPEN', 'IN_REVIEW'],
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.product.findMany({
-      select: {
-        id: true,
-        currentStock: true,
-        minStock: true,
-        price: true,
-        createdAt: true,
-      },
-    }),
-    prisma.order.findMany({
-      select: {
-        id: true,
-        status: true,
-        paymentStatus: true,
-        totalAmount: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.order.aggregate({
-      _sum: {
-        totalAmount: true,
-      },
-    }),
-    prisma.product.count({
-      where: {
-        currentStock: {
-          gt: 0,
-        },
-        OR: [
-          { minStock: { gt: 0 }, currentStock: { lte: 10 } },
-          { minStock: { lte: 10 }, currentStock: { lte: 10 } },
-        ],
-      },
-    }),
-    prisma.product.count({
-      where: { currentStock: 0 },
-    }),
-    prisma.orderIssue.count({
-      where: {
-        status: {
-          in: ['OPEN', 'IN_REVIEW'],
-        },
-      },
-    }),
-  ]);
+      }),
+    ]);
 
   const totalCustomers = users.filter((user) => user.role === 'CUSTOMER').length;
   const totalSuperAdmins = users.filter((user) => user.role === 'SUPER_ADMIN').length;
+  const totalRevenue = orders.reduce(
+    (sum, order) =>
+      sum +
+      Math.max(0, formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)),
+    0
+  );
   const totalInventoryValue = products.reduce(
     (sum, product) => sum + product.currentStock * Number(product.price || 0),
     0
@@ -166,7 +179,9 @@ const buildAdminOverview = async () => {
 
   const wholesalerDirectory = wholesalers.map((wholesaler) => {
     const revenue = wholesaler.orders.reduce(
-      (sum, order) => sum + formatCurrencyValue(order.totalAmount),
+      (sum, order) =>
+        sum +
+        Math.max(0, formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)),
       0
     );
     const inventoryUnits = wholesaler.products.reduce(
@@ -208,7 +223,7 @@ const buildAdminOverview = async () => {
       totalSuperAdmins,
       totalProducts: products.length,
       totalOrders: orders.length,
-      totalRevenue: formatCurrencyValue(revenueAggregate._sum.totalAmount),
+      totalRevenue: Number(totalRevenue.toFixed(2)),
       totalInventoryValue: Number(totalInventoryValue.toFixed(2)),
       lowStockProducts,
       outOfStockProducts,
@@ -285,6 +300,7 @@ export const getTenantData = async (req, res) => {
                 email: true,
               },
             },
+            adjustments: true,
           },
           orderBy: { createdAt: 'desc' },
           take: 8,
@@ -313,7 +329,9 @@ export const getTenantData = async (req, res) => {
     }
 
     const totalRevenue = tenant.orders.reduce(
-      (sum, order) => sum + formatCurrencyValue(order.totalAmount),
+      (sum, order) =>
+        sum +
+        Math.max(0, formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)),
       0
     );
     const inventoryValue = tenant.products.reduce(

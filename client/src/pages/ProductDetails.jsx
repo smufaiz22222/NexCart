@@ -1,8 +1,10 @@
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Star, Store } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
+import { toast } from 'sonner';
+import { useProductDetail, useSimilarProducts, useSubmitReview } from '../api/queries';
 
 const getAttributionStorageKey = (productId) => `nexcart:recommendationAttribution:${productId}`;
 
@@ -16,42 +18,46 @@ export default function ProductDetails() {
   const addToCart = useCartStore((state) => state.addToCart);
   const loggedImpressionRecommendationIds = useRef(new Set());
 
-  const [product, setProduct] = useState(null);
-  const [similarProducts, setSimilarProducts] = useState([]);
-  const [similarRecommendationId, setSimilarRecommendationId] = useState(null);
   const [attributionRecommendationContext, setAttributionRecommendationContext] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingSimilar, setIsLoadingSimilar] = useState(false);
   const [selectedSize, setSelectedSize] = useState(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const {
+    data: product,
+    isLoading: isLoadingProduct,
+    isError: isErrorProduct,
+    error: errorProduct,
+    isFetching: isFetchingProduct,
+    refetch: refetchProduct,
+  } = useProductDetail(id);
+
+  const { data: similarData, isLoading: isLoadingSimilarData } = useSimilarProducts(id);
+
+  const similarProducts = useMemo(() => similarData?.recommendations || [], [similarData]);
+  const similarRecommendationId = similarData?.recommendationId || null;
+
+  const isLoading = isLoadingProduct;
+  const isLoadingSimilar = isLoadingSimilarData;
 
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const response = await apiClient.get(`/products/${id}`);
-        setProduct(response.data);
-        if (response.data.sizes?.length > 0) {
-          setSelectedSize(response.data.sizes[0]);
-        } else {
-          setSelectedSize(null);
-        }
-        apiClient
-          .post('/interactions', {
-            productId: id,
-            action: 'view',
-            source: 'product_detail',
-          })
-          .catch((error) => console.error('Failed to log product view:', error));
-      } catch (error) {
-        console.error('Failed to load product:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!product) return;
+    if (product.sizes?.length > 0 && !selectedSize) {
+      setSelectedSize(product.sizes[0]);
+    } else if (!product.sizes?.length) {
+      setSelectedSize(null);
+    }
+  }, [product, selectedSize]);
 
-    fetchProduct();
+  useEffect(() => {
+    if (!id) return;
+    apiClient
+      .post('/interactions', {
+        productId: id,
+        action: 'view',
+        source: 'product_detail',
+      })
+      .catch((error) => console.error('Failed to log product view:', error));
   }, [id]);
 
   useEffect(() => {
@@ -90,24 +96,6 @@ export default function ProductDetails() {
   }, [id, location.state]);
 
   useEffect(() => {
-    const fetchSimilarProducts = async () => {
-      setIsLoadingSimilar(true);
-      try {
-        const response = await apiClient.get(`/recommendations/products/${id}/similar?limit=8`);
-        setSimilarProducts(response.data.recommendations || []);
-        setSimilarRecommendationId(response.data.recommendationId || null);
-      } catch (error) {
-        console.error('Failed to load similar products:', error);
-        setSimilarProducts([]);
-      } finally {
-        setIsLoadingSimilar(false);
-      }
-    };
-
-    fetchSimilarProducts();
-  }, [id]);
-
-  useEffect(() => {
     if (!similarRecommendationId || similarProducts.length === 0) return;
     if (loggedImpressionRecommendationIds.current.has(similarRecommendationId)) return;
 
@@ -125,7 +113,7 @@ export default function ProductDetails() {
 
   const handleAddToCart = async () => {
     if (product.sizes?.length > 0 && !selectedSize) {
-      return alert('Please select a size first!');
+      return toast.warning('Please select a size first!');
     }
 
     try {
@@ -149,9 +137,9 @@ export default function ProductDetails() {
         })
         .catch((error) => console.error('Failed to log cart interaction:', error));
       sessionStorage.removeItem(getAttributionStorageKey(product.id));
-      alert('Added to cart!');
+      toast.success('Added to cart!');
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to add item to cart');
+      toast.error(error.response?.data?.error || 'Failed to add item to cart');
     }
   };
 
@@ -180,24 +168,41 @@ export default function ProductDetails() {
     );
   };
 
-  const handleReviewSubmit = async (event) => {
+  const submitReviewMutation = useSubmitReview(id);
+  const isSubmittingReview = submitReviewMutation.isPending;
+
+  const handleReviewSubmit = (event) => {
     event.preventDefault();
-    setIsSubmittingReview(true);
-    try {
-      const response = await apiClient.post(`/products/${id}/reviews`, { rating, comment });
-      setProduct((current) => ({
-        ...current,
-        reviews: [response.data.review, ...(current?.reviews || [])],
-        reviewCount: Number(current?.reviewCount || 0) + 1,
-      }));
-      setComment('');
-      alert('Review posted!');
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to post review');
-    } finally {
-      setIsSubmittingReview(false);
-    }
+    submitReviewMutation.mutate(
+      { rating, comment },
+      {
+        onSuccess: () => {
+          setComment('');
+          toast.success('Review posted!');
+        },
+        onError: (error) => {
+          toast.error(error.response?.data?.error || 'Failed to post review');
+        },
+      }
+    );
   };
+
+  if (isErrorProduct) {
+    return (
+      <div className="rounded-[30px] bg-white px-6 py-14 text-center shadow-[0_18px_45px_rgba(22,20,18,0.05)] font-sans">
+        <p className="text-2xl font-black tracking-tight text-red-500">Failed to load product</p>
+        <p className="mt-3 text-sm text-[#6b665f]">
+          {errorProduct?.message || 'Error occurred while loading product details.'}
+        </p>
+        <button
+          onClick={() => refetchProduct()}
+          className="mt-6 rounded-full bg-[#161412] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#2c2926]"
+        >
+          Retry Loading
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -252,7 +257,14 @@ export default function ProductDetails() {
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#8f5d31]">
             {product.category || 'General'}
           </p>
-          <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight">{product.name}</h1>
+          <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight flex items-center gap-3">
+            {product.name}
+            {isFetchingProduct && !isLoadingProduct && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#8f5d31]/10 text-[#8f5d31] border border-[#8f5d31]/20 animate-pulse font-sans">
+                Syncing...
+              </span>
+            )}
+          </h1>
 
           <div className="mt-4 flex items-center gap-2 text-[#161412]">
             {Array.from({ length: 5 }).map((_, index) => (

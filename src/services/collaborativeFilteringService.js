@@ -21,7 +21,10 @@ const cosineSimilarity = (left, right) => {
 
 export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
   const interactions = await prisma.recommendationInteraction.findMany({
-    where: { userId: { not: null } },
+    where: {
+      userId: { not: null },
+      action: { not: 'purchase' },
+    },
     select: {
       userId: true,
       productId: true,
@@ -31,6 +34,9 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
   });
 
   const orderItems = await prisma.orderItem.findMany({
+    where: {
+      status: 'ACTIVE',
+    },
     select: {
       productId: true,
       quantity: true,

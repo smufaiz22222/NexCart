@@ -10,6 +10,9 @@ const calculateDecay = (createdAt, halfLifeDays = 14) => {
 
 export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
   const interactions = await prisma.recommendationInteraction.findMany({
+    where: {
+      action: { not: 'purchase' },
+    },
     select: {
       productId: true,
       action: true,
@@ -29,6 +32,9 @@ export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
   }
 
   const purchasedItems = await prisma.orderItem.findMany({
+    where: {
+      status: 'ACTIVE',
+    },
     select: {
       productId: true,
       quantity: true,

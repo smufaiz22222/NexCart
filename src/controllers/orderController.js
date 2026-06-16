@@ -3,6 +3,20 @@ import { createPurchaseInteractions } from '../services/interactionService.js';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { formatShippingAddress } from '../utils/addressUtils.js';
+import {
+  cancelOrderItemForCustomer,
+  PAYMENT_CAPTURE_STATUSES,
+  retryOrderItemRefundForCustomer,
+} from '../services/orderCancellationService.js';
+import {
+  approveOrderItemReturn,
+  decorateOrderWithReturnFinancials,
+  getReturnWindowDateForDelivery,
+  receiveOrderItemReturn,
+  rejectOrderItemReturn,
+  requestOrderItemReturn,
+  retryOrderItemReturnRefund,
+} from '../services/orderReturnService.js';
 
 const PAYMENT_METHODS = {
   COD: 'COD',
@@ -15,6 +29,12 @@ const PAYMENT_STATUSES = {
   FAILED: 'FAILED',
   REFUND_PENDING: 'REFUND_PENDING',
   REFUNDED: 'REFUNDED',
+};
+
+const LEDGER_ENTRY_SOURCES = {
+  ORDER_CHARGE: 'ORDER_CHARGE',
+  ORDER_AUTO_PAYMENT: 'ORDER_AUTO_PAYMENT',
+  ORDER_PREPAID_PAYMENT: 'ORDER_PREPAID_PAYMENT',
 };
 
 const ORDER_ISSUE_TYPES = {
@@ -55,6 +75,9 @@ const ORDER_INCLUDE_FOR_RESPONSE = {
     },
     orderBy: { createdAt: 'desc' },
   },
+  adjustments: {
+    orderBy: { createdAt: 'asc' },
+  },
 };
 
 const getRazorpayClient = () => {
@@ -75,6 +98,8 @@ const buildCheckoutError = (message, statusCode = 400) => {
   error.statusCode = statusCode;
   return error;
 };
+
+const toNumber = (value) => Number(Number(value || 0).toFixed(2));
 
 const validateCheckoutInput = ({ addressId, paymentMethod }) => {
   if (!addressId?.trim()) {
@@ -284,8 +309,11 @@ const createOrdersFromGroupedData = async ({
   shippingAddressSnapshot,
   paymentMethod,
   paymentStatus,
+  paymentCaptureStatus = PAYMENT_CAPTURE_STATUSES.NOT_APPLICABLE,
   paymentProvider = null,
   paymentReference = null,
+  razorpayOrderId = null,
+  razorpayPaymentId = null,
   cartId,
 }) => {
   const createdOrders = [];
@@ -299,12 +327,15 @@ const createOrdersFromGroupedData = async ({
         status: 'PENDING',
         paymentMethod,
         paymentStatus,
+        paymentCaptureStatus,
         paymentProvider,
         paymentReference,
+        razorpayOrderId,
+        razorpayPaymentId,
         shippingAddress: shippingAddressSnapshot,
         items: {
           create: data.orderItems.map(
-            ({ recommendationId: _, recommendationSource: __, cartItemId: ___, ...orderItem }) => ({
+            ({ recommendationSource: _, cartItemId: __, ...orderItem }) => ({
               ...orderItem,
               price: orderItem.unitPriceAtPurchase,
             })
@@ -336,11 +367,27 @@ const createOrdersFromGroupedData = async ({
       data: {
         wholesalerId: sellerId,
         userId: buyerId,
+        orderId: order.id,
         amount: -data.totalAmount,
         description: `Marketplace Order ${order.id}`,
         referenceId: invoice.id,
+        source: LEDGER_ENTRY_SOURCES.ORDER_CHARGE,
       },
     });
+
+    if (paymentMethod === PAYMENT_METHODS.PREPAID && paymentStatus === PAYMENT_STATUSES.PAID) {
+      await tx.ledgerEntry.create({
+        data: {
+          wholesalerId: sellerId,
+          userId: buyerId,
+          orderId: order.id,
+          amount: data.totalAmount,
+          description: `Marketplace Prepaid Payment ${order.id}`,
+          referenceId: invoice.id,
+          source: LEDGER_ENTRY_SOURCES.ORDER_PREPAID_PAYMENT,
+        },
+      });
+    }
 
     for (const log of data.inventoryLogs) {
       await decrementProductStockAtomic(tx, {
@@ -461,6 +508,7 @@ export const createPrepaidOrder = async (req, res) => {
           razorpayOrderId: razorpayOrder.id,
           amount: checkoutDetails.totalAmount,
           currency: 'INR',
+          createdOrderIds: [],
           payload: {
             addressId,
             shippingAddressSnapshot: checkoutDetails.shippingAddressSnapshot,
@@ -565,8 +613,11 @@ export const verifyPrepaidOrder = async (req, res) => {
         shippingAddressSnapshot: payload.shippingAddressSnapshot,
         paymentMethod: PAYMENT_METHODS.PREPAID,
         paymentStatus: PAYMENT_STATUSES.PAID,
+        paymentCaptureStatus: PAYMENT_CAPTURE_STATUSES.CAPTURED,
         paymentProvider: 'razorpay',
         paymentReference: `${razorpayOrderId}:${razorpayPaymentId}`,
+        razorpayOrderId,
+        razorpayPaymentId,
         cartId: payload.cartId,
       });
 
@@ -612,7 +663,7 @@ export const getOrders = async (req, res) => {
       });
     }
 
-    res.status(200).json({ orders });
+    res.status(200).json({ orders: orders.map(decorateOrderWithReturnFinancials) });
   } catch (error) {
     console.error('Get Orders Error:', error);
     res.status(500).json({ error: 'Failed to fetch orders' });
@@ -623,21 +674,78 @@ export const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const sellerId = req.user.wholesalerId;
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id },
+        include: ORDER_INCLUDE_FOR_RESPONSE,
+      });
 
-    const order = await prisma.order.findUnique({ where: { id } });
-    if (!order || order.sellerId !== sellerId) {
-      return res.status(403).json({ error: 'Not authorized to update this order' });
-    }
+      if (!order || order.sellerId !== sellerId) {
+        throw buildCheckoutError('Not authorized to update this order', 403);
+      }
 
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: { status },
+      const nextData = { status };
+      if (status === 'DELIVERED' && order.status !== 'DELIVERED') {
+        await tx.orderItem.updateMany({
+          where: {
+            orderId: id,
+            status: 'ACTIVE',
+          },
+          data: {
+            returnEligibleUntil: getReturnWindowDateForDelivery(new Date()),
+          },
+        });
+
+        const hasActiveItems = order.items.some((item) => item.status !== 'CANCELLED');
+        const shouldAutoSettle =
+          hasActiveItems &&
+          order.paymentMethod === PAYMENT_METHODS.COD &&
+          order.paymentStatus !== PAYMENT_STATUSES.PAID &&
+          order.status !== 'CANCELLED';
+
+        if (shouldAutoSettle) {
+          const settlementAmount = toNumber(order.invoice?.amount ?? order.totalAmount);
+
+          if (settlementAmount > 0) {
+            try {
+              await tx.ledgerEntry.create({
+                data: {
+                  wholesalerId: order.sellerId,
+                  userId: order.buyerId,
+                  orderId: order.id,
+                  amount: settlementAmount,
+                  description: `Marketplace COD Payment ${order.id}`,
+                  referenceId: order.invoice?.id || order.id,
+                  source: LEDGER_ENTRY_SOURCES.ORDER_AUTO_PAYMENT,
+                  idempotencyKey: `order-auto-payment:${order.id}`,
+                },
+              });
+            } catch (error) {
+              if (error?.code !== 'P2002') {
+                throw error;
+              }
+            }
+          }
+
+          nextData.paymentStatus = PAYMENT_STATUSES.PAID;
+        }
+      }
+
+      const nextOrder = await tx.order.update({
+        where: { id },
+        data: nextData,
+        include: ORDER_INCLUDE_FOR_RESPONSE,
+      });
+
+      return decorateOrderWithReturnFinancials(nextOrder);
     });
 
     res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
   } catch (error) {
     console.error('Update Order Error:', error);
-    res.status(500).json({ error: 'Failed to update order status' });
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to update order status' });
   }
 };
 
@@ -661,6 +769,13 @@ export const createOrderIssue = async (req, res) => {
 
     if (!Object.values(ORDER_ISSUE_TYPES).includes(type)) {
       return res.status(400).json({ error: 'Invalid issue type' });
+    }
+
+    if (type === ORDER_ISSUE_TYPES.RETURN) {
+      return res.status(400).json({
+        error:
+          'Use the dedicated return flow for delivered items instead of the generic issue form',
+      });
     }
 
     if (!reason?.trim()) {
@@ -798,5 +913,187 @@ export const updateOrderIssue = async (req, res) => {
   } catch (error) {
     console.error('Update Order Issue Error:', error);
     res.status(500).json({ error: 'Failed to update order issue' });
+  }
+};
+
+export const cancelOrderItem = async (req, res) => {
+  try {
+    if (req.user.role !== 'CUSTOMER') {
+      return res.status(403).json({ error: 'Only customers can cancel order items' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const { reason } = req.body || {};
+
+    const result = await cancelOrderItemForCustomer({
+      buyerId: req.user.userId,
+      orderId,
+      itemId,
+      reason,
+      client: prisma,
+    });
+
+    res.status(200).json({
+      message: result.message,
+      order: result.order,
+      item: result.item,
+      refundStatus: result.item?.refundStatus || null,
+      refundedAmount: result.item?.refundedAmount || null,
+      refundReference: result.item?.refundReference || null,
+    });
+  } catch (error) {
+    console.error('Cancel Order Item Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to cancel order item' });
+  }
+};
+
+export const retryOrderItemRefund = async (req, res) => {
+  try {
+    if (req.user.role !== 'CUSTOMER') {
+      return res.status(403).json({ error: 'Only customers can retry refunds' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const result = await retryOrderItemRefundForCustomer({
+      buyerId: req.user.userId,
+      orderId,
+      itemId,
+      client: prisma,
+    });
+
+    res.status(200).json({
+      message: result.message,
+      order: result.order,
+      item: result.item,
+      refundStatus: result.item?.refundStatus || null,
+      refundedAmount: result.item?.refundedAmount || null,
+      refundReference: result.item?.refundReference || null,
+    });
+  } catch (error) {
+    console.error('Retry Order Item Refund Error:', error);
+    res.status(error.statusCode || 400).json({ error: error.message || 'Failed to retry refund' });
+  }
+};
+
+export const requestReturn = async (req, res) => {
+  try {
+    if (req.user.role !== 'CUSTOMER') {
+      return res.status(403).json({ error: 'Only customers can request returns' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const { reason, notes, quantity } = req.body || {};
+    const result = await requestOrderItemReturn({
+      buyerId: req.user.userId,
+      orderId,
+      itemId,
+      reason,
+      notes,
+      quantity,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Request Return Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to request return' });
+  }
+};
+
+export const approveReturn = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can approve returns' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const result = await approveOrderItemReturn({
+      wholesalerId: req.user.wholesalerId,
+      decisionBy: req.user.userId,
+      orderId,
+      itemId,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Approve Return Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to approve return' });
+  }
+};
+
+export const rejectReturn = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can reject returns' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const { rejectionReason } = req.body || {};
+    const result = await rejectOrderItemReturn({
+      wholesalerId: req.user.wholesalerId,
+      decisionBy: req.user.userId,
+      orderId,
+      itemId,
+      rejectionReason,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Reject Return Error:', error);
+    res.status(error.statusCode || 400).json({ error: error.message || 'Failed to reject return' });
+  }
+};
+
+export const receiveReturn = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can receive returns' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const result = await receiveOrderItemReturn({
+      wholesalerId: req.user.wholesalerId,
+      orderId,
+      itemId,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Receive Return Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to receive return' });
+  }
+};
+
+export const retryReturnRefund = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can retry return refunds' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const result = await retryOrderItemReturnRefund({
+      wholesalerId: req.user.wholesalerId,
+      orderId,
+      itemId,
+      client: prisma,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Retry Return Refund Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to retry return refund' });
   }
 };

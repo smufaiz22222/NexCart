@@ -17,6 +17,7 @@ import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
 import { cn } from '../utils/cn';
+import { toast } from 'sonner';
 
 const OTHER_LOCALITY_VALUE = '__OTHER__';
 
@@ -342,7 +343,7 @@ export default function Cart() {
 
         await hydrateCart();
         navigate('/store/orders');
-        alert('COD order placed successfully!');
+        toast.success('COD order placed successfully!');
         return;
       }
 
@@ -376,7 +377,7 @@ export default function Cart() {
 
               await hydrateCart();
               navigate('/store/orders');
-              alert('Prepaid order placed successfully!');
+              toast.success('Prepaid order placed successfully!');
               resolve();
             } catch (verificationError) {
               reject(

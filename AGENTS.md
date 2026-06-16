@@ -46,13 +46,13 @@ This document serves two primary purposes:
 
 ### 1.3 Rules of Engagement for Coding Agents
 
-1.  **Unified Management**: The project is managed from the root. Use `npm run dev` to start both frontend and backend.
+1.  **Unified Management**: The project is managed from the root. Use `pnpm run dev` to start both frontend and backend.
 2.  **Prisma Client**: The Prisma Client is generated into `src/generated/client`. Always import from `src/config/db.js`.
 3.  **Tailwind CSS v4**: Styling is handled via utility classes directly in `className`.
 4.  **Formatting & Linting**:
-    - Web App: `npm run lint`, `npm run format`
-    - Client: `npm run lint --prefix client`, `npm run format --prefix client`
-    - AI Service: `npm run lint:ai`, `npm run format:ai`
+    - Web App: `pnpm run lint`, `pnpm run format`
+    - Client: `pnpm --filter frontend lint`, `pnpm --filter frontend format`
+    - AI Service: `pnpm run lint:ai`, `pnpm run format:ai`
 5.  **Syntax Verification**:
     ```powershell
     Get-ChildItem -Path src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }

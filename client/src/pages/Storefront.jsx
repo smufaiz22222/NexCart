@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { ArrowRight, Search, Star, Store, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
+import { useMarketplaceProducts, useTrendingProducts } from '../api/queries';
 
 const testimonialCards = [
   {
@@ -19,54 +20,45 @@ const testimonialCards = [
 ];
 
 export default function Storefront() {
-  const [marketplaceProducts, setMarketplaceProducts] = useState([]);
-  const [trendingProducts, setTrendingProducts] = useState([]);
-  const [recommendedProductIds, setRecommendedProductIds] = useState(new Set());
-  const [recommendationId, setRecommendationId] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: marketplaceProducts = [],
+    isLoading: isLoadingMarketplace,
+    isError: isErrorMarketplace,
+    error: errorMarketplace,
+    isFetching: isFetchingMarketplace,
+    refetch: refetchMarketplace,
+  } = useMarketplaceProducts();
+
+  const {
+    data: trendingData,
+    isLoading: isLoadingTrending,
+    isError: isErrorTrending,
+    isFetching: isFetchingTrending,
+  } = useTrendingProducts();
+
+  const trendingProducts = useMemo(() => {
+    const recommendations = trendingData?.recommendations || [];
+    const products = recommendations.map((item) => item.product).slice(0, 24);
+    return products.length ? products : marketplaceProducts.slice(0, 24);
+  }, [trendingData, marketplaceProducts]);
+
+  const recommendedProductIds = useMemo(() => {
+    const recommendations = trendingData?.recommendations || [];
+    const products = recommendations.map((item) => item.product).slice(0, 24);
+    return new Set(products.map((product) => product.id));
+  }, [trendingData]);
+
+  const recommendationId = trendingData?.recommendationId || null;
+
+  const isLoading = isLoadingMarketplace || isLoadingTrending;
+  const isError = isErrorMarketplace || isErrorTrending;
+  const isFetching = isFetchingMarketplace || isFetchingTrending;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedCollection, setSelectedCollection] = useState('Trending');
   const navigate = useNavigate();
   const loggedImpressionRecommendationIds = useRef(new Set());
-
-  useEffect(() => {
-    const fetchMarketplace = async () => {
-      try {
-        const [marketplaceResponse, recommendationResponse] = await Promise.all([
-          apiClient.get('/products/marketplace'),
-          apiClient.get('/recommendations/popular?scope=trending&limit=100'),
-        ]);
-
-        const marketplace = marketplaceResponse.data.products || [];
-        const recommendationItems = recommendationResponse.data.recommendations || [];
-        const recommendedProducts = recommendationItems.map((item) => item.product).slice(0, 24);
-
-        setMarketplaceProducts(marketplace);
-        setTrendingProducts(
-          recommendedProducts.length ? recommendedProducts : marketplace.slice(0, 24)
-        );
-        setRecommendedProductIds(new Set(recommendedProducts.map((product) => product.id)));
-        setRecommendationId(recommendationResponse.data.recommendationId || null);
-      } catch (error) {
-        console.error('Failed to load marketplace:', error);
-        try {
-          const fallbackResponse = await apiClient.get('/products/marketplace');
-          const fallbackProducts = fallbackResponse.data.products || [];
-          setMarketplaceProducts(fallbackProducts);
-          setTrendingProducts(fallbackProducts.slice(0, 24));
-          setRecommendedProductIds(new Set());
-          setRecommendationId(null);
-        } catch (fallbackError) {
-          console.error('Failed to load fallback marketplace:', fallbackError);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMarketplace();
-  }, []);
 
   useEffect(() => {
     if (!recommendationId || trendingProducts.length === 0) return;
@@ -257,6 +249,7 @@ export default function Storefront() {
         <SectionHeading
           title="New Arrivals"
           description="A storefront-first product grid with live ratings, discount cues, and better seller context."
+          syncing={isFetching}
         />
         <div className="mt-6 flex flex-wrap gap-2">
           {categories.map((category) => (
@@ -274,7 +267,22 @@ export default function Storefront() {
           ))}
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="mt-8 rounded-[30px] border border-dashed border-red-300 bg-white px-6 py-14 text-center">
+            <p className="text-xl font-black tracking-tight text-red-500">
+              Failed to load products
+            </p>
+            <p className="mt-3 text-sm leading-7 text-[#6b665f]">
+              {errorMarketplace?.message || 'Error occurred while loading marketplace items.'}
+            </p>
+            <button
+              onClick={() => refetchMarketplace()}
+              className="mt-6 px-6 py-3 bg-[#161412] hover:bg-[#2d2a27] text-white font-bold rounded-full transition"
+            >
+              Retry Loading
+            </button>
+          </div>
+        ) : isLoading ? (
           <ProductGridSkeleton />
         ) : filteredProducts.length === 0 ? (
           <EmptyState
@@ -452,14 +460,19 @@ function ProductCard({ product, onClick }) {
   );
 }
 
-function SectionHeading({ title, description, invert = false }) {
+function SectionHeading({ title, description, invert = false, syncing = false }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <h2
-          className={`text-4xl font-black tracking-tight ${invert ? 'text-white' : 'text-[#161412]'}`}
+          className={`text-4xl font-black tracking-tight flex items-center gap-2.5 ${invert ? 'text-white' : 'text-[#161412]'}`}
         >
           {title}
+          {syncing && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse font-sans">
+              Syncing...
+            </span>
+          )}
         </h2>
         <p
           className={`mt-3 max-w-2xl text-sm leading-7 ${invert ? 'text-[#d7cdbd]' : 'text-[#6b665f]'}`}

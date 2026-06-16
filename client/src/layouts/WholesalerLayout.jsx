@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Package,
   Archive,
+  BarChart3,
   ShoppingCart,
   BookOpen,
   LogOut,
@@ -27,6 +28,7 @@ export default function WholesalerLayout() {
 
   const navigation = [
     { name: 'Dashboard', href: '/wholesaler', icon: LayoutDashboard },
+    { name: 'Analytics', href: '/wholesaler/analytics', icon: BarChart3 },
     { name: 'Products', href: '/wholesaler/products', icon: Package },
     { name: 'Inventory Logs', href: '/wholesaler/inventory', icon: Archive },
     { name: 'Orders', href: '/wholesaler/orders', icon: ShoppingCart },

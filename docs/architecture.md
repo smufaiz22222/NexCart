@@ -56,7 +56,7 @@ The relational database is managed via [schema.prisma](../prisma/schema.prisma) 
 ### 2.2 Inventory & E-Commerce Flow
 
 - **Product**: Contains item metadata (name, description, category, size list, stock counts, cost metrics, and prices). Linked to a parent `Wholesaler` provider.
-- **InventoryLog**: Tracks stock adjustments. Logs changes with custom types: `SALE`, `REFUND`, `OCR_UPDATE` (from AI Khatta scanner), `MANUAL_ADJUSTMENT`, `CANCELLATION`, or `CUSTOMER_RETURN`.
+- **InventoryLog**: Tracks stock adjustments. Logs changes with custom types: `SALE`, `REFUND`, `OCR_UPDATE` (from AI Khatta scanner), `MANUAL_ADJUSTMENT`, `CANCELLATION`, or `CUSTOMER_RETURN`. During checkout, stock updates are executed using atomic conditional database operations inside the Prisma transaction so inventory is decremented only when sufficient stock exists. This prevents concurrent checkout attempts from overselling inventory, and if another transaction consumes the remaining stock first, the current checkout fails cleanly and rolls back.
 - **Order & OrderItem**: Records buyer-seller checkouts. Tracks `paymentStatus` (COD, Prepaid) and order fulfillment status (PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED).
 - **LedgerEntry**: Records accounting histories between a wholesaler and a customer. Tracks credits and debits (`amount`).
 
@@ -75,15 +75,16 @@ The relational database is managed via [schema.prisma](../prisma/schema.prisma) 
 
 All backend routes are prefix-mapped under `/api` inside [index.js](../src/index.js):
 
-| Resource Endpoint          | Middleware / Auth     | Controller Logic              | Description                                                                     |
-| :------------------------- | :-------------------- | :---------------------------- | :------------------------------------------------------------------------------ |
-| **`/api/auth`**            | Public                | `authController.js`           | Handles user registration, JWT login, and session validation.                   |
-| **`/api/products`**        | Mixed Auth            | `productController.js`        | Fetches listings, reviews, and wholesaler inventories.                          |
-| **`/api/inventory`**       | Wholesaler            | `inventoryController.js`      | Modifies product stock levels and appends `InventoryLog` entries.               |
-| **`/api/orders`**          | Customer / Wholesaler | `orderController.js`          | Submits checkouts, initializes payments (Razorpay), and handles order issues.   |
-| **`/api/ledger`**          | Wholesaler            | `ledgerController.js`         | Fetches transactional ledgers for customer accounts.                            |
-| **`/api/khatta`**          | Wholesaler            | `khattaController.js`         | Parses handwritten receipts and saves them as transaction lines.                |
-| **`/api/recommendations`** | Customer / Wholesaler | `recommendationController.js` | Returns popular list, similar items, custom customer feed, and offline reports. |
+| Resource Endpoint          | Middleware / Auth     | Controller Logic              | Description                                                                                                             |
+| :------------------------- | :-------------------- | :---------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **`/api/auth`**            | Public                | `authController.js`           | Handles user registration, JWT login, and session validation.                                                           |
+| **`/api/products`**        | Mixed Auth            | `productController.js`        | Fetches listings, reviews, and wholesaler inventories.                                                                  |
+| **`/api/inventory`**       | Wholesaler            | `inventoryController.js`      | Modifies product stock levels and appends `InventoryLog` entries.                                                       |
+| **`/api/orders`**          | Customer / Wholesaler | `orderController.js`          | Submits checkouts, initializes payments (Razorpay), performs idempotent payment verification, and handles order issues. |
+| **`/api/cart`**            | Customer              | `cartController.js`           | Returns and mutates only the authenticated customer's cart; all cart operations enforce ownership checks.               |
+| **`/api/ledger`**          | Wholesaler            | `ledgerController.js`         | Fetches transactional ledgers for customer accounts.                                                                    |
+| **`/api/khatta`**          | Wholesaler            | `khattaController.js`         | Parses handwritten receipts and saves them as transaction lines.                                                        |
+| **`/api/recommendations`** | Customer / Wholesaler | `recommendationController.js` | Returns popular list, similar items, custom customer feed, and offline reports.                                         |
 
 ### 3.2 Python AI Service Routes
 
@@ -121,5 +122,19 @@ sequenceDiagram
 
   User->>App: Completes Checkout
   App->>API: Create Order (attributing purchase to recommendationLogId)
+  API->>DB: Atomically decrement stock only if sufficient inventory remains
   API->>DB: Write attributed RecommendationEvent (purchase type)
+  Note over API,DB: If another transaction consumes the last stock first, this checkout rolls back cleanly
 ```
+
+### 4.2 Cart Hydration and Ownership Enforcement
+
+- `GET /api/cart` always returns only the authenticated customer's cart.
+- Cart hydration never exposes another customer's cart because cart lookup is scoped to the current authenticated user identity.
+- All cart operations (`GET`, `POST`, `PATCH`, `DELETE`) enforce authenticated ownership checks before returning or modifying data.
+
+### 4.3 Razorpay Verification Idempotency
+
+- Razorpay payment verification is keyed by the unique Razorpay payment identifier associated with the checkout session.
+- Repeated verification requests for the same successful payment never create duplicate orders.
+- When the backend sees a payment that has already been verified successfully, it returns the already-created order instead of executing checkout again.

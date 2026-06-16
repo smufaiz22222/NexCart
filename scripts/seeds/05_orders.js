@@ -97,6 +97,8 @@ export default async function seedOrders(prisma, customers, products) {
         productId: item.productId,
         quantity: item.quantity,
         price: item.price,
+        unitPriceAtPurchase: item.price,
+        subtotalAtPurchase: item.totalItemPrice,
       })),
     });
 

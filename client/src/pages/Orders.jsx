@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,11 +15,24 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
+import { toast } from 'sonner';
+import {
+  useOrders,
+  useUpdateOrderStatus,
+  useCancelOrderItem,
+  useRetryRefund,
+  useRequestReturn,
+  useApproveReturn,
+  useRejectReturn,
+  useReceiveReturn,
+  useRetryReturnRefund,
+  useSubmitOrderIssue,
+  useReviewOrderIssue,
+} from '../api/queries';
 
 const CUSTOMER_ISSUE_TEMPLATE = {
-  type: 'RETURN',
+  type: 'REFUND',
   orderItemId: '',
   preferredResolution: 'REFUND',
   requestedQuantity: 1,
@@ -54,6 +67,56 @@ const resolutionLabel = {
   REPLACEMENT: 'Replacement',
   STORE_CREDIT: 'Store credit',
   RETURNLESS_REFUND: 'Returnless refund',
+};
+
+const CUSTOMER_CANCELLABLE_STATUSES = new Set(['PENDING', 'PROCESSING']);
+const RETURN_REASON_OPTIONS = [
+  'WRONG_ITEM',
+  'DAMAGED',
+  'DEFECTIVE',
+  'CHANGED_MIND',
+  'MISSING_PARTS',
+  'OTHER',
+];
+
+const formatReturnReason = (reason) =>
+  String(reason || '')
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const getReturnBadge = (item) => {
+  if (!item.returnStatus || item.returnStatus === 'NONE') return null;
+
+  const labelMap = {
+    REQUESTED: 'Return Requested',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+    RECEIVED:
+      item.returnRefundStatus === 'PROCESSING'
+        ? 'Refund Processing'
+        : item.returnRefundStatus === 'FAILED'
+          ? 'Refund Failed'
+          : 'Awaiting Refund',
+    RETURN_COMPLETED: 'Return Completed',
+  };
+
+  const className =
+    item.returnStatus === 'RETURN_COMPLETED'
+      ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
+      : item.returnStatus === 'REJECTED' || item.returnRefundStatus === 'FAILED'
+        ? 'bg-red-500/10 text-red-300 border-red-500/20'
+        : 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+
+  return (
+    <span
+      className={`px-2.5 py-1 rounded-sm text-[10px] uppercase tracking-widest font-bold border ${className}`}
+    >
+      {labelMap[item.returnStatus] || item.returnStatus.replaceAll('_', ' ')}
+    </span>
+  );
 };
 
 const getStatusBadge = (status) => {
@@ -127,11 +190,10 @@ const canCustomerOpenIssue = (orderStatus) =>
   ['SHIPPED', 'DELIVERED', 'PROCESSING'].includes(orderStatus);
 
 export default function Orders() {
-  const [orders, setOrders] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [submittingOrderId, setSubmittingOrderId] = useState(null);
   const [reviewingIssueId, setReviewingIssueId] = useState(null);
   const [activeIssueFormOrderId, setActiveIssueFormOrderId] = useState(null);
+  const [activeItemActionId, setActiveItemActionId] = useState(null);
   const [issueDrafts, setIssueDrafts] = useState({});
   const [issueReviews, setIssueReviews] = useState({});
   const { user } = useAuthStore();
@@ -139,20 +201,18 @@ export default function Orders() {
 
   const backPath = user?.role === 'WHOLESALER' ? '/wholesaler' : '/store';
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await apiClient.get('/orders');
-        setOrders(response.data.orders || []);
-      } catch (error) {
-        console.error('Failed to load orders:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: orders = [], isLoading, isError, error, isFetching, refetch } = useOrders();
 
-    fetchOrders();
-  }, []);
+  const updateOrderStatusMutation = useUpdateOrderStatus();
+  const cancelOrderItemMutation = useCancelOrderItem();
+  const retryRefundMutation = useRetryRefund();
+  const requestReturnMutation = useRequestReturn();
+  const approveReturnMutation = useApproveReturn();
+  const rejectReturnMutation = useRejectReturn();
+  const receiveReturnMutation = useReceiveReturn();
+  const retryReturnRefundMutation = useRetryReturnRefund();
+  const submitIssueMutation = useSubmitOrderIssue();
+  const reviewIssueMutation = useReviewOrderIssue();
 
   const sortedOrders = useMemo(
     () => [...orders].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)),
@@ -180,59 +240,231 @@ export default function Orders() {
   };
 
   const handleUpdateStatus = async (orderId, newStatus) => {
-    try {
-      await apiClient.put(`/orders/${orderId}/status`, { status: newStatus });
-      setOrders((prev) =>
-        prev.map((order) => (order.id === orderId ? { ...order, status: newStatus } : order))
-      );
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      alert('Failed to update order status');
-    }
+    updateOrderStatusMutation.mutate(
+      { orderId, status: newStatus },
+      {
+        onSuccess: () => {
+          toast.success(`Order status updated to ${newStatus}`);
+        },
+        onError: (err) => {
+          console.error('Failed to update status:', err);
+          toast.error(err.response?.data?.error || 'Failed to update order status');
+        },
+      }
+    );
   };
 
   const handleSubmitIssue = async (order) => {
     const draft = issueDrafts[order.id] || CUSTOMER_ISSUE_TEMPLATE;
     setSubmittingOrderId(order.id);
 
-    try {
-      const response = await apiClient.post(`/orders/${order.id}/issues`, {
+    submitIssueMutation.mutate(
+      {
+        orderId: order.id,
         ...draft,
-        orderItemId: draft.orderItemId || null,
-      });
-
-      setOrders((prev) =>
-        prev.map((entry) =>
-          entry.id === order.id
-            ? { ...entry, issues: [response.data.issue, ...(entry.issues || [])] }
-            : entry
-        )
-      );
-      setIssueDrafts((prev) => ({ ...prev, [order.id]: CUSTOMER_ISSUE_TEMPLATE }));
-      setActiveIssueFormOrderId(null);
-    } catch (error) {
-      console.error('Failed to create order issue:', error);
-      alert(error.response?.data?.error || 'Failed to create the request');
-    } finally {
-      setSubmittingOrderId(null);
-    }
+      },
+      {
+        onSuccess: () => {
+          setIssueDrafts((prev) => ({ ...prev, [order.id]: CUSTOMER_ISSUE_TEMPLATE }));
+          setActiveIssueFormOrderId(null);
+          toast.success('Request submitted successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to create order issue:', err);
+          toast.error(err.response?.data?.error || 'Failed to create the request');
+        },
+        onSettled: () => {
+          setSubmittingOrderId(null);
+        },
+      }
+    );
   };
 
   const handleReviewIssue = async (orderId, issueId) => {
     const review = issueReviews[issueId] || WHOLESALER_REVIEW_TEMPLATE;
     setReviewingIssueId(issueId);
 
-    try {
-      const response = await apiClient.put(`/orders/issues/${issueId}`, review);
-      setOrders((prev) =>
-        prev.map((order) => (order.id === orderId ? response.data.order || order : order))
-      );
-    } catch (error) {
-      console.error('Failed to update order issue:', error);
-      alert(error.response?.data?.error || 'Failed to update the request');
-    } finally {
-      setReviewingIssueId(null);
+    reviewIssueMutation.mutate(
+      {
+        issueId,
+        ...review,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Review saved successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to update order issue:', err);
+          toast.error(err.response?.data?.error || 'Failed to update the request');
+        },
+        onSettled: () => {
+          setReviewingIssueId(null);
+        },
+      }
+    );
+  };
+
+  const handleCancelItem = async (orderId, itemId) => {
+    setActiveItemActionId(itemId);
+    cancelOrderItemMutation.mutate(
+      { orderId, itemId },
+      {
+        onSuccess: () => {
+          toast.success('Item cancelled successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to cancel order item:', err);
+          toast.error(err.response?.data?.error || 'Failed to cancel the item');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
+  };
+
+  const handleRetryRefund = async (orderId, itemId) => {
+    setActiveItemActionId(itemId);
+    retryRefundMutation.mutate(
+      { orderId, itemId },
+      {
+        onSuccess: () => {
+          toast.success('Refund retry initiated');
+        },
+        onError: (err) => {
+          console.error('Failed to retry refund:', err);
+          toast.error(err.response?.data?.error || 'Failed to retry refund');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
+  };
+
+  const handleRequestReturn = async (orderId, item) => {
+    const reasonInput =
+      window.prompt(`Return reason (${RETURN_REASON_OPTIONS.join(', ')})`, 'DAMAGED') || '';
+    const normalizedReason = reasonInput.trim().toUpperCase().replaceAll(' ', '_');
+    if (!RETURN_REASON_OPTIONS.includes(normalizedReason)) {
+      toast.warning('Please enter a valid return reason.');
+      return;
     }
+
+    const quantityInput =
+      window.prompt('Return quantity', String(item.quantity)) || String(item.quantity);
+    const parsedQuantity = Number.parseInt(quantityInput, 10);
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > item.quantity) {
+      toast.warning('Please enter a valid return quantity.');
+      return;
+    }
+
+    const notes = window.prompt('Optional note for the seller', '') || '';
+
+    setActiveItemActionId(item.id);
+    requestReturnMutation.mutate(
+      {
+        orderId,
+        itemId: item.id,
+        reason: normalizedReason,
+        notes,
+        quantity: parsedQuantity,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Return requested successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to request return:', err);
+          toast.error(err.response?.data?.error || 'Failed to request the return');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
+  };
+
+  const handleApproveReturn = async (orderId, itemId) => {
+    setActiveItemActionId(itemId);
+    approveReturnMutation.mutate(
+      { orderId, itemId },
+      {
+        onSuccess: () => {
+          toast.success('Return approved');
+        },
+        onError: (err) => {
+          console.error('Failed to approve return:', err);
+          toast.error(err.response?.data?.error || 'Failed to approve the return');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
+  };
+
+  const handleRejectReturn = async (orderId, itemId) => {
+    const rejectionReason = window.prompt('Reason for rejecting this return', '') || '';
+    if (!rejectionReason.trim()) {
+      toast.warning('Rejection reason is required.');
+      return;
+    }
+
+    setActiveItemActionId(itemId);
+    rejectReturnMutation.mutate(
+      { orderId, itemId, rejectionReason },
+      {
+        onSuccess: () => {
+          toast.success('Return rejected');
+        },
+        onError: (err) => {
+          console.error('Failed to reject return:', err);
+          toast.error(err.response?.data?.error || 'Failed to reject the return');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
+  };
+
+  const handleReceiveReturn = async (orderId, itemId) => {
+    setActiveItemActionId(itemId);
+    receiveReturnMutation.mutate(
+      { orderId, itemId },
+      {
+        onSuccess: () => {
+          toast.success('Return received');
+        },
+        onError: (err) => {
+          console.error('Failed to receive return:', err);
+          toast.error(err.response?.data?.error || 'Failed to confirm return receipt');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
+  };
+
+  const handleRetryReturnRefund = async (orderId, itemId) => {
+    setActiveItemActionId(itemId);
+    retryReturnRefundMutation.mutate(
+      { orderId, itemId },
+      {
+        onSuccess: () => {
+          toast.success('Return refund retried');
+        },
+        onError: (err) => {
+          console.error('Failed to retry return refund:', err);
+          toast.error(err.response?.data?.error || 'Failed to retry return refund');
+        },
+        onSettled: () => {
+          setActiveItemActionId(null);
+        },
+      }
+    );
   };
 
   if (isLoading) {
@@ -256,11 +488,16 @@ export default function Orders() {
 
       <div className="flex justify-between items-center mb-8 border-b border-[#ddd7cc] pb-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-wide">
+          <h1 className="text-3xl font-extrabold tracking-wide flex items-center gap-2">
             {user?.role === 'WHOLESALER' ? (
               <span className="text-[#161412]">Incoming Shop Orders</span>
             ) : (
               <span className="text-[#161412]">My Purchase History</span>
+            )}
+            {isFetching && !isLoading && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse">
+                Syncing...
+              </span>
             )}
           </h1>
           <p className="text-sm text-[#6b665f] mt-2">
@@ -271,7 +508,20 @@ export default function Orders() {
         </div>
       </div>
 
-      {sortedOrders.length === 0 ? (
+      {isError ? (
+        <div className="bg-white rounded-[30px] border border-red-500/20 p-12 flex flex-col items-center justify-center text-center">
+          <p className="text-red-500 text-sm font-semibold mb-4">
+            Failed to load orders:{' '}
+            {error?.response?.data?.error || error?.message || 'Unknown error'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
+          >
+            Retry Loading
+          </button>
+        </div>
+      ) : sortedOrders.length === 0 ? (
         <div className="bg-white rounded-[30px] shadow-[0_18px_45px_rgba(22,20,18,0.05)] border border-dashed border-[#ddd7cc] p-16 text-center flex flex-col items-center">
           <div className="bg-[#f8f6f1] p-5 rounded-full mb-5 border border-[#ddd7cc]">
             <Package className="h-10 w-10 text-[#8b857c]" />
@@ -367,18 +617,159 @@ export default function Orders() {
                             )}
                           </div>
                           <div className="ml-5 flex-1">
-                            <h4 className="text-sm font-bold text-[#161412] transition-colors">
-                              {item.product.name}
-                            </h4>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-bold text-[#161412] transition-colors">
+                                {item.product.name}
+                              </h4>
+                              {getReturnBadge(item)}
+                              {item.status === 'CANCELLED' && (
+                                <span
+                                  className={`px-2.5 py-1 rounded-sm text-[10px] uppercase tracking-widest font-bold border ${
+                                    item.refundStatus === 'REFUNDED'
+                                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                      : item.refundStatus === 'FAILED'
+                                        ? 'bg-red-500/10 text-red-300 border-red-500/20'
+                                        : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                                  }`}
+                                >
+                                  {item.refundStatus === 'REFUNDED'
+                                    ? 'Refunded'
+                                    : item.refundStatus === 'FAILED'
+                                      ? 'Refund Failed'
+                                      : item.refundStatus === 'PROCESSING' ||
+                                          item.refundStatus === 'PENDING'
+                                        ? 'Refund Pending'
+                                        : 'Cancelled'}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-[#6b665f] mt-1">
                               Qty: <span className="text-[#161412]">{item.quantity}</span> × ₹
                               {unitPrice.toFixed(2)}
                             </p>
+                            {item.returnReason && (
+                              <p className="text-xs text-[#6b665f] mt-2">
+                                Return reason: {formatReturnReason(item.returnReason)}
+                              </p>
+                            )}
+                            {item.customerReturnNotes && (
+                              <p className="text-xs text-[#6b665f] mt-1">
+                                {item.customerReturnNotes}
+                              </p>
+                            )}
+                            {item.rejectionReason && (
+                              <p className="text-xs text-red-500 mt-1">
+                                Rejected: {item.rejectionReason}
+                              </p>
+                            )}
+                            {item.gatewayRefundId && (
+                              <p className="text-xs text-[#6b665f] mt-1">
+                                Gateway Refund: {item.gatewayRefundId}
+                              </p>
+                            )}
+                            {item.status === 'CANCELLED' && item.refundFailureReason && (
+                              <p className="text-xs text-red-500 mt-2">
+                                {item.refundFailureReason}
+                              </p>
+                            )}
+                            {item.status === 'CANCELLED' && item.refundReference && (
+                              <p className="text-xs text-[#6b665f] mt-1">
+                                Refund Ref: {item.refundReference}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right pl-4">
                             <p className="text-sm font-extrabold text-[#161412]">
                               ₹{subtotal.toFixed(2)}
                             </p>
+                            {user?.role === 'CUSTOMER' && (
+                              <div className="mt-3 flex flex-col gap-2 items-end">
+                                <button
+                                  onClick={() => handleCancelItem(order.id, item.id)}
+                                  disabled={
+                                    activeItemActionId === item.id ||
+                                    item.status === 'CANCELLED' ||
+                                    !CUSTOMER_CANCELLABLE_STATUSES.has(order.status)
+                                  }
+                                  className="text-[11px] font-bold uppercase tracking-wider bg-[#161412] text-white border border-[#161412] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                >
+                                  {activeItemActionId === item.id && item.status !== 'CANCELLED'
+                                    ? 'Cancelling...'
+                                    : item.status === 'CANCELLED'
+                                      ? 'Cancelled'
+                                      : 'Cancel Item'}
+                                </button>
+                                {item.status === 'CANCELLED' &&
+                                  ['FAILED', 'PENDING'].includes(item.refundStatus) && (
+                                    <button
+                                      onClick={() => handleRetryRefund(order.id, item.id)}
+                                      disabled={activeItemActionId === item.id}
+                                      className="text-[11px] font-bold uppercase tracking-wider bg-white text-[#161412] border border-[#ddd7cc] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                    >
+                                      {activeItemActionId === item.id
+                                        ? 'Retrying...'
+                                        : 'Retry Refund'}
+                                    </button>
+                                  )}
+                                {item.isReturnEligible && (
+                                  <button
+                                    onClick={() => handleRequestReturn(order.id, item)}
+                                    disabled={activeItemActionId === item.id}
+                                    className="text-[11px] font-bold uppercase tracking-wider bg-white text-[#161412] border border-[#ddd7cc] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                  >
+                                    {activeItemActionId === item.id
+                                      ? 'Submitting...'
+                                      : 'Request Return'}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {user?.role === 'WHOLESALER' && item.returnStatus === 'REQUESTED' && (
+                              <div className="mt-3 flex flex-col gap-2 items-end">
+                                <button
+                                  onClick={() => handleApproveReturn(order.id, item.id)}
+                                  disabled={activeItemActionId === item.id}
+                                  className="text-[11px] font-bold uppercase tracking-wider bg-[#161412] text-white border border-[#161412] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                >
+                                  {activeItemActionId === item.id ? 'Saving...' : 'Approve Return'}
+                                </button>
+                                <button
+                                  onClick={() => handleRejectReturn(order.id, item.id)}
+                                  disabled={activeItemActionId === item.id}
+                                  className="text-[11px] font-bold uppercase tracking-wider bg-white text-[#161412] border border-[#ddd7cc] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                >
+                                  {activeItemActionId === item.id ? 'Saving...' : 'Reject Return'}
+                                </button>
+                              </div>
+                            )}
+                            {user?.role === 'WHOLESALER' && item.returnStatus === 'APPROVED' && (
+                              <div className="mt-3 flex flex-col gap-2 items-end">
+                                <button
+                                  onClick={() => handleReceiveReturn(order.id, item.id)}
+                                  disabled={activeItemActionId === item.id}
+                                  className="text-[11px] font-bold uppercase tracking-wider bg-[#161412] text-white border border-[#161412] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                >
+                                  {activeItemActionId === item.id
+                                    ? 'Saving...'
+                                    : 'Mark Return Received'}
+                                </button>
+                              </div>
+                            )}
+                            {user?.role === 'WHOLESALER' &&
+                              item.returnStatus === 'RECEIVED' &&
+                              item.returnRefundStatus === 'FAILED' && (
+                                <div className="mt-3 flex flex-col gap-2 items-end">
+                                  <button
+                                    onClick={() => handleRetryReturnRefund(order.id, item.id)}
+                                    disabled={activeItemActionId === item.id}
+                                    className="text-[11px] font-bold uppercase tracking-wider bg-white text-[#161412] border border-[#ddd7cc] px-3 py-2 rounded-full transition-all disabled:opacity-50"
+                                  >
+                                    {activeItemActionId === item.id
+                                      ? 'Retrying...'
+                                      : 'Retry Return Refund'}
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </li>
                       );
@@ -392,12 +783,12 @@ export default function Orders() {
                       <div>
                         <h3 className="text-sm font-bold uppercase tracking-widest text-[#161412] flex items-center gap-2">
                           <MessageSquareWarning className="h-4 w-4 text-[#8f5d31]" />
-                          Returns, Refunds, and Disputes
+                          Refunds and Disputes
                         </h3>
                         <p className="text-xs text-[#6b665f] mt-1">
                           {user?.role === 'WHOLESALER'
                             ? 'Review buyer requests and record the final resolution.'
-                            : 'Raise a request for an item or the whole order when something goes wrong.'}
+                            : 'Use the dedicated return buttons above for returns, or raise a refund/dispute request here.'}
                         </p>
                       </div>
 
@@ -431,7 +822,6 @@ export default function Orders() {
                               }
                               className="w-full rounded-md border border-zinc-700 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                             >
-                              <option value="RETURN">Return</option>
                               <option value="REFUND">Refund</option>
                               <option value="DISPUTE">Dispute</option>
                             </select>
@@ -758,6 +1148,18 @@ export default function Orders() {
                         After-sales requests unlock after processing/shipping.
                       </div>
                     )}
+
+                    {user?.role === 'CUSTOMER' &&
+                      order.items.some(
+                        (item) =>
+                          item.status === 'CANCELLED' &&
+                          ['FAILED', 'PENDING', 'PROCESSING'].includes(item.refundStatus)
+                      ) && (
+                        <div className="inline-flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300">
+                          <Wallet className="h-3.5 w-3.5" />A cancelled prepaid item still needs
+                          refund resolution.
+                        </div>
+                      )}
 
                     {order.paymentStatus === 'REFUND_PENDING' && (
                       <div className="inline-flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300">

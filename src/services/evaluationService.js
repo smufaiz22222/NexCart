@@ -12,7 +12,11 @@ export const evaluateRecommendations = async ({ k = 5, storeReport = false, note
       id: true,
       ordersPlaced: {
         orderBy: { createdAt: 'asc' },
-        include: { items: true },
+        include: {
+          items: {
+            where: { status: 'ACTIVE' },
+          },
+        },
       },
     },
   });

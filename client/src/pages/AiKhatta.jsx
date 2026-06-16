@@ -12,6 +12,7 @@ import {
 import apiClient from '../api/axios';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
 
 export default function AiKhatta() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -97,11 +98,11 @@ export default function AiKhatta() {
     try {
       setIsProcessing(true);
       await apiClient.post('/khatta/save', { entries: parsedData });
-      alert('Entries successfully saved to your Ledger!');
+      toast.success('Entries successfully saved to your Ledger!');
       setParsedData(null);
     } catch (err) {
       console.error('Ledger Save Error:', err);
-      alert('Failed to save. Ensure customers are registered.');
+      toast.error('Failed to save. Ensure customers are registered.');
     } finally {
       setIsProcessing(false);
     }

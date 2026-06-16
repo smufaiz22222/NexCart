@@ -3,14 +3,69 @@ import { ArrowRight, BriefcaseBusiness, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const passwordChecks = [
+  { pattern: /.{8,}/, message: 'Use at least 8 characters.' },
+  { pattern: /[A-Z]/, message: 'Include at least one uppercase letter.' },
+  { pattern: /[a-z]/, message: 'Include at least one lowercase letter.' },
+  { pattern: /\d/, message: 'Include at least one number.' },
+  { pattern: /[^A-Za-z0-9]/, message: 'Include at least one special character.' },
+];
+
+function validateRegistrationForm(formData) {
+  const name = formData.name.trim();
+  const email = formData.email.trim().toLowerCase();
+  const businessName = formData.businessName.trim();
+
+  if (!name) {
+    return 'Full name is required.';
+  }
+
+  if (!email) {
+    return 'Email address is required.';
+  }
+
+  if (!emailPattern.test(email)) {
+    return 'Enter a valid email address.';
+  }
+
+  if (!formData.password) {
+    return 'Password is required.';
+  }
+
+  const passwordMessage = passwordChecks.find(
+    ({ pattern }) => !pattern.test(formData.password)
+  )?.message;
+  if (passwordMessage) {
+    return passwordMessage;
+  }
+
+  if (!formData.confirmPassword) {
+    return 'Confirm your password.';
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    return 'Passwords do not match.';
+  }
+
+  if (formData.role === 'WHOLESALER' && !businessName) {
+    return 'Business / Shop Name is required for wholesalers.';
+  }
+
+  return null;
+}
+
 export default function Register() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
     role: 'CUSTOMER',
     businessName: '',
   });
+  const [successMessage, setSuccessMessage] = useState('');
+  const [validationError, setValidationError] = useState('');
 
   const navigate = useNavigate();
   const { register, isLoading, error } = useAuthStore();
@@ -20,14 +75,26 @@ export default function Register() {
       ...current,
       [event.target.name]: event.target.value,
     }));
+    setSuccessMessage('');
+    setValidationError('');
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    setSuccessMessage('');
+    setValidationError('');
+
+    const nextError = validateRegistrationForm(formData);
+    if (nextError) {
+      setValidationError(nextError);
+      return;
+    }
+
     try {
       await register(formData);
-      alert('Registration successful! Welcome to the marketplace.');
-      navigate('/login');
+      setSuccessMessage('Registration successful. You can sign in now.');
+      setTimeout(() => navigate('/login'), 600);
     } catch (submitError) {
       console.error(submitError);
     }
@@ -75,9 +142,21 @@ export default function Register() {
               start selling as a wholesaler right away.
             </p>
 
+            {validationError && (
+              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
+                {validationError}
+              </div>
+            )}
+
             {error && (
               <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
                 {error}
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="mt-6 rounded-3xl border border-[#b8dec7] bg-[#eefaf1] px-4 py-4 text-sm font-medium text-[#22603a]">
+                {successMessage}
               </div>
             )}
 
@@ -134,6 +213,23 @@ export default function Register() {
                   className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
                 />
               </FormField>
+
+              <FormField label="Confirm Password">
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Repeat your password"
+                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                />
+              </FormField>
+
+              <div className="rounded-2xl border border-[#ddd7cc] bg-[#faf8f4] px-4 py-4 text-sm leading-6 text-[#6b665f]">
+                Password must be at least 8 characters and include uppercase, lowercase, a number,
+                and a special character.
+              </div>
 
               {formData.role === 'WHOLESALER' && (
                 <FormField label="Business / Shop Name">

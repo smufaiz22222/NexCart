@@ -45,6 +45,53 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum PaymentCaptureStatus {
+  NOT_APPLICABLE
+  CAPTURED
+  UNCERTAIN
+}
+
+enum LedgerEntrySource {
+  MANUAL
+  ORDER_CHARGE
+  ORDER_AUTO_PAYMENT
+  ORDER_PREPAID_PAYMENT
+  ORDER_CANCELLATION
+  CUSTOMER_RETURN
+  RETURN_REFUND
+  RETURN_ADJUSTMENT
+}
+
+enum ReturnStatus {
+  NONE
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  RETURN_COMPLETED
+}
+
+enum ReturnRefundStatus {
+  NONE
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+enum ReturnReason {
+  WRONG_ITEM
+  DAMAGED
+  DEFECTIVE
+  CHANGED_MIND
+  MISSING_PARTS
+  OTHER
+}
+
+enum OrderAdjustmentType {
+  RETURN
+}
+
 enum OrderIssueType {
   RETURN
   REFUND
@@ -87,6 +134,56 @@ enum RecommendationEventType {
   purchase
 }
 
+enum OrderItemStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum RefundStatus {
+  NOT_APPLICABLE
+  PENDING
+  PROCESSING
+  REFUNDED
+  FAILED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+}
+
+enum DisputeReason {
+  DAMAGED_ITEM
+  WRONG_ITEM
+  MISSING_PARTS
+  DEFECTIVE_PRODUCT
+  QUALITY_ISSUE
+  NOT_AS_DESCRIBED
+  OTHER
+}
+
+enum DisputeResolutionType {
+  APPROVE
+  REJECT
+  PARTIAL_REFUND
+}
+
+enum DisputeResolvedByRole {
+  SELLER
+  ADMIN
+}
+
+enum DisputeEventType {
+  OPENED
+  UNDER_REVIEW
+  NOTE_ADDED
+  RESOLUTION_CREATED
+  APPROVED
+  REJECTED
+  PARTIAL_REFUND
+}
+
 model User {
   id                      String                      @id @default(uuid())
   name                    String                      @default("User")
@@ -106,6 +203,10 @@ model User {
   ordersPlaced  Order[]       @relation("BuyerOrders")
   orderIssues   OrderIssue[]  @relation("OrderIssueRequester")
   ledgerEntries LedgerEntry[] @relation("UserLedger")
+  disputesOpened       Dispute[]              @relation("BuyerDisputes")
+  disputeResolutions   DisputeResolution[]    @relation("DisputeResolvedByUser")
+  disputeInternalNotes DisputeInternalNote[]  @relation("DisputeInternalNoteAuthor")
+  disputeEvents        DisputeEvent[]         @relation("DisputeEventPerformer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -122,6 +223,7 @@ model Wholesaler {
   invoices      Invoice[]
   ledgerEntries LedgerEntry[]  @relation("WholesalerLedger")
   inventoryLogs InventoryLog[]
+  disputes      Dispute[]      @relation("SellerDisputes")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -184,14 +286,20 @@ model Order {
   status           OrderStatus   @default(PENDING)
   paymentMethod    PaymentMethod @default(COD)
   paymentStatus    PaymentStatus @default(PENDING)
+  paymentCaptureStatus PaymentCaptureStatus @default(NOT_APPLICABLE)
   paymentProvider  String?
   paymentReference String?
+  razorpayPaymentId String?
+  razorpayOrderId String?
   totalAmount      Decimal       @db.Decimal(10, 2)
   shippingAddress  String?
 
   items   OrderItem[]
   invoice Invoice?
   issues  OrderIssue[]
+  disputes Dispute[]
+  ledgerEntries LedgerEntry[]
+  adjustments   OrderAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -228,7 +336,43 @@ model OrderItem {
   unitPriceAtPurchase  Decimal      @db.Decimal(10, 2)
   subtotalAtPurchase   Decimal      @db.Decimal(10, 2)
   selectedSize         String?
+  recommendationId     String?
+  status               OrderItemStatus @default(ACTIVE)
+  cancelledAt          DateTime?
+  cancelledByRole      Role?
+  cancellationReason   String?
+  refundStatus         RefundStatus @default(NOT_APPLICABLE)
+  refundReference      String?
+  refundFailureReason  String?
+  refundRequestedAt    DateTime?
+  refundCompletedAt    DateTime?
+  refundedAmount       Decimal?     @db.Decimal(10, 2)
+  returnStatus         ReturnStatus       @default(NONE)
+  returnRefundStatus   ReturnRefundStatus @default(NONE)
+  returnReason         ReturnReason?
+  customerReturnNotes  String?
+  rejectionReason      String?
+  decisionBy           String?
+  returnedQuantity     Int                @default(0)
+  refundAmountSnapshot Decimal?           @db.Decimal(10, 2)
+  inventoryRestored    Boolean            @default(false)
+  refundAttemptCount   Int                @default(0)
+  gatewayRefundId      String?
+  gatewayResponse      Json?
+  returnRequestedAt    DateTime?
+  returnApprovedAt     DateTime?
+  returnRejectedAt     DateTime?
+  returnReceivedAt     DateTime?
+  returnCompletedAt    DateTime?
+  returnEligibleUntil  DateTime?
   issues               OrderIssue[]
+  adjustments          OrderAdjustment[]
+  disputes             Dispute[]
+
+  @@index([orderId, status])
+  @@index([refundStatus])
+  @@index([returnStatus])
+  @@index([returnRefundStatus])
 }
 
 model Cart {
@@ -311,6 +455,91 @@ model OrderIssue {
   @@index([createdAt])
 }
 
+model Dispute {
+  id                String         @id @default(uuid())
+  orderId           String
+  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId       String
+  orderItem         OrderItem      @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  buyerId           String
+  buyer             User           @relation("BuyerDisputes", fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId          String
+  seller            Wholesaler     @relation("SellerDisputes", fields: [sellerId], references: [id], onDelete: Cascade)
+  status            DisputeStatus  @default(OPEN)
+  reason            DisputeReason
+  description       String
+  openedAt          DateTime       @default(now())
+  respondedAt       DateTime?
+  dueAt             DateTime?
+  createdByIp       String?
+  createdByUserAgent String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  resolution        DisputeResolution?
+  evidence          DisputeEvidence[]
+  internalNotes     DisputeInternalNote[]
+  events            DisputeEvent[]
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([sellerId, status])
+  @@index([sellerId, reason, createdAt])
+}
+
+model DisputeResolution {
+  id               String                 @id @default(uuid())
+  disputeId        String                 @unique
+  dispute          Dispute                @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  resolvedByUserId String
+  resolvedByUser   User                   @relation("DisputeResolvedByUser", fields: [resolvedByUserId], references: [id], onDelete: Restrict)
+  resolvedByRole   DisputeResolvedByRole
+  resolutionType   DisputeResolutionType
+  resolutionNotes  String?
+  resolutionAmount Decimal?               @db.Decimal(10, 2)
+  refundId         String?
+  ledgerEntryId    String?
+  createdAt        DateTime               @default(now())
+}
+
+model DisputeEvidence {
+  id        String   @id @default(uuid())
+  disputeId String
+  dispute   Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  url       String
+  createdAt DateTime @default(now())
+
+  @@unique([disputeId, url])
+  @@index([disputeId])
+}
+
+model DisputeInternalNote {
+  id        String   @id @default(uuid())
+  disputeId String
+  dispute   Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("DisputeInternalNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  note      String
+  createdAt DateTime @default(now())
+
+  @@index([disputeId])
+}
+
+model DisputeEvent {
+  id                String           @id @default(uuid())
+  disputeId         String
+  dispute           Dispute          @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  type              DisputeEventType
+  performedByUserId String?
+  performedByUser   User?            @relation("DisputeEventPerformer", fields: [performedByUserId], references: [id], onDelete: SetNull)
+  notes             String?
+  createdAt         DateTime         @default(now())
+
+  @@index([disputeId, createdAt])
+}
+
 model Invoice {
   id           String     @id @default(uuid())
   wholesalerId String
@@ -332,12 +561,36 @@ model LedgerEntry {
 
   userId String?
   user   User?   @relation("UserLedger", fields: [userId], references: [id])
+  orderId String?
+  order   Order? @relation(fields: [orderId], references: [id])
 
   amount      Decimal @db.Decimal(10, 2)
   description String
   referenceId String?
+  source      LedgerEntrySource @default(MANUAL)
+  idempotencyKey String? @unique
 
   createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model OrderAdjustment {
+  id           String              @id @default(uuid())
+  orderId       String
+  order         Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId   String?
+  orderItem     OrderItem?          @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  type          OrderAdjustmentType
+  quantity      Int                 @default(0)
+  amount        Decimal             @db.Decimal(10, 2)
+  description   String
+  referenceKey  String              @unique
+  createdAt     DateTime            @default(now())
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([type])
 }
 
 model Review {
