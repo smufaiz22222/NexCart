@@ -93,6 +93,8 @@ model User {
   email                   String                      @unique
   password                String
   role                    Role                        @default(CUSTOMER)
+  cart                    Cart?
+  shippingAddresses       ShippingAddress[]
   reviews                 Review[]
   interactions            RecommendationInteraction[]
   recommendationLogs      RecommendationLog[]
@@ -144,6 +146,7 @@ model Product {
   currentStock Int @default(0)
   minStock     Int @default(10)
 
+  cartItems             CartItem[]
   inventoryLogs        InventoryLog[]
   orderItems           OrderItem[]
   interactions         RecommendationInteraction[]
@@ -204,6 +207,8 @@ model PrepaidCheckoutSession {
   payload          Json
   paymentStatus    PaymentStatus @default(PENDING)
   paymentReference String?
+  processedAt      DateTime?
+  createdOrderIds  String[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -218,9 +223,62 @@ model OrderItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  quantity Int
-  price    Decimal      @db.Decimal(10, 2)
-  issues   OrderIssue[]
+  quantity             Int
+  price                Decimal      @db.Decimal(10, 2)
+  unitPriceAtPurchase  Decimal      @db.Decimal(10, 2)
+  subtotalAtPurchase   Decimal      @db.Decimal(10, 2)
+  selectedSize         String?
+  issues               OrderIssue[]
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       CartItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model CartItem {
+  id           String   @id @default(uuid())
+  cartId       String
+  cart         Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  selectedSize String?
+  quantity     Int
+  recommendationId     String?
+  recommendationSource String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([cartId, productId, selectedSize])
+  @@index([cartId])
+  @@index([productId])
+}
+
+model ShippingAddress {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  landmark     String?
+  city         String
+  state        String
+  postalCode   String
+  country      String   @default("India")
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, isDefault])
 }
 
 model OrderIssue {

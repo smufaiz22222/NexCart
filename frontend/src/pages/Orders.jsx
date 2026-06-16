@@ -237,7 +237,7 @@ export default function Orders() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
+      <div className="flex flex-col items-center justify-center py-32 text-[#161412] space-y-4">
         <FileText className="h-8 w-8 animate-pulse" />
         <p className="font-medium tracking-widest uppercase text-sm">Loading your orders...</p>
       </div>
@@ -245,27 +245,25 @@ export default function Orders() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 font-sans selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="max-w-6xl mx-auto px-4 py-8 font-sans text-[#161412] selection:bg-[#161412] selection:text-[#f2f0ea]">
       <button
         onClick={() => navigate(backPath)}
-        className="flex items-center text-zinc-400 hover:text-amber-400 font-bold text-sm tracking-wide transition-colors group mb-8"
+        className="flex items-center text-[#6b665f] hover:text-[#161412] font-bold text-sm tracking-wide transition-colors group mb-8"
       >
         <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
         Back
       </button>
 
-      <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
+      <div className="flex justify-between items-center mb-8 border-b border-[#ddd7cc] pb-6">
         <div>
           <h1 className="text-3xl font-extrabold tracking-wide">
             {user?.role === 'WHOLESALER' ? (
-              <span className="text-white">Incoming Shop Orders</span>
+              <span className="text-[#161412]">Incoming Shop Orders</span>
             ) : (
-              <span className="text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                My Purchase History
-              </span>
+              <span className="text-[#161412]">My Purchase History</span>
             )}
           </h1>
-          <p className="text-sm text-zinc-500 mt-2">
+          <p className="text-sm text-[#6b665f] mt-2">
             {user?.role === 'WHOLESALER'
               ? 'Manage orders and review return, refund, and dispute requests.'
               : 'Track orders and raise return, refund, or dispute requests from one place.'}
@@ -274,12 +272,12 @@ export default function Orders() {
       </div>
 
       {sortedOrders.length === 0 ? (
-        <div className="bg-[#1c1c1c] rounded-xl shadow-xl border border-dashed border-zinc-700 p-16 text-center flex flex-col items-center">
-          <div className="bg-[#0a0a0a] p-5 rounded-full mb-5 border border-zinc-800">
-            <Package className="h-10 w-10 text-zinc-500" />
+        <div className="bg-white rounded-[30px] shadow-[0_18px_45px_rgba(22,20,18,0.05)] border border-dashed border-[#ddd7cc] p-16 text-center flex flex-col items-center">
+          <div className="bg-[#f8f6f1] p-5 rounded-full mb-5 border border-[#ddd7cc]">
+            <Package className="h-10 w-10 text-[#8b857c]" />
           </div>
-          <h3 className="text-lg font-semibold text-white tracking-wide">No orders yet</h3>
-          <p className="text-zinc-500 mt-2 max-w-sm">
+          <h3 className="text-lg font-semibold text-[#161412] tracking-wide">No orders yet</h3>
+          <p className="text-[#6b665f] mt-2 max-w-sm">
             When a transaction is made, the order details and invoice will appear here.
           </p>
         </div>
@@ -291,15 +289,15 @@ export default function Orders() {
             return (
               <div
                 key={order.id}
-                className="bg-[#1c1c1c] rounded-lg shadow-2xl border border-zinc-800 overflow-hidden group hover:border-amber-500/30 transition-colors"
+                className="bg-white rounded-[28px] shadow-[0_18px_45px_rgba(22,20,18,0.05)] border border-[#e7e1d7] overflow-hidden group hover:border-[#c9baa5] transition-colors"
               >
-                <div className="bg-[#0a0a0a] px-6 py-4 border-b border-zinc-800 flex flex-wrap justify-between items-center gap-6">
+                <div className="bg-[#f8f6f1] px-6 py-4 border-b border-[#e7e1d7] flex flex-wrap justify-between items-center gap-6">
                   <div className="flex flex-wrap gap-8">
                     <div>
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">
                         Order Placed
                       </p>
-                      <p className="text-sm font-semibold text-zinc-200">
+                      <p className="text-sm font-semibold text-[#161412]">
                         {new Date(order.createdAt).toLocaleDateString(undefined, {
                           year: 'numeric',
                           month: 'short',
@@ -308,7 +306,7 @@ export default function Orders() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">
+                      <p className="text-[10px] text-[#8b857c] uppercase tracking-widest font-bold mb-1">
                         Total
                       </p>
                       <p className="text-sm font-bold text-amber-500">
@@ -342,7 +340,7 @@ export default function Orders() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    <span className="text-[11px] font-mono text-zinc-600 bg-zinc-900 px-2.5 py-1 rounded">
+                    <span className="text-[11px] font-mono text-[#6b665f] bg-[#f3efe8] px-2.5 py-1 rounded-full">
                       ID: {order.id.slice(0, 8).toUpperCase()}
                     </span>
                     {getStatusBadge(order.status)}
@@ -350,48 +348,53 @@ export default function Orders() {
                 </div>
 
                 <div className="p-6">
-                  <ul className="divide-y divide-zinc-800/50">
-                    {order.items.map((item) => (
-                      <li key={item.id} className="py-4 flex items-center first:pt-0 last:pb-0">
-                        <div className="h-16 w-16 bg-[#F5F5F0] rounded-md shrink-0 flex items-center justify-center overflow-hidden border border-zinc-700">
-                          {item.product.imageUrl ? (
-                            <img
-                              src={item.product.imageUrl}
-                              alt={item.product.name}
-                              className="h-full w-full object-contain mix-blend-multiply p-1"
-                            />
-                          ) : (
-                            <Package className="h-6 w-6 text-zinc-400" />
-                          )}
-                        </div>
-                        <div className="ml-5 flex-1">
-                          <h4 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
-                            {item.product.name}
-                          </h4>
-                          <p className="text-xs text-zinc-400 mt-1">
-                            Qty: <span className="text-zinc-200">{item.quantity}</span> × ₹
-                            {Number(item.price).toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="text-right pl-4">
-                          <p className="text-sm font-extrabold text-white">
-                            ₹{(Number(item.price) * item.quantity).toFixed(2)}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
+                  <ul className="divide-y divide-[#ece7de]">
+                    {order.items.map((item) => {
+                      const unitPrice = Number(item.unitPriceAtPurchase ?? item.price);
+                      const subtotal = Number(item.subtotalAtPurchase ?? unitPrice * item.quantity);
+
+                      return (
+                        <li key={item.id} className="py-4 flex items-center first:pt-0 last:pb-0">
+                          <div className="h-16 w-16 bg-[#F5F5F0] rounded-[18px] shrink-0 flex items-center justify-center overflow-hidden border border-[#ddd7cc]">
+                            {item.product.imageUrl ? (
+                              <img
+                                src={item.product.imageUrl}
+                                alt={item.product.name}
+                                className="h-full w-full object-contain mix-blend-multiply p-1"
+                              />
+                            ) : (
+                              <Package className="h-6 w-6 text-[#8b857c]" />
+                            )}
+                          </div>
+                          <div className="ml-5 flex-1">
+                            <h4 className="text-sm font-bold text-[#161412] transition-colors">
+                              {item.product.name}
+                            </h4>
+                            <p className="text-xs text-[#6b665f] mt-1">
+                              Qty: <span className="text-[#161412]">{item.quantity}</span> × ₹
+                              {unitPrice.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-right pl-4">
+                            <p className="text-sm font-extrabold text-[#161412]">
+                              ₹{subtotal.toFixed(2)}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
 
                 <div className="px-6 pb-6">
-                  <div className="rounded-lg border border-zinc-800 bg-[#111111] p-5">
+                  <div className="rounded-[24px] border border-[#e7e1d7] bg-[#fbfaf7] p-5">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                       <div>
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-200 flex items-center gap-2">
-                          <MessageSquareWarning className="h-4 w-4 text-amber-400" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-[#161412] flex items-center gap-2">
+                          <MessageSquareWarning className="h-4 w-4 text-[#8f5d31]" />
                           Returns, Refunds, and Disputes
                         </h3>
-                        <p className="text-xs text-zinc-500 mt-1">
+                        <p className="text-xs text-[#6b665f] mt-1">
                           {user?.role === 'WHOLESALER'
                             ? 'Review buyer requests and record the final resolution.'
                             : 'Raise a request for an item or the whole order when something goes wrong.'}
@@ -405,7 +408,7 @@ export default function Orders() {
                               prev === order.id ? null : order.id
                             )
                           }
-                          className="text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30 px-4 py-2.5 rounded-md hover:bg-amber-500 hover:text-[#0a0a0a] transition-all"
+                          className="text-xs font-bold uppercase tracking-wider bg-[#161412] text-white border border-[#161412] px-4 py-2.5 rounded-full transition-all"
                         >
                           {activeIssueFormOrderId === order.id
                             ? 'Hide Request Form'
@@ -415,7 +418,7 @@ export default function Orders() {
                     </div>
 
                     {user?.role === 'CUSTOMER' && activeIssueFormOrderId === order.id && (
-                      <div className="mb-5 rounded-md border border-zinc-800 bg-[#0d0d0d] p-4">
+                      <div className="mb-5 rounded-[22px] border border-[#e7e1d7] bg-white p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <label className="text-sm text-zinc-300">
                             <span className="block text-xs uppercase tracking-widest text-zinc-500 mb-2">

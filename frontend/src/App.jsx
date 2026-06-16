@@ -10,6 +10,7 @@ const Products = lazy(() => import('./pages/Products'));
 const WholesalerLayout = lazy(() => import('./layouts/WholesalerLayout'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
 const Store = lazy(() => import('./pages/Store'));
 const Orders = lazy(() => import('./pages/Orders'));
@@ -20,6 +21,7 @@ const SellerProductDetails = lazy(() => import('./pages/SellerProductDetails'));
 const Storefront = lazy(() => import('./pages/Storefront'));
 const Cart = lazy(() => import('./pages/Cart'));
 const ProductDetails = lazy(() => import('./pages/ProductDetails'));
+const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -38,11 +40,6 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 const Unauthorized = () => (
   <div className="p-10 text-2xl font-bold text-red-600">403 - Unauthorized Access</div>
-);
-
-const CustomerStore = () => <div className="p-10 text-2xl font-bold">Customer Storefront</div>;
-const SuperAdminPanel = () => (
-  <div className="p-10 text-2xl font-bold">Super Admin Global View</div>
 );
 
 function App() {
@@ -108,10 +105,12 @@ function App() {
               path="/admin/*"
               element={
                 <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
-                  <SuperAdminPanel />
+                  <AdminLayout />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<SuperAdminDashboard />} />
+            </Route>
 
             {/* Global Wildcard 404 Route */}
             <Route path="*" element={<NotFound />} />

@@ -18,7 +18,7 @@
     "recommendations:prepare-demo": "node src/jobs/prepareRecommendationDemo.js",
     "recommendations:test-access": "node src/jobs/testRecommendationAccess.js",
     "db:reset": "prisma migrate reset --force",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test src/**/*.test.js"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +35,7 @@
     "globals": "^17.6.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.4",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },

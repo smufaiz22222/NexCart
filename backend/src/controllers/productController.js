@@ -12,6 +12,27 @@ const normalizeProductInput = (body) => ({
   minStock: parseInt(body.minStock || 10, 10),
 });
 
+const decorateProductForMarketplace = (product) => {
+  const ratings = product.reviews || [];
+  const reviewCount = ratings.length;
+  const ratingAverage = reviewCount
+    ? Number((ratings.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1))
+    : 0;
+  const originalPrice = Number((product.price * 1.18).toFixed(2));
+  const discountPercent =
+    originalPrice > product.price
+      ? Math.round(((originalPrice - product.price) / originalPrice) * 100)
+      : 0;
+
+  return {
+    ...product,
+    ratingAverage,
+    reviewCount,
+    originalPrice,
+    discountPercent,
+  };
+};
+
 export const createProduct = async (req, res) => {
   try {
     const wholesalerId = req.user.wholesalerId;
@@ -46,7 +67,6 @@ export const getProducts = async (req, res) => {
   }
 };
 export const getMarketplaceProducts = async (req, res) => {
-  console.log('Fetching marketplace products...');
   try {
     const products = await prisma.product.findMany({
       where: { currentStock: { gt: 0 } },
@@ -54,11 +74,15 @@ export const getMarketplaceProducts = async (req, res) => {
         wholesaler: {
           select: { businessName: true },
         },
+        reviews: {
+          select: { rating: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
-    console.log('Marketplace products:', products);
-    res.status(200).json({ count: products.length, products });
+    res
+      .status(200)
+      .json({ count: products.length, products: products.map(decorateProductForMarketplace) });
   } catch (error) {
     console.error('Marketplace fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch marketplace products' });
@@ -79,7 +103,7 @@ export const getProductById = async (req, res) => {
     });
 
     if (!product) return res.status(404).json({ error: 'Product not found' });
-    res.status(200).json(product);
+    res.status(200).json(decorateProductForMarketplace(product));
   } catch (error) {
     console.error('Get Product Error:', error);
     res.status(500).json({ error: 'Failed to fetch product details' });

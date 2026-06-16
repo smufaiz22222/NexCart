@@ -1,9 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Search, Store, Package, LogOut, Filter, ArrowRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Search, Star, Store, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
-import useCartStore from '../store/cartStore';
-import useAuthStore from '../store/authStore';
+
+const testimonialCards = [
+  {
+    name: 'Aarav',
+    quote: 'The storefront feels premium, but checkout is still fast enough for repeat buying.',
+  },
+  {
+    name: 'Sana',
+    quote: 'Search and category browsing finally feel like a real shopping experience.',
+  },
+  {
+    name: 'Kabir',
+    quote: 'I can actually compare products quickly instead of hunting through plain cards.',
+  },
+];
 
 export default function Storefront() {
   const [marketplaceProducts, setMarketplaceProducts] = useState([]);
@@ -13,10 +26,8 @@ export default function Storefront() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-
+  const [selectedCollection, setSelectedCollection] = useState('Trending');
   const navigate = useNavigate();
-  const { logout } = useAuthStore();
-  const totalItems = useCartStore((state) => state.getTotalItems());
   const loggedImpressionRecommendationIds = useRef(new Set());
 
   useEffect(() => {
@@ -27,17 +38,18 @@ export default function Storefront() {
           apiClient.get('/recommendations/popular?scope=trending&limit=100'),
         ]);
 
-        const marketplaceProducts = marketplaceResponse.data.products || [];
+        const marketplace = marketplaceResponse.data.products || [];
         const recommendationItems = recommendationResponse.data.recommendations || [];
         const recommendedProducts = recommendationItems.map((item) => item.product).slice(0, 24);
-        const recommendedIds = new Set(recommendedProducts.map((product) => product.id));
 
-        setMarketplaceProducts(marketplaceProducts);
-        setTrendingProducts(recommendedProducts);
-        setRecommendedProductIds(recommendedIds);
+        setMarketplaceProducts(marketplace);
+        setTrendingProducts(
+          recommendedProducts.length ? recommendedProducts : marketplace.slice(0, 24)
+        );
+        setRecommendedProductIds(new Set(recommendedProducts.map((product) => product.id)));
         setRecommendationId(recommendationResponse.data.recommendationId || null);
       } catch (error) {
-        console.error('Failed to load marketplace with recommendations:', error);
+        console.error('Failed to load marketplace:', error);
         try {
           const fallbackResponse = await apiClient.get('/products/marketplace');
           const fallbackProducts = fallbackResponse.data.products || [];
@@ -46,12 +58,13 @@ export default function Storefront() {
           setRecommendedProductIds(new Set());
           setRecommendationId(null);
         } catch (fallbackError) {
-          console.error('Failed to load marketplace:', fallbackError);
+          console.error('Failed to load fallback marketplace:', fallbackError);
         }
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchMarketplace();
   }, []);
 
@@ -71,19 +84,14 @@ export default function Storefront() {
       .catch((error) => console.error('Failed to log recommendation impressions:', error));
   }, [recommendationId, trendingProducts]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const handleProductClick = (product) => {
+  const handleProductClick = (product, source = 'storefront') => {
     let recommendationContext = null;
 
     if (recommendationId && recommendedProductIds.has(product.id)) {
       recommendationContext = {
         recommendationId,
         productId: product.id,
-        source: 'storefront_trending',
+        source,
       };
 
       apiClient
@@ -101,235 +109,406 @@ export default function Storefront() {
     );
   };
 
-  const isSearchingOrFiltering = searchTerm.trim().length > 0 || selectedCategory !== 'All';
-  const productsToDisplay = isSearchingOrFiltering ? marketplaceProducts : trendingProducts;
+  const categories = [
+    'All',
+    ...new Set(marketplaceProducts.map((product) => product.category || 'General')),
+  ];
+  const collections = ['Trending', 'New Arrivals', 'Top Rated'];
+  const featuredProducts =
+    selectedCollection === 'Top Rated'
+      ? [...marketplaceProducts]
+          .sort((left, right) => (right.ratingAverage || 0) - (left.ratingAverage || 0))
+          .slice(0, 12)
+      : selectedCollection === 'New Arrivals'
+        ? [...marketplaceProducts].slice(0, 12)
+        : trendingProducts.slice(0, 12);
 
-  const categories = ['All', ...new Set(marketplaceProducts.map((p) => p.category || 'General'))];
-
-  const filteredProducts = productsToDisplay.filter((p) => {
+  const filteredProducts = featuredProducts.filter((product) => {
     const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.wholesaler?.businessName.toLowerCase().includes(searchTerm.toLowerCase());
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.wholesaler?.businessName || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
-      selectedCategory === 'All' || (p.category || 'General') === selectedCategory;
+      selectedCategory === 'All' || (product.category || 'General') === selectedCategory;
+
     return matchesSearch && matchesCategory;
   });
 
+  const categoryHighlights = categories.filter((category) => category !== 'All').slice(0, 4);
+  const topSelling = [...marketplaceProducts]
+    .sort((left, right) => (right.reviewCount || 0) - (left.reviewCount || 0))
+    .slice(0, 8);
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-12 font-sans selection:bg-amber-500/30 selection:text-amber-200">
-      <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
-          <div
-            className="flex items-center gap-2.5 cursor-pointer group"
-            onClick={() => navigate('/store')}
-          >
-            <div className="bg-amber-500 p-1.5 rounded-md shadow-[0_0_15px_rgba(245,158,11,0.2)] group-hover:bg-amber-400 transition-colors">
-              <Store className="h-5 w-5 text-[#1c1c1c]" />
-            </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Nex<span className="text-amber-500">Cart</span>
+    <div className="bg-[#f2f0ea] pb-16 text-[#161412]">
+      <section className="border-b border-[#ddd7cc] bg-[#f8f6f1]">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-16">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#8f5d31]">
+              New season marketplace
+            </p>
+            <h1 className="mt-5 max-w-xl text-5xl font-black leading-none tracking-tight sm:text-6xl lg:text-7xl">
+              Find clothes that match your rhythm.
             </h1>
+            <p className="mt-6 max-w-xl text-base leading-8 text-[#5f5951]">
+              Discover trend-driven product cards, cleaner categories, seller-aware merchandising,
+              and a customer journey shaped more like a real fashion storefront than a basic
+              catalog.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={() =>
+                  document.getElementById('new-arrivals')?.scrollIntoView({ behavior: 'smooth' })
+                }
+                className="rounded-full bg-[#161412] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#2d2a27]"
+              >
+                Shop now
+              </button>
+              <button
+                onClick={() =>
+                  document.getElementById('browse-style')?.scrollIntoView({ behavior: 'smooth' })
+                }
+                className="rounded-full border border-[#161412] px-6 py-4 text-sm font-bold text-[#161412] transition hover:bg-[#161412] hover:text-white"
+              >
+                Browse styles
+              </button>
+            </div>
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <HeroStat label="International brands" value="200+" />
+              <HeroStat label="Active customers" value="2,000+" />
+              <HeroStat label="Quality products" value="30,000+" />
+            </div>
           </div>
 
-          <div className="relative w-full max-w-lg mx-8 hidden md:block group">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-zinc-500 group-focus-within:text-amber-500 transition-colors" />
+          <div className="relative min-h-[320px] overflow-hidden rounded-[32px] bg-[linear-gradient(135deg,#d3c4aa_0%,#ede4d6_54%,#f9f6f1_100%)] p-6 sm:min-h-[420px] sm:p-8">
+            <div className="absolute left-6 top-6 rounded-full bg-white/80 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#161412] shadow-[0_12px_30px_rgba(22,20,18,0.08)]">
+              Bestsellers
             </div>
+            <div className="absolute right-6 top-20 max-w-[170px] rounded-[28px] bg-white/88 p-4 shadow-[0_18px_45px_rgba(22,20,18,0.1)]">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
+                Fresh picks
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#3f3a34]">
+                Merchandising blocks now use live marketplace products instead of static mock cards.
+              </p>
+            </div>
+            <div className="absolute bottom-6 left-6 right-6 grid gap-4 sm:grid-cols-2">
+              {(marketplaceProducts.slice(0, 2) || []).map((product) => (
+                <button
+                  key={product.id}
+                  onClick={() => handleProductClick(product, 'hero_feature')}
+                  className="rounded-[28px] bg-white/92 p-5 text-left shadow-[0_18px_45px_rgba(22,20,18,0.1)] transition hover:-translate-y-1"
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
+                    {product.category || 'General'}
+                  </p>
+                  <p className="mt-3 text-lg font-black tracking-tight">{product.name}</p>
+                  <p className="mt-2 text-sm text-[#6b665f]">{formatCurrency(product.price)}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-[#ddd7cc] bg-white">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-center gap-x-10 gap-y-5 px-4 py-8 text-lg font-black tracking-tight text-[#161412] sm:px-6 lg:px-8">
+          <span>VERSACE</span>
+          <span>ZARA</span>
+          <span>GUCCI</span>
+          <span>PRADA</span>
+          <span>Calvin Klein</span>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 rounded-[30px] border border-[#ddd7cc] bg-white px-5 py-5 shadow-[0_18px_45px_rgba(22,20,18,0.05)] lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 items-center gap-3 rounded-full border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3">
+            <Search className="h-4 w-4 text-[#8b857c]" />
             <input
               type="text"
-              className="block w-full pl-10 pr-4 py-2 border border-zinc-700 rounded-md bg-[#1c1c1c] text-sm text-white placeholder-zinc-500 focus:outline-none focus:bg-[#262626] focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-inner"
-              placeholder="Search products, brands, or shops..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search products, shops, categories"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-[#8b857c]"
             />
           </div>
 
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={() => navigate('/store/orders')}
-              className="p-2 text-zinc-400 hover:text-amber-400 hover:bg-zinc-800/50 rounded-md transition-all flex items-center"
-              title="My Orders"
-            >
-              <Package className="h-5 w-5" />
-            </button>
-
-            <button
-              onClick={() => navigate('/store/cart')}
-              className="p-2 text-zinc-400 hover:text-amber-400 hover:bg-zinc-800/50 rounded-md relative transition-all"
-              title="Shopping Cart"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              {totalItems > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[#0a0a0a] text-[10px] font-bold shadow-sm ring-2 ring-[#0a0a0a]">
-                  {totalItems}
-                </span>
-              )}
-            </button>
-
-            <div className="h-5 w-px bg-zinc-800 mx-2 hidden sm:block"></div>
-
-            <button
-              onClick={handleLogout}
-              className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-md transition-all flex items-center"
-              title="Sign Out"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="md:hidden px-4 py-3 bg-[#1c1c1c] border-b border-zinc-800 shadow-sm">
-        <div className="relative w-full">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-zinc-500" />
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-9 pr-3 py-2 border border-zinc-700 rounded-md bg-[#0a0a0a] text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 flex flex-col md:flex-row gap-8">
-        <aside className="w-full md:w-64 flex-shrink-0">
-          <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 p-4 sticky top-24">
-            <h3 className="text-xs font-bold text-amber-500/80 uppercase tracking-widest mb-3 flex items-center px-2">
-              <Filter className="h-3.5 w-3.5 mr-2" />
-              Categories
-            </h3>
-            <ul className="space-y-1">
-              {categories.map((category) => (
-                <li key={category}>
-                  <button
-                    onClick={() => setSelectedCategory(category)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                      selectedCategory === category
-                        ? 'bg-amber-500/10 text-amber-400 border-l-2 border-amber-500 shadow-sm'
-                        : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 border-l-2 border-transparent'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
-
-        <main className="flex-1">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-3 tracking-wide">
-              {searchTerm.trim()
-                ? 'Search Results'
-                : selectedCategory === 'All'
-                  ? 'Trending Today'
-                  : selectedCategory}
-              <span className="text-xs font-medium text-amber-900 bg-amber-400 px-2 py-0.5 rounded-md shadow-sm">
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
-              </span>
-            </h2>
-          </div>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div
-                  key={n}
-                  className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 p-4 animate-pulse"
-                >
-                  <div className="bg-zinc-800 h-40 rounded-md mb-4"></div>
-                  <div className="h-4 bg-zinc-800 rounded w-2/3 mb-3"></div>
-                  <div className="h-3 bg-zinc-800 rounded w-1/4 mb-4"></div>
-                  <div className="h-2 bg-zinc-800 rounded w-full mb-2"></div>
-                  <div className="h-2 bg-zinc-800 rounded w-4/5 mb-6"></div>
-                  <div className="h-9 bg-zinc-800 rounded-md w-full"></div>
-                </div>
-              ))}
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-[#1c1c1c] rounded-lg border border-dashed border-zinc-700">
-              <div className="bg-[#0a0a0a] p-4 rounded-full mb-4 border border-zinc-800">
-                <Search className="h-6 w-6 text-zinc-600" />
-              </div>
-              <h3 className="text-base font-semibold text-white mb-1">No products found</h3>
-              <p className="text-sm text-zinc-400">
-                Try adjusting your search or category filters.
-              </p>
+          <div className="flex flex-wrap gap-2">
+            {collections.map((collection) => (
               <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory('All');
-                }}
-                className="mt-4 text-sm text-amber-500 font-medium hover:text-amber-400 hover:underline"
+                key={collection}
+                onClick={() => setSelectedCollection(collection)}
+                className={`rounded-full px-4 py-3 text-sm font-bold transition ${
+                  selectedCollection === collection
+                    ? 'bg-[#161412] text-white'
+                    : 'border border-[#ddd7cc] bg-[#fbfaf7] text-[#49443d]'
+                }`}
               >
-                Clear all filters
+                {collection}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="new-arrivals" className="mx-auto w-full max-w-7xl px-4 pt-12 sm:px-6 lg:px-8">
+        <SectionHeading
+          title="New Arrivals"
+          description="A storefront-first product grid with live ratings, discount cues, and better seller context."
+        />
+        <div className="mt-6 flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+                selectedCategory === category
+                  ? 'bg-[#161412] text-white'
+                  : 'bg-white text-[#49443d] border border-[#ddd7cc]'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <ProductGridSkeleton />
+        ) : filteredProducts.length === 0 ? (
+          <EmptyState
+            title="No products match this filter"
+            description="Try another collection or clear your search to see more products."
+          />
+        ) : (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onClick={() => handleProductClick(product, 'storefront_collection')}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section id="top-selling" className="mx-auto w-full max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+        <SectionHeading
+          title="Top Selling"
+          description="Products customers are reviewing and revisiting most often."
+        />
+        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {topSelling.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onClick={() => handleProductClick(product, 'storefront_top_selling')}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section id="browse-style" className="mx-auto w-full max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+        <div className="rounded-[36px] bg-[#161412] px-6 py-8 text-white sm:px-10 sm:py-10">
+          <SectionHeading
+            title="Browse By Dress Style"
+            description="Adapted from the Figma browsing blocks, but driven by your live marketplace categories."
+            invert
+          />
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {categoryHighlights.map((category, index) => (
+              <button
+                key={category}
+                onClick={() => {
+                  setSelectedCategory(category);
+                  document.getElementById('new-arrivals')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className={`rounded-[30px] px-6 py-8 text-left transition hover:-translate-y-1 ${
+                  index % 2 === 0 ? 'bg-[#f2f0ea] text-[#161412]' : 'bg-[#2a2724] text-white'
+                }`}
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8f5d31]">
+                  Category
+                </p>
+                <p className="mt-3 text-3xl font-black tracking-tight">{category}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+        <SectionHeading
+          title="Our Happy Customers"
+          description="The original template uses testimonials. Here they reinforce the improved buying flow and product discovery."
+        />
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          {testimonialCards.map((card) => (
+            <div key={card.name} className="rounded-[30px] border border-[#ddd7cc] bg-white p-6">
+              <div className="flex items-center gap-1 text-[#161412]">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Star key={index} className="h-4 w-4 fill-current" />
+                ))}
+              </div>
+              <p className="mt-5 text-lg font-black tracking-tight">{card.name}</p>
+              <p className="mt-3 text-sm leading-7 text-[#6b665f]">"{card.quote}"</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
+        <div className="rounded-[36px] bg-[#161412] px-6 py-8 text-white sm:px-10 sm:py-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-xl">
+              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-[#d7cdbd]">
+                <Sparkles className="h-4 w-4" />
+                Newsletter
+              </p>
+              <h2 className="mt-5 text-4xl font-black leading-none tracking-tight">
+                Stay up to date about our latest offers
+              </h2>
+            </div>
+            <div className="flex w-full max-w-md flex-col gap-3 sm:flex-row">
+              <input
+                type="email"
+                placeholder="Enter your email address"
+                className="w-full rounded-full bg-white px-5 py-4 text-sm text-[#161412] outline-none"
+              />
+              <button className="rounded-full bg-[#f2f0ea] px-6 py-4 text-sm font-bold text-[#161412] transition hover:bg-white">
+                Subscribe
               </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  onClick={() => handleProductClick(product)}
-                  className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden hover:shadow-2xl hover:border-amber-500/50 transition-all duration-300 group cursor-pointer flex flex-col"
-                >
-                  <div className="h-48 bg-[#F5F5F0] flex items-center justify-center overflow-hidden relative p-3">
-                    <span className="absolute top-3 right-3 bg-[#1c1c1c] border border-zinc-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-400 rounded-sm shadow-md z-10">
-                      {product.category || 'General'}
-                    </span>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
 
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="h-full w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ease-out"
-                      />
-                    ) : (
-                      <div className="bg-[#EBEBE6] w-full h-full rounded-md flex items-center justify-center border border-zinc-300 border-dashed">
-                        <Store className="h-8 w-8 text-zinc-400" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4 flex flex-col flex-grow">
-                    <div className="flex justify-between items-start mb-1.5 gap-2">
-                      <h3 className="text-base font-semibold text-white leading-snug group-hover:text-amber-400 transition-colors line-clamp-2">
-                        {product.name}
-                      </h3>
-                      <span className="text-lg font-bold text-amber-500 shrink-0">
-                        ₹{parseFloat(product.price).toFixed(2)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <Store className="h-3 w-3 text-zinc-500" />
-                      <p className="text-xs text-zinc-400 truncate">
-                        Sold by{' '}
-                        <span className="font-medium text-zinc-200">
-                          {product.wholesaler?.businessName || 'Unknown Shop'}
-                        </span>
-                      </p>
-                    </div>
-
-                    <p className="text-sm text-zinc-500 line-clamp-2 mb-5 flex-grow leading-relaxed">
-                      {product.description || 'No description provided for this item.'}
-                    </p>
-
-                    <button className="w-full bg-[#0a0a0a] border border-zinc-700 text-zinc-300 py-2 rounded-md font-medium text-sm group-hover:bg-amber-500 group-hover:text-[#0a0a0a] group-hover:border-amber-500 transition-all duration-300 flex items-center justify-center gap-2">
-                      View Details
-                      <ArrowRight className="h-3.5 w-3.5 opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+function ProductCard({ product, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-[30px] bg-white p-4 text-left shadow-[0_18px_45px_rgba(22,20,18,0.05)] transition hover:-translate-y-1"
+    >
+      <div className="relative flex aspect-[0.95] items-center justify-center overflow-hidden rounded-[24px] bg-[#f0eeea] p-4">
+        {product.discountPercent > 0 && (
+          <span className="absolute right-3 top-3 rounded-full bg-[#161412] px-3 py-1 text-[11px] font-bold text-white">
+            -{product.discountPercent}%
+          </span>
+        )}
+        {product.imageUrl ? (
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="h-full w-full object-contain mix-blend-multiply transition duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <Store className="h-10 w-10 text-[#a49d92]" />
+        )}
+      </div>
+      <div className="px-2 pb-2 pt-5">
+        <h3 className="text-lg font-black leading-6 tracking-tight text-[#161412]">
+          {product.name}
+        </h3>
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex items-center gap-1 text-[#161412]">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Star
+                key={index}
+                className={`h-4 w-4 ${index < Math.round(product.ratingAverage || 0) ? 'fill-current' : ''}`}
+              />
+            ))}
+          </div>
+          <span className="text-sm text-[#6b665f]">
+            {product.ratingAverage || 0}/5 ({product.reviewCount || 0})
+          </span>
+        </div>
+        <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#6b665f]">
+          {product.description || 'No description available for this product yet.'}
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-2xl font-black tracking-tight text-[#161412]">
+            {formatCurrency(product.price)}
+          </span>
+          {product.originalPrice > product.price && (
+            <span className="text-sm font-semibold text-[#8b857c] line-through">
+              {formatCurrency(product.originalPrice)}
+            </span>
           )}
-        </main>
+        </div>
+        <div className="mt-4 flex items-center justify-between text-sm text-[#6b665f]">
+          <span>{product.category || 'General'}</span>
+          <span className="font-semibold">
+            {product.wholesaler?.businessName || 'Unknown shop'}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function SectionHeading({ title, description, invert = false }) {
+  return (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h2
+          className={`text-4xl font-black tracking-tight ${invert ? 'text-white' : 'text-[#161412]'}`}
+        >
+          {title}
+        </h2>
+        <p
+          className={`mt-3 max-w-2xl text-sm leading-7 ${invert ? 'text-[#d7cdbd]' : 'text-[#6b665f]'}`}
+        >
+          {description}
+        </p>
       </div>
     </div>
   );
+}
+
+function HeroStat({ label, value }) {
+  return (
+    <div className="rounded-[28px] bg-white px-5 py-5 shadow-[0_18px_40px_rgba(22,20,18,0.05)]">
+      <p className="text-3xl font-black tracking-tight text-[#161412]">{value}</p>
+      <p className="mt-2 text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">{label}</p>
+    </div>
+  );
+}
+
+function EmptyState({ title, description }) {
+  return (
+    <div className="mt-8 rounded-[30px] border border-dashed border-[#d8d2c8] bg-white px-6 py-14 text-center">
+      <p className="text-xl font-black tracking-tight text-[#161412]">{title}</p>
+      <p className="mt-3 text-sm leading-7 text-[#6b665f]">{description}</p>
+    </div>
+  );
+}
+
+function ProductGridSkeleton() {
+  return (
+    <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={index} className="animate-pulse rounded-[30px] bg-white p-4">
+          <div className="aspect-[0.95] rounded-[24px] bg-[#ece7de]" />
+          <div className="mt-5 h-5 rounded bg-[#ece7de]" />
+          <div className="mt-3 h-4 w-2/3 rounded bg-[#ece7de]" />
+          <div className="mt-4 h-4 w-5/6 rounded bg-[#ece7de]" />
+          <div className="mt-5 h-6 w-1/2 rounded bg-[#ece7de]" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
 }

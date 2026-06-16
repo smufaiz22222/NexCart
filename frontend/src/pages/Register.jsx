@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { ArrowRight, BriefcaseBusiness, ShoppingBag } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 
 export default function Register() {
@@ -14,138 +15,204 @@ export default function Register() {
   const navigate = useNavigate();
   const { register, isLoading, error } = useAuthStore();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (event) => {
+    setFormData((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     try {
       await register(formData);
       alert('Registration successful! Welcome to the marketplace.');
       navigate('/login');
-    } catch (err) {
-      console.error(err);
+    } catch (submitError) {
+      console.error(submitError);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] font-sans selection:bg-amber-500/30 selection:text-amber-200 px-4 py-12">
-      <div className="max-w-md w-full bg-[#1c1c1c] rounded-lg shadow-2xl border border-zinc-800 p-8 space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-white tracking-wide">Create Account</h2>
-          <p className="mt-2 text-sm text-zinc-400">Join the Global Marketplace</p>
-        </div>
+    <div className="min-h-screen bg-[#f2f0ea] px-4 py-10 text-[#161412]">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl overflow-hidden rounded-[36px] border border-[#ddd7cc] bg-white shadow-[0_30px_90px_rgba(22,20,18,0.08)] lg:grid-cols-[0.96fr_1.04fr]">
+        <section className="border-b border-[#ddd7cc] bg-[#faf8f4] px-8 py-10 lg:border-b-0 lg:border-r lg:px-12 lg:py-14">
+          <p className="text-sm font-black tracking-[0.24em] text-[#161412]">SHOP.CO</p>
+          <h1 className="mt-10 text-5xl font-black leading-none tracking-tight text-[#161412]">
+            Join the marketplace on your terms.
+          </h1>
+          <p className="mt-6 max-w-md text-base leading-7 text-[#6b665f]">
+            Create a buyer account for fashion-style discovery or a wholesaler account to sell,
+            track orders, and manage stock in one place.
+          </p>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-md text-sm text-center font-medium">
-            {error}
-          </div>
-        )}
-
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-              I want to...
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all appearance-none cursor-pointer"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                backgroundPosition: `right .5rem center`,
-                backgroundRepeat: `no-repeat`,
-                backgroundSize: `1.5em 1.5em`,
-              }}
-            >
-              <option value="CUSTOMER">Buy Products (Customer)</option>
-              <option value="WHOLESALER">Sell Products (Wholesaler)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              required
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="John Doe"
-              className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
+          <div className="mt-10 space-y-4">
+            <RolePreview
+              title="Customer"
+              subtitle="Browse curated arrivals, save addresses, and track orders."
+              active={formData.role === 'CUSTOMER'}
+              icon={ShoppingBag}
+            />
+            <RolePreview
+              title="Wholesaler"
+              subtitle="List products, monitor inventory, and run your seller dashboard."
+              active={formData.role === 'WHOLESALER'}
+              icon={BriefcaseBusiness}
             />
           </div>
+        </section>
 
-          <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              required
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-            />
-          </div>
-
-          {/* Dynamic Field: Only show if Wholesaler */}
-          {formData.role === 'WHOLESALER' && (
-            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-              <label className="block text-xs font-bold text-amber-500/80 uppercase tracking-wider mb-1.5">
-                Business / Shop Name
-              </label>
-              <input
-                type="text"
-                name="businessName"
-                required
-                value={formData.businessName}
-                onChange={handleChange}
-                placeholder="Acme Corp"
-                className="block w-full px-4 py-3 bg-[#0a0a0a] border border-amber-500/30 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-              />
+        <section className="flex items-center px-6 py-10 sm:px-10">
+          <div className="mx-auto w-full max-w-lg">
+            <div className="inline-flex rounded-full border border-[#ddd7cc] bg-[#f8f6f1] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
+              New account
             </div>
-          )}
+            <h2 className="mt-6 text-4xl font-black tracking-tight text-[#161412]">
+              Create account
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-[#6b665f]">
+              Pick the role that matches your workflow. You can start shopping as a customer or
+              start selling as a wholesaler right away.
+            </p>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full flex justify-center py-3.5 px-4 mt-2 border border-transparent rounded-md shadow-[0_0_15px_rgba(245,158,11,0.15)] text-sm font-bold text-[#0a0a0a] bg-amber-500 hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] focus:outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none active:scale-[0.98]"
-          >
-            {isLoading ? 'Creating Account...' : 'Register'}
-          </button>
-        </form>
+            {error && (
+              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
+                {error}
+              </div>
+            )}
 
-        <p className="text-center text-sm text-zinc-400 border-t border-zinc-800 pt-6">
-          Already have an account?{' '}
-          <Link
-            to="/login"
-            className="font-bold text-amber-500 hover:text-amber-400 hover:underline transition-colors"
-          >
-            Sign in
-          </Link>
-        </p>
+            <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <RoleButton
+                  title="Buy Products"
+                  subtitle="Customer"
+                  active={formData.role === 'CUSTOMER'}
+                  onClick={() => setFormData((current) => ({ ...current, role: 'CUSTOMER' }))}
+                />
+                <RoleButton
+                  title="Sell Products"
+                  subtitle="Wholesaler"
+                  active={formData.role === 'WHOLESALER'}
+                  onClick={() => setFormData((current) => ({ ...current, role: 'WHOLESALER' }))}
+                />
+              </div>
+
+              <input type="hidden" name="role" value={formData.role} />
+
+              <FormField label="Full Name">
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Your full name"
+                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                />
+              </FormField>
+
+              <FormField label="Email">
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                />
+              </FormField>
+
+              <FormField label="Password">
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Create a strong password"
+                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                />
+              </FormField>
+
+              {formData.role === 'WHOLESALER' && (
+                <FormField label="Business / Shop Name">
+                  <input
+                    type="text"
+                    name="businessName"
+                    required
+                    value={formData.businessName}
+                    onChange={handleChange}
+                    placeholder="Your brand or store name"
+                    className="w-full rounded-2xl border border-[#d2b08a] bg-[#fff8ee] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+                  />
+                </FormField>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoading ? 'Creating account...' : 'Create account'}
+                {!isLoading && <ArrowRight className="h-4 w-4" />}
+              </button>
+            </form>
+
+            <p className="mt-8 text-sm text-[#6b665f]">
+              Already have an account?{' '}
+              <Link to="/login" className="font-bold text-[#161412] underline underline-offset-4">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function FormField({ label, children }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">{label}</span>
+      <div className="mt-2">{children}</div>
+    </label>
+  );
+}
+
+function RoleButton({ title, subtitle, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[24px] border px-4 py-4 text-left transition ${
+        active
+          ? 'border-[#161412] bg-[#161412] text-white'
+          : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
+      }`}
+    >
+      <p className="text-sm font-black tracking-tight">{title}</p>
+      <p className={`mt-1 text-xs ${active ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}>{subtitle}</p>
+    </button>
+  );
+}
+
+function RolePreview({ title, subtitle, icon: Icon, active }) {
+  return (
+    <div
+      className={`rounded-[28px] border px-5 py-5 transition ${
+        active ? 'border-[#161412] bg-white' : 'border-[#ddd7cc] bg-white/60'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="rounded-2xl bg-[#161412] p-3 text-white">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-base font-black tracking-tight text-[#161412]">{title}</p>
+          <p className="mt-1 text-sm text-[#6b665f]">{subtitle}</p>
+        </div>
       </div>
     </div>
   );
