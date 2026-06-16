@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { prisma } from '../config/db.js';
 
-export const authenticate = (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -8,10 +9,28 @@ export const authenticate = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; 
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      include: { wholesalerProfile: true }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'User for this token no longer exists. Please log in again.' });
+    }
+
+    req.user = {
+      userId: user.id,
+      role: user.role,
+      wholesalerId: user.wholesalerProfile?.id ?? null
+    };
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+
+    console.error('AUTH ERROR:', error);
+    return res.status(500).json({ error: 'Authentication failed' });
   }
 };
 

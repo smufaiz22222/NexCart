@@ -11,7 +11,49 @@ const PAYMENT_METHODS = {
 const PAYMENT_STATUSES = {
   PENDING: 'PENDING',
   PAID: 'PAID',
-  FAILED: 'FAILED'
+  FAILED: 'FAILED',
+  REFUND_PENDING: 'REFUND_PENDING',
+  REFUNDED: 'REFUNDED'
+};
+
+const ORDER_ISSUE_TYPES = {
+  RETURN: 'RETURN',
+  REFUND: 'REFUND',
+  DISPUTE: 'DISPUTE'
+};
+
+const ORDER_ISSUE_STATUSES = {
+  OPEN: 'OPEN',
+  IN_REVIEW: 'IN_REVIEW',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  RESOLVED: 'RESOLVED'
+};
+
+const ORDER_ISSUE_RESOLUTIONS = {
+  NONE: 'NONE',
+  REFUND: 'REFUND',
+  REPLACEMENT: 'REPLACEMENT',
+  STORE_CREDIT: 'STORE_CREDIT',
+  RETURNLESS_REFUND: 'RETURNLESS_REFUND'
+};
+
+const ORDER_INCLUDE_FOR_RESPONSE = {
+  buyer: { select: { id: true, name: true, email: true } },
+  seller: { select: { id: true, businessName: true } },
+  invoice: true,
+  items: { include: { product: true } },
+  issues: {
+    include: {
+      requester: { select: { id: true, name: true, role: true } },
+      orderItem: {
+        include: {
+          product: { select: { id: true, name: true, imageUrl: true } }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  }
 };
 
 const getRazorpayClient = () => {
@@ -89,6 +131,73 @@ const buildOrdersBySeller = async (items) => {
   }
 
   return ordersBySeller;
+};
+
+const canOpenIssueForOrder = (orderStatus, type) => {
+  if (type === ORDER_ISSUE_TYPES.DISPUTE) {
+    return ['PROCESSING', 'SHIPPED', 'DELIVERED'].includes(orderStatus);
+  }
+
+  return ['SHIPPED', 'DELIVERED'].includes(orderStatus);
+};
+
+const normalizeIssueResolution = (value) => {
+  if (!value) return ORDER_ISSUE_RESOLUTIONS.NONE;
+  return Object.values(ORDER_ISSUE_RESOLUTIONS).includes(value)
+    ? value
+    : ORDER_ISSUE_RESOLUTIONS.NONE;
+};
+
+const applyIssueResolutionSideEffects = async ({ tx, issue, order, nextStatus, nextResolution }) => {
+  const updates = {};
+
+  const shouldRestock =
+    issue.type === ORDER_ISSUE_TYPES.RETURN &&
+    nextStatus === ORDER_ISSUE_STATUSES.RESOLVED &&
+    !issue.inventoryAdjusted &&
+    issue.orderItem &&
+    [ORDER_ISSUE_RESOLUTIONS.REFUND, ORDER_ISSUE_RESOLUTIONS.REPLACEMENT, ORDER_ISSUE_RESOLUTIONS.STORE_CREDIT].includes(nextResolution);
+
+  if (shouldRestock) {
+    await tx.inventoryLog.create({
+      data: {
+        wholesalerId: order.sellerId,
+        productId: issue.orderItem.productId,
+        changeAmount: issue.requestedQuantity,
+        reason: 'REFUND'
+      }
+    });
+
+    await tx.product.update({
+      where: { id: issue.orderItem.productId },
+      data: { currentStock: { increment: issue.requestedQuantity } }
+    });
+
+    updates.inventoryAdjusted = true;
+  }
+
+  const isRefundResolution = [ORDER_ISSUE_RESOLUTIONS.REFUND, ORDER_ISSUE_RESOLUTIONS.RETURNLESS_REFUND].includes(nextResolution);
+  const orderWasPaid = [PAYMENT_STATUSES.PAID, PAYMENT_STATUSES.REFUND_PENDING].includes(order.paymentStatus);
+
+  if (isRefundResolution && orderWasPaid && nextStatus === ORDER_ISSUE_STATUSES.APPROVED) {
+    await tx.order.update({
+      where: { id: order.id },
+      data: { paymentStatus: PAYMENT_STATUSES.REFUND_PENDING }
+    });
+  }
+
+  if (isRefundResolution && orderWasPaid && nextStatus === ORDER_ISSUE_STATUSES.RESOLVED) {
+    await tx.order.update({
+      where: { id: order.id },
+      data: { paymentStatus: PAYMENT_STATUSES.REFUNDED }
+    });
+  }
+
+  if (nextStatus === ORDER_ISSUE_STATUSES.RESOLVED) {
+    updates.resolvedAt = new Date();
+  }
+
+  return updates;
 };
 
 const createOrdersFromGroupedData = async ({
@@ -333,21 +442,13 @@ export const getOrders = async (req, res) => {
     if (req.user.role === 'WHOLESALER' && req.user.wholesalerId) {
       orders = await prisma.order.findMany({
         where: { sellerId: req.user.wholesalerId },
-        include: {
-          buyer: { select: { name: true, email: true } },
-          invoice: true,
-          items: { include: { product: true } }
-        },
+        include: ORDER_INCLUDE_FOR_RESPONSE,
         orderBy: { createdAt: 'desc' }
       });
     } else {
       orders = await prisma.order.findMany({
         where: { buyerId: req.user.userId },
-        include: {
-          seller: { select: { businessName: true } },
-          invoice: true,
-          items: { include: { product: true } }
-        },
+        include: ORDER_INCLUDE_FOR_RESPONSE,
         orderBy: { createdAt: 'desc' }
       });
     }
@@ -378,5 +479,157 @@ export const updateOrderStatus = async (req, res) => {
   } catch (error) {
     console.error('Update Order Error:', error);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+};
+
+export const createOrderIssue = async (req, res) => {
+  try {
+    if (req.user.role !== 'CUSTOMER') {
+      return res.status(403).json({ error: 'Only customers can create return, refund, or dispute requests' });
+    }
+
+    const { id: orderId } = req.params;
+    const {
+      orderItemId = null,
+      type,
+      preferredResolution,
+      reason,
+      description,
+      requestedQuantity = 1
+    } = req.body;
+
+    if (!Object.values(ORDER_ISSUE_TYPES).includes(type)) {
+      return res.status(400).json({ error: 'Invalid issue type' });
+    }
+
+    if (!reason?.trim()) {
+      return res.status(400).json({ error: 'Reason is required' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: true
+      }
+    });
+
+    if (!order || order.buyerId !== req.user.userId) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (!canOpenIssueForOrder(order.status, type)) {
+      return res.status(400).json({ error: 'This order is not eligible for that request type yet' });
+    }
+
+    let item = null;
+    if (orderItemId) {
+      item = order.items.find((entry) => entry.id === orderItemId);
+      if (!item) {
+        return res.status(400).json({ error: 'Selected order item does not belong to this order' });
+      }
+    }
+
+    const parsedQuantity = Math.max(1, Number.parseInt(requestedQuantity, 10) || 1);
+    if (item && parsedQuantity > item.quantity) {
+      return res.status(400).json({ error: 'Requested quantity exceeds the ordered quantity' });
+    }
+
+    const issue = await prisma.orderIssue.create({
+      data: {
+        orderId,
+        orderItemId,
+        requesterId: req.user.userId,
+        type,
+        preferredResolution: normalizeIssueResolution(preferredResolution),
+        reason: reason.trim(),
+        description: description?.trim() || null,
+        requestedQuantity: parsedQuantity
+      },
+      include: {
+        requester: { select: { id: true, name: true, role: true } },
+        orderItem: {
+          include: {
+            product: { select: { id: true, name: true, imageUrl: true } }
+          }
+        }
+      }
+    });
+
+    res.status(201).json({ message: 'Order issue created successfully', issue });
+  } catch (error) {
+    console.error('Create Order Issue Error:', error);
+    res.status(500).json({ error: 'Failed to create order issue' });
+  }
+};
+
+export const updateOrderIssue = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can review order issues' });
+    }
+
+    const { issueId } = req.params;
+    const { status, finalResolution, sellerResponse, refundAmount } = req.body;
+
+    if (!Object.values(ORDER_ISSUE_STATUSES).includes(status)) {
+      return res.status(400).json({ error: 'Invalid issue status' });
+    }
+
+    const issue = await prisma.orderIssue.findUnique({
+      where: { id: issueId },
+      include: {
+        order: true,
+        orderItem: true
+      }
+    });
+
+    if (!issue || issue.order.sellerId !== req.user.wholesalerId) {
+      return res.status(404).json({ error: 'Order issue not found' });
+    }
+
+    const nextResolution = normalizeIssueResolution(finalResolution || issue.finalResolution);
+    const parsedRefundAmount =
+      refundAmount === null || refundAmount === undefined || refundAmount === ''
+        ? null
+        : Number(refundAmount);
+
+    const updatedIssue = await prisma.$transaction(async (tx) => {
+      const sideEffectUpdates = await applyIssueResolutionSideEffects({
+        tx,
+        issue,
+        order: issue.order,
+        nextStatus: status,
+        nextResolution
+      });
+
+      return tx.orderIssue.update({
+        where: { id: issueId },
+        data: {
+          status,
+          finalResolution: nextResolution,
+          sellerResponse: sellerResponse?.trim() || null,
+          refundAmount: Number.isFinite(parsedRefundAmount) ? parsedRefundAmount : null,
+          ...sideEffectUpdates
+        },
+        include: {
+          requester: { select: { id: true, name: true, role: true } },
+          orderItem: {
+            include: {
+              product: { select: { id: true, name: true, imageUrl: true } }
+            }
+          }
+        }
+      });
+    });
+
+    const updatedOrder = await prisma.order.findUnique({
+      where: { id: issue.orderId },
+      include: ORDER_INCLUDE_FOR_RESPONSE
+    });
+
+    res.status(200).json({ message: 'Order issue updated successfully', issue: updatedIssue, order: updatedOrder });
+  } catch (error) {
+    console.error('Update Order Issue Error:', error);
+    res.status(500).json({ error: 'Failed to update order issue' });
   }
 };
