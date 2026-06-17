@@ -16,6 +16,7 @@ import orderRoutes from './routes/orderRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import recommendationRoutes from './routes/recommendationRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 
 dotenv.config({
@@ -47,6 +48,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/admin', superAdminRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/khatta', khattaRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/interactions', interactionRoutes);

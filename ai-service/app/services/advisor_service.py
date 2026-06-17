@@ -10,7 +10,10 @@ from app.services.prompt_builder import (
     build_rag_context_text,
     build_rule_insights_text,
 )
-from app.services.question_classifier import classify_question, requests_unavailable_business_data
+from app.services.question_classifier import (
+    classify_question,
+    requests_unavailable_business_data,
+)
 from app.services.retrieval_service import retrieve_documents
 from app.services.rule_engine import generate_rule_insights
 
@@ -18,9 +21,7 @@ EMPTY_KB_MESSAGE = (
     "The business advisor knowledge base has not been initialized yet. "
     "Please ingest advisor documents before using the assistant."
 )
-LOW_CONFIDENCE_MESSAGE = (
-    "I do not have enough information in the knowledge base to answer that question confidently."
-)
+LOW_CONFIDENCE_MESSAGE = "I do not have enough information in the knowledge base to answer that question confidently."
 UNAVAILABLE_DATA_MESSAGE = "I don't have enough information to determine that."
 MAX_CITATIONS = int(os.getenv("MAX_CITATIONS", "5"))
 
@@ -53,7 +54,9 @@ def _build_answer(
     return extract_text_from_llm_response(response)
 
 
-def _finalize_response(session_id: str, query: str, answer: str, documents: list) -> dict:
+def _finalize_response(
+    session_id: str, query: str, answer: str, documents: list
+) -> dict:
     add_message(session_id, "user", query)
     add_message(session_id, "assistant", answer)
     return {
@@ -63,7 +66,9 @@ def _finalize_response(session_id: str, query: str, answer: str, documents: list
     }
 
 
-def run_advisor(query: str, session_id: str, business_context: dict | None = None) -> dict:
+def run_advisor(
+    query: str, session_id: str, business_context: dict | None = None
+) -> dict:
     normalized_query = (query or "").strip()
     if not normalized_query:
         raise ValueError("Query cannot be empty")
@@ -112,4 +117,6 @@ def run_advisor(query: str, session_id: str, business_context: dict | None = Non
         question_type=question_type,
         retrieved_documents=retrieved_documents,
     )
-    return _finalize_response(normalized_session_id, normalized_query, answer, retrieved_documents)
+    return _finalize_response(
+        normalized_session_id, normalized_query, answer, retrieved_documents
+    )

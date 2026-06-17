@@ -146,3 +146,231 @@ export const getContentSimilarProducts = async ({ productId, limit = 8 }) => {
     take: limit,
   });
 };
+
+export const updateSingleProductContentRecommendations = async (productId, { topK = 10 } = {}) => {
+  // 1. Fetch the target product
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    include: {
+      wholesaler: { select: { businessName: true } },
+    },
+  });
+  if (!product) return { productId, similaritiesUpdated: 0 };
+
+  // 2. Load all existing product features
+  const existingFeatures = await prisma.productFeature.findMany();
+
+  // 3. Compute document frequencies across all products
+  const documentFrequency = {};
+
+  // First, add all existing features to the count
+  existingFeatures.forEach((feat) => {
+    // If it's the product being updated, we will use its new corpus instead of old
+    if (feat.productId === productId) return;
+    const vectorTerms = Object.keys(feat.tfidfVector || {});
+    for (const term of vectorTerms) {
+      documentFrequency[term] = (documentFrequency[term] || 0) + 1;
+    }
+  });
+
+  // Now build the new corpus/tokens for the updated product
+  const textCorpus = buildCorpus(product);
+  const tokens = tokenize(textCorpus);
+  for (const term of new Set(tokens)) {
+    documentFrequency[term] = (documentFrequency[term] || 0) + 1;
+  }
+
+  const hasExistingFeature = existingFeatures.some((f) => f.productId === productId);
+  const totalDocs = hasExistingFeature ? existingFeatures.length : existingFeatures.length + 1;
+
+  // 4. Compute TF-IDF vector for the updated product
+  const termFrequency = {};
+  tokens.forEach((term) => {
+    termFrequency[term] = (termFrequency[term] || 0) + 1;
+  });
+
+  const newVector = {};
+  for (const [term, count] of Object.entries(termFrequency)) {
+    const tf = count / tokens.length;
+    const idf = Math.log((totalDocs + 1) / ((documentFrequency[term] || 0) + 1)) + 1;
+    newVector[term] = Number((tf * idf).toFixed(6));
+  }
+
+  // 5. Upsert the product feature for the updated product
+  await prisma.productFeature.upsert({
+    where: { productId },
+    update: {
+      textCorpus,
+      tfidfVector: newVector,
+      version: { increment: 1 },
+    },
+    create: {
+      productId,
+      textCorpus,
+      tfidfVector: newVector,
+    },
+  });
+
+  // 6. Compute similarities between the updated product and all other products
+  const similaritiesToInsert = [];
+  const otherSimilaritiesToUpdate = [];
+
+  for (const feat of existingFeatures) {
+    if (feat.productId === productId) continue;
+    const score = cosineSimilarity(newVector, feat.tfidfVector);
+    if (score > 0) {
+      similaritiesToInsert.push({
+        productId,
+        similarProductId: feat.productId,
+        score,
+      });
+
+      otherSimilaritiesToUpdate.push({
+        productId: feat.productId,
+        similarProductId: productId,
+        score,
+      });
+    }
+  }
+
+  // Sort and pick topK similarities for the updated product
+  const rankedSourceSimilarities = similaritiesToInsert
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map((item, index) => ({
+      ...item,
+      method: 'CONTENT',
+      rank: index + 1,
+    }));
+
+  // Load all existing content similarities to check against other products in-memory
+  const allSimilarities = await prisma.productSimilarity.findMany({
+    where: { method: 'CONTENT' },
+  });
+
+  const simMap = new Map();
+  allSimilarities.forEach((sim) => {
+    if (!simMap.has(sim.productId)) {
+      simMap.set(sim.productId, []);
+    }
+    simMap.get(sim.productId).push(sim);
+  });
+
+  const modifiedProductIds = new Set([productId]);
+  const newSimilaritiesMap = new Map();
+  newSimilaritiesMap.set(productId, rankedSourceSimilarities);
+
+  for (const item of otherSimilaritiesToUpdate) {
+    const existing = simMap.get(item.productId) || [];
+    const hasAlreadyInSims = existing.some((e) => e.similarProductId === item.similarProductId);
+
+    if (existing.length < topK || hasAlreadyInSims) {
+      const filtered = existing.filter((e) => e.similarProductId !== item.similarProductId);
+      const newSims = [
+        ...filtered.map((e) => ({
+          productId: e.productId,
+          similarProductId: e.similarProductId,
+          score: e.score,
+        })),
+        {
+          productId: item.productId,
+          similarProductId: item.similarProductId,
+          score: item.score,
+        },
+      ]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map((s, idx) => ({
+          ...s,
+          method: 'CONTENT',
+          rank: idx + 1,
+        }));
+
+      modifiedProductIds.add(item.productId);
+      newSimilaritiesMap.set(item.productId, newSims);
+    } else {
+      const worst = existing[existing.length - 1];
+      if (item.score > worst.score) {
+        const newSims = [
+          ...existing.slice(0, -1).map((e) => ({
+            productId: e.productId,
+            similarProductId: e.similarProductId,
+            score: e.score,
+          })),
+          {
+            productId: item.productId,
+            similarProductId: item.similarProductId,
+            score: item.score,
+          },
+        ]
+          .sort((a, b) => b.score - a.score)
+          .slice(0, topK)
+          .map((s, idx) => ({
+            ...s,
+            method: 'CONTENT',
+            rank: idx + 1,
+          }));
+
+        modifiedProductIds.add(item.productId);
+        newSimilaritiesMap.set(item.productId, newSims);
+      }
+    }
+  }
+
+  // Flatten new similarities to write
+  const allNewSimilarityRows = [];
+  newSimilaritiesMap.forEach((sims) => {
+    allNewSimilarityRows.push(...sims);
+  });
+
+  // Perform DB updates in transaction
+  await prisma.$transaction(async (tx) => {
+    // Delete old similarities for modified products
+    if (modifiedProductIds.size > 0) {
+      await tx.productSimilarity.deleteMany({
+        where: {
+          productId: { in: Array.from(modifiedProductIds) },
+          method: 'CONTENT',
+        },
+      });
+    }
+
+    // Insert all new similarities in bulk
+    if (allNewSimilarityRows.length > 0) {
+      await tx.productSimilarity.createMany({
+        data: allNewSimilarityRows,
+      });
+    }
+  });
+
+  return { productId, similaritiesUpdated: rankedSourceSimilarities.length };
+};
+
+const pendingProductIds = new Set();
+let isProcessingQueue = false;
+
+const processUpdateQueue = async () => {
+  if (isProcessingQueue || pendingProductIds.size === 0) return;
+  isProcessingQueue = true;
+
+  // Get the next product ID to process
+  const [productId] = pendingProductIds;
+  pendingProductIds.delete(productId);
+
+  try {
+    const result = await updateSingleProductContentRecommendations(productId);
+    console.log(`Real-time content recommendations updated for product ${productId}:`, result);
+  } catch (error) {
+    console.error(`Failed to update recommendations for product ${productId}:`, error);
+  } finally {
+    isProcessingQueue = false;
+    processUpdateQueue();
+  }
+};
+
+export const queueProductRecommendationUpdate = (productId) => {
+  pendingProductIds.add(productId);
+  processUpdateQueue();
+};
+
+

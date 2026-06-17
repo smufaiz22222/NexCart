@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BadgeIndianRupee, Boxes, Pencil, Save, Tag, TriangleAlert } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeIndianRupee,
+  Boxes,
+  Pencil,
+  Save,
+  Tag,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../api/axios';
-
-const buildFormData = (product) => ({
-  name: product?.name || '',
-  description: product?.description || '',
-  category: product?.category || '',
-  price: product?.price ?? '',
-  costPrice: product?.costPrice ?? '',
-  sku: product?.sku || '',
-  imageUrl: product?.imageUrl || '',
-  currentStock: product?.currentStock ?? 0,
-  minStock: product?.minStock ?? 10,
-});
+import { ProductForm } from '../components/ProductForm';
+import { toast } from 'sonner';
 
 const formatCurrency = (value) =>
   `₹${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -21,10 +20,8 @@ const formatCurrency = (value) =>
 export default function SellerProductDetails() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
-  const [formData, setFormData] = useState(buildFormData(null));
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   const fetchProduct = useCallback(async () => {
@@ -32,7 +29,6 @@ export default function SellerProductDetails() {
       setIsLoading(true);
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data);
-      setFormData(buildFormData(response.data));
       setError('');
     } catch (fetchError) {
       setError(fetchError.response?.data?.error || 'Failed to load product details.');
@@ -63,29 +59,20 @@ export default function SellerProductDetails() {
 
   const margin = Number(product?.price || 0) - Number(product?.costPrice || 0);
 
-  const handleChange = (event) => {
-    setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
-  };
-
-  const handleSave = async (event) => {
-    event.preventDefault();
+  const handleUpdateProduct = async (values) => {
     try {
-      setIsSaving(true);
       const response = await apiClient.put(`/products/${id}`, {
-        ...formData,
-        price: parseFloat(formData.price),
-        costPrice: parseFloat(formData.costPrice || 0),
-        currentStock: parseInt(formData.currentStock || 0, 10),
-        minStock: parseInt(formData.minStock || 10, 10),
+        ...values,
+        price: parseFloat(values.price),
+        currentStock: parseInt(values.currentStock || 0, 10),
+        minStock: parseInt(values.minStock || 10, 10),
       });
       setProduct(response.data.product);
-      setFormData(buildFormData(response.data.product));
       setIsModalOpen(false);
+      toast.success('Product updated successfully!');
       setError('');
     } catch (saveError) {
-      setError(saveError.response?.data?.error || 'Failed to save product changes.');
-    } finally {
-      setIsSaving(false);
+      toast.error(saveError.response?.data?.error || 'Failed to save product changes.');
     }
   };
 
@@ -243,137 +230,24 @@ export default function SellerProductDetails() {
 
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-zinc-800 bg-[#161616] shadow-2xl">
-            <div className="border-b border-zinc-800 bg-[#0a0a0a] px-6 py-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-zinc-800 bg-[#161616] shadow-2xl flex flex-col">
+            <div className="border-b border-zinc-800 bg-[#0a0a0a] px-6 py-4 flex justify-between items-center">
               <h2 className="text-lg font-bold tracking-wide text-white">Edit Product</h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="rounded-full p-2 text-zinc-500 hover:bg-zinc-800 hover:text-white transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleSave} className="max-h-[calc(90vh-88px)] overflow-y-auto p-6">
-              <div className="grid gap-5">
-                <FormField label="Product Name *">
-                  <input
-                    required
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={inputClassName}
-                  />
-                </FormField>
-
-                <FormField label="Description">
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows="4"
-                    className={`${inputClassName} resize-none`}
-                  />
-                </FormField>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField label="Category">
-                    <input
-                      type="text"
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                  <FormField label="SKU *">
-                    <input
-                      required
-                      type="text"
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleChange}
-                      className={`${inputClassName} font-mono`}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField label="Selling Price (₹) *">
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                  <FormField label="Cost Price (₹)">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      name="costPrice"
-                      value={formData.costPrice}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField label="Current Stock">
-                    <input
-                      type="number"
-                      min="0"
-                      name="currentStock"
-                      value={formData.currentStock}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                  <FormField label="Minimum Stock Alert">
-                    <input
-                      type="number"
-                      min="0"
-                      name="minStock"
-                      value={formData.minStock}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                </div>
-
-                <FormField label="Image URL">
-                  <input
-                    type="url"
-                    name="imageUrl"
-                    value={formData.imageUrl}
-                    onChange={handleChange}
-                    className={inputClassName}
-                  />
-                </FormField>
-              </div>
-
-              <div className="mt-8 flex flex-col-reverse gap-3 border-t border-zinc-800 pt-5 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(buildFormData(product));
-                    setIsModalOpen(false);
-                  }}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+            <div className="overflow-y-auto p-6 custom-scrollbar">
+              <ProductForm
+                initialData={product}
+                onSubmit={handleUpdateProduct}
+                onCancel={() => setIsModalOpen(false)}
+              />
+            </div>
           </div>
         </div>
       ) : null}
@@ -411,17 +285,3 @@ function SummaryPanel({ icon, title, value, description }) {
     </div>
   );
 }
-
-function FormField({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-const inputClassName =
-  'block w-full rounded-xl border border-zinc-700 bg-[#0a0a0a] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/50 focus:outline-none';

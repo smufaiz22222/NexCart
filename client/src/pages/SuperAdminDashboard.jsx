@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
+  BadgeIndianRupee,
   Boxes,
   Building2,
   CircleDollarSign,
+  CreditCard,
   LoaderCircle,
   PackageSearch,
   ReceiptText,
   Shield,
   ShoppingBag,
+  Sparkles,
   UserRound,
 } from 'lucide-react';
 import {
@@ -58,14 +62,19 @@ export default function SuperAdminDashboard() {
   const [isLoadingTenant, setIsLoadingTenant] = useState(false);
   const [error, setError] = useState('');
 
+  const refreshOverview = async () => {
+    const response = await apiClient.get('/admin/stats');
+    setOverview(response.data);
+    return response.data;
+  };
+
   useEffect(() => {
     const fetchOverview = async () => {
       try {
         setIsLoadingOverview(true);
-        const response = await apiClient.get('/admin/stats');
-        setOverview(response.data);
+        const response = await refreshOverview();
 
-        const firstWholesaler = response.data.wholesalers?.[0];
+        const firstWholesaler = response.wholesalers?.[0];
         if (firstWholesaler) {
           setSelectedWholesalerId(firstWholesaler.id);
         }
@@ -96,6 +105,23 @@ export default function SuperAdminDashboard() {
 
     fetchTenant();
   }, [selectedWholesalerId]);
+
+  const handleApplicationAction = async (wholesalerId, action) => {
+    try {
+      setError('');
+      if (action === 'approve') {
+        await apiClient.post(`/admin/wholesalers/${wholesalerId}/approve`);
+      } else if (action === 'reject') {
+        const reason = window.prompt('Enter a rejection reason for this seller application:');
+        if (reason === null) return;
+        await apiClient.post(`/admin/wholesalers/${wholesalerId}/reject`, { reason });
+      }
+
+      await refreshOverview();
+    } catch (actionError) {
+      setError(actionError.response?.data?.error || 'Failed to update wholesaler application.');
+    }
+  };
 
   const cards = useMemo(() => {
     if (!overview) return [];
@@ -199,6 +225,98 @@ export default function SuperAdminDashboard() {
             })}
           </div>
         </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <Panel title="Pending Applications" eyebrow="Wholesaler onboarding queue" icon={Shield}>
+          <div className="space-y-3">
+            {(overview?.pendingApplications || []).length > 0 ? (
+              overview.pendingApplications.map((application) => (
+                <div
+                  key={application.id}
+                  className="rounded-[24px] border border-[#eadfce] bg-[#fcf7f0] p-4"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-base font-black tracking-tight text-[#221c16]">
+                        {application.businessName}
+                      </p>
+                      <p className="mt-1 text-sm text-[#6b6155]">{application.user?.email}</p>
+                      <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[#8f5d31]">
+                        {application.onboardingStatus}
+                      </p>
+                      <p className="mt-2 text-sm text-[#6b6155]">
+                        {application.businessPhone || 'No phone'} ·{' '}
+                        {application.businessAddress || 'No address'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleApplicationAction(application.id, 'approve')}
+                        className="rounded-full bg-[#221c16] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f5efe4]"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplicationAction(application.id, 'reject')}
+                        className="rounded-full border border-[#e6b6b0] bg-[#fff3f1] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#9d3b30]"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-[#d8ccb9] bg-[#fcf7f0] px-4 py-6 text-sm text-[#6b6155]">
+                No pending wholesaler applications right now.
+              </div>
+            )}
+          </div>
+        </Panel>
+
+        <Panel
+          title="Billing Command"
+          eyebrow="Dedicated subscription page"
+          icon={BadgeIndianRupee}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <MetricCard
+              label="Pending approvals"
+              value={overview?.totals?.pendingApplications || 0}
+              icon={Shield}
+            />
+            <MetricCard
+              label="Paid active"
+              value={overview?.totals?.activePaidSubscriptions || 0}
+              icon={CreditCardIcon}
+            />
+            <MetricCard
+              label="Active trials"
+              value={overview?.totals?.activeTrials || 0}
+              icon={SparklesIcon}
+            />
+            <MetricCard
+              label="Low stock watch"
+              value={overview?.totals?.lowStockProducts || 0}
+              icon={AlertTriangle}
+            />
+          </div>
+          <div className="mt-5 rounded-[24px] bg-[#fcf7f0] p-5">
+            <p className="text-sm leading-7 text-[#6b6155]">
+              Subscription activation, duration pricing, trial visibility, and billing history now
+              live on a separate workspace so this dashboard stays cleaner.
+            </p>
+            <Link
+              to="/admin/subscriptions"
+              className="mt-4 inline-flex items-center rounded-full bg-[#221c16] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-[#f5efe4] transition hover:bg-[#3a3128]"
+            >
+              Open subscription workspace
+            </Link>
+          </div>
+        </Panel>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.25fr_0.95fr]">
@@ -527,4 +645,12 @@ function MetricMini({ label, value }) {
       <p className="mt-1 text-base font-black text-[#221c16]">{value}</p>
     </div>
   );
+}
+
+function CreditCardIcon(props) {
+  return <CreditCard {...props} />;
+}
+
+function SparklesIcon(props) {
+  return <Sparkles {...props} />;
 }

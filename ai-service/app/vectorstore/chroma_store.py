@@ -10,6 +10,7 @@ from app.embeddings.embedder import get_embedder
 CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_db")
 COLLECTION_NAME = "nexcart_business_docs"
 
+
 def get_vectorstore() -> Chroma:
     """Return (or create) the ChromaDB collection."""
     return Chroma(
@@ -18,6 +19,7 @@ def get_vectorstore() -> Chroma:
         persist_directory=CHROMA_PATH,
     )
 
+
 def get_retriever(k: int = 6):
     """Return a LangChain retriever that fetches the top-k most relevant chunks."""
     vectorstore = get_vectorstore()
@@ -25,6 +27,7 @@ def get_retriever(k: int = 6):
         search_type="similarity",
         search_kwargs={"k": k},
     )
+
 
 def add_documents(docs: list):
     """Add a list of LangChain Document objects into ChromaDB."""

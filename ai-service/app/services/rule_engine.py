@@ -17,6 +17,8 @@ def generate_rule_insights(business_context: dict) -> list[str]:
         insights.append("No sales recorded this month.")
 
     if not insights:
-        insights.append("No critical business alerts detected from the current metrics.")
+        insights.append(
+            "No critical business alerts detected from the current metrics."
+        )
 
     return insights

@@ -1,6 +1,14 @@
 import { prisma } from '../config/db.js';
+import {
+  computePlanPricing,
+  ensureDefaultSubscriptionPlans,
+  getCurrentSubscription,
+  getTrialState,
+  serializeSubscription,
+} from '../services/subscriptionService.js';
 
 const formatCurrencyValue = (value) => Number(value || 0);
+
 const getReturnedAmount = (adjustments = []) =>
   adjustments.reduce((sum, adjustment) => {
     if (adjustment.type !== 'RETURN') return sum;
@@ -71,98 +79,152 @@ const buildMonthlyRevenue = (orders) => {
     }));
 };
 
-const buildAdminOverview = async () => {
-  const [users, wholesalers, products, orders, lowStockProducts, outOfStockProducts, openIssues] =
-    await Promise.all([
-      prisma.user.findMany({
-        select: {
-          id: true,
-          role: true,
-          createdAt: true,
-        },
+const buildAdminPlanCatalog = (plans = []) =>
+  plans
+    .filter((plan) => plan.code !== 'TRIAL')
+    .map((plan) => ({
+      id: plan.id,
+      code: plan.code,
+      name: plan.name,
+      description: plan.description,
+      price: Number(plan.price || 0),
+      features: plan.features || {},
+      purchaseOptions: [1, 3, 6, 12].map((months) => {
+        const pricing = computePlanPricing(plan, months);
+        return {
+          months: pricing.months,
+          label: pricing.label,
+          baseAmount: pricing.baseAmount,
+          discountPercent: pricing.discountPercent,
+          finalAmount: pricing.finalAmount,
+        };
       }),
-      prisma.wholesaler.findMany({
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              createdAt: true,
-            },
+    }));
+
+const buildAdminOverview = async () => {
+  await ensureDefaultSubscriptionPlans(prisma);
+
+  const [
+    users,
+    wholesalers,
+    products,
+    orders,
+    lowStockProducts,
+    outOfStockProducts,
+    openIssues,
+    pendingApplications,
+    subscriptionPlans,
+  ] = await Promise.all([
+    prisma.user.findMany({
+      select: {
+        id: true,
+        role: true,
+        createdAt: true,
+      },
+    }),
+    prisma.wholesaler.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true,
           },
-          products: {
-            select: {
-              id: true,
-              currentStock: true,
-              minStock: true,
-              price: true,
-            },
+        },
+        products: {
+          select: {
+            id: true,
+            currentStock: true,
+            minStock: true,
+            price: true,
           },
-          orders: {
-            select: {
-              id: true,
-              totalAmount: true,
-              status: true,
-              createdAt: true,
-              adjustments: {
-                select: {
-                  amount: true,
-                  type: true,
-                },
+        },
+        orders: {
+          select: {
+            id: true,
+            totalAmount: true,
+            status: true,
+            createdAt: true,
+            adjustments: {
+              select: {
+                amount: true,
+                type: true,
               },
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.product.findMany({
-        select: {
-          id: true,
-          currentStock: true,
-          minStock: true,
-          price: true,
-          createdAt: true,
+        subscriptions: {
+          include: { plan: true },
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         },
-      }),
-      prisma.order.findMany({
-        select: {
-          id: true,
-          status: true,
-          paymentStatus: true,
-          totalAmount: true,
-          createdAt: true,
-          adjustments: {
-            select: {
-              amount: true,
-              type: true,
-            },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.product.findMany({
+      select: {
+        id: true,
+        currentStock: true,
+        minStock: true,
+        price: true,
+        createdAt: true,
+      },
+    }),
+    prisma.order.findMany({
+      select: {
+        id: true,
+        status: true,
+        paymentStatus: true,
+        totalAmount: true,
+        createdAt: true,
+        adjustments: {
+          select: {
+            amount: true,
+            type: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.product.count({
-        where: {
-          currentStock: {
-            gt: 0,
-          },
-          OR: [
-            { minStock: { gt: 0 }, currentStock: { lte: 10 } },
-            { minStock: { lte: 10 }, currentStock: { lte: 10 } },
-          ],
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.product.count({
+      where: {
+        currentStock: {
+          gt: 0,
         },
-      }),
-      prisma.product.count({
-        where: { currentStock: 0 },
-      }),
-      prisma.orderIssue.count({
-        where: {
-          status: {
-            in: ['OPEN', 'IN_REVIEW'],
+        OR: [
+          { minStock: { gt: 0 }, currentStock: { lte: 10 } },
+          { minStock: { lte: 10 }, currentStock: { lte: 10 } },
+        ],
+      },
+    }),
+    prisma.product.count({
+      where: { currentStock: 0 },
+    }),
+    prisma.orderIssue.count({
+      where: {
+        status: {
+          in: ['OPEN', 'IN_REVIEW'],
+        },
+      },
+    }),
+    prisma.wholesaler.findMany({
+      where: { onboardingStatus: { in: ['APPLIED', 'UNDER_REVIEW'] } },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            createdAt: true,
           },
         },
-      }),
-    ]);
+      },
+      orderBy: { reviewSubmittedAt: 'asc' },
+    }),
+    prisma.subscriptionPlan.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    }),
+  ]);
 
   const totalCustomers = users.filter((user) => user.role === 'CUSTOMER').length;
   const totalSuperAdmins = users.filter((user) => user.role === 'SUPER_ADMIN').length;
@@ -203,6 +265,11 @@ const buildAdminOverview = async () => {
       ownerName: wholesaler.user.name,
       ownerEmail: wholesaler.user.email,
       joinedAt: wholesaler.user.createdAt,
+      onboardingStatus: wholesaler.onboardingStatus,
+      businessPhone: wholesaler.businessPhone,
+      businessAddress: wholesaler.businessAddress,
+      currentSubscription: serializeSubscription(getCurrentSubscription(wholesaler)),
+      trialState: getTrialState(wholesaler),
       productCount: wholesaler.products.length,
       orderCount: wholesaler.orders.length,
       inventoryUnits,
@@ -228,6 +295,17 @@ const buildAdminOverview = async () => {
       lowStockProducts,
       outOfStockProducts,
       openIssues,
+      pendingApplications: pendingApplications.length,
+      activePaidSubscriptions: wholesalerDirectory.filter(
+        (item) =>
+          item.currentSubscription?.status === 'ACTIVE' &&
+          item.currentSubscription?.plan?.code !== 'TRIAL'
+      ).length,
+      activeTrials: wholesalerDirectory.filter(
+        (item) =>
+          item.currentSubscription?.status === 'ACTIVE' &&
+          item.currentSubscription?.plan?.code === 'TRIAL'
+      ).length,
     },
     charts: {
       orderStatus: buildOrderStatusSummary(orders),
@@ -236,10 +314,12 @@ const buildAdminOverview = async () => {
     },
     topWholesalers,
     wholesalers: wholesalerDirectory,
+    pendingApplications,
+    subscriptionPlans: buildAdminPlanCatalog(subscriptionPlans),
   };
 };
 
-export const getGlobalStats = async (req, res) => {
+export const getGlobalStats = async (_req, res) => {
   try {
     const payload = await buildAdminOverview();
     res.status(200).json(payload);
@@ -249,7 +329,7 @@ export const getGlobalStats = async (req, res) => {
   }
 };
 
-export const getAllWholesalers = async (req, res) => {
+export const getAllWholesalers = async (_req, res) => {
   try {
     const payload = await buildAdminOverview();
 
@@ -303,7 +383,7 @@ export const getTenantData = async (req, res) => {
             adjustments: true,
           },
           orderBy: { createdAt: 'desc' },
-          take: 8,
+          take: 10,
         },
         ledgerEntries: {
           orderBy: { createdAt: 'desc' },
@@ -320,6 +400,24 @@ export const getTenantData = async (req, res) => {
           },
           orderBy: { createdAt: 'desc' },
           take: 8,
+        },
+        subscriptions: {
+          include: { plan: true },
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        },
+        subscriptionPayments: {
+          include: {
+            plan: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                price: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 12,
         },
       },
     });
@@ -349,7 +447,22 @@ export const getTenantData = async (req, res) => {
         businessName: tenant.businessName,
         ownerName: tenant.user.name,
         ownerEmail: tenant.user.email,
+        businessPhone: tenant.businessPhone,
+        businessAddress: tenant.businessAddress,
+        taxId: tenant.taxId,
+        onboardingStatus: tenant.onboardingStatus,
+        rejectionReason: tenant.rejectionReason,
         joinedAt: tenant.user.createdAt,
+        trialStartedAt: tenant.trialStartedAt,
+        trialEndsAt: tenant.trialEndsAt,
+        trialUsedAt: tenant.trialUsedAt,
+        currentSubscription: serializeSubscription(getCurrentSubscription(tenant)),
+        subscriptionPayments: tenant.subscriptionPayments.map((payment) => ({
+          ...payment,
+          baseAmount: Number(payment.baseAmount || 0),
+          finalAmount: Number(payment.finalAmount || 0),
+          amount: Number(payment.finalAmount || 0),
+        })),
         metrics: {
           productCount: tenant.products.length,
           orderCount: tenant.orders.length,
@@ -385,5 +498,119 @@ export const getTenantData = async (req, res) => {
   } catch (error) {
     console.error('Get Tenant Data Error:', error);
     res.status(500).json({ error: 'Failed to fetch wholesaler details' });
+  }
+};
+
+export const getPendingWholesalerApplications = async (_req, res) => {
+  try {
+    const wholesalers = await prisma.wholesaler.findMany({
+      where: { onboardingStatus: { in: ['APPLIED', 'UNDER_REVIEW'] } },
+      include: {
+        user: { select: { name: true, email: true, createdAt: true } },
+      },
+      orderBy: { reviewSubmittedAt: 'asc' },
+    });
+
+    res.status(200).json({ applications: wholesalers });
+  } catch (error) {
+    console.error('Get Pending Applications Error:', error);
+    res.status(500).json({ error: 'Failed to fetch wholesaler applications' });
+  }
+};
+
+export const approveWholesalerApplication = async (req, res) => {
+  try {
+    const { wholesalerId } = req.params;
+
+    const wholesaler = await prisma.wholesaler.update({
+      where: { id: wholesalerId },
+      data: {
+        onboardingStatus: 'APPROVED',
+        approvedAt: new Date(),
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+      include: {
+        user: { select: { name: true, email: true } },
+      },
+    });
+
+    res.status(200).json({ wholesaler });
+  } catch (error) {
+    console.error('Approve Wholesaler Application Error:', error);
+    res.status(500).json({ error: 'Failed to approve wholesaler application' });
+  }
+};
+
+export const rejectWholesalerApplication = async (req, res) => {
+  try {
+    const { wholesalerId } = req.params;
+    const { reason } = req.body || {};
+
+    const wholesaler = await prisma.wholesaler.update({
+      where: { id: wholesalerId },
+      data: {
+        onboardingStatus: 'REJECTED',
+        rejectedAt: new Date(),
+        rejectionReason: String(reason || '').trim() || 'Application details need revision.',
+      },
+      include: {
+        user: { select: { name: true, email: true } },
+      },
+    });
+
+    res.status(200).json({ wholesaler });
+  } catch (error) {
+    console.error('Reject Wholesaler Application Error:', error);
+    res.status(500).json({ error: 'Failed to reject wholesaler application' });
+  }
+};
+
+export const updateWholesalerLifecycle = async (req, res) => {
+  try {
+    const { wholesalerId } = req.params;
+    const { action } = req.body || {};
+
+    if (!['suspend', 'reactivate'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid lifecycle action' });
+    }
+
+    const updated = await prisma.wholesaler.update({
+      where: { id: wholesalerId },
+      data:
+        action === 'suspend'
+          ? {
+              onboardingStatus: 'SUSPENDED',
+              suspendedAt: new Date(),
+            }
+          : {
+              onboardingStatus: 'ACTIVE',
+              suspendedAt: null,
+              activatedAt: new Date(),
+            },
+      include: {
+        user: { select: { name: true, email: true } },
+      },
+    });
+
+    res.status(200).json({ wholesaler: updated });
+  } catch (error) {
+    console.error('Update Wholesaler Lifecycle Error:', error);
+    res.status(500).json({ error: 'Failed to update wholesaler lifecycle' });
+  }
+};
+
+export const getAdminSubscriptionPlans = async (_req, res) => {
+  try {
+    await ensureDefaultSubscriptionPlans(prisma);
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    res.status(200).json({ plans: buildAdminPlanCatalog(plans) });
+  } catch (error) {
+    console.error('Get Admin Subscription Plans Error:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription plans' });
   }
 };

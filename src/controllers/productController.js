@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { queueProductRecommendationUpdate } from '../services/contentRecommendationService.js';
 
 const normalizeProductInput = (body) => ({
   name: body.name,
@@ -44,6 +45,9 @@ export const createProduct = async (req, res) => {
         ...productData,
       },
     });
+
+    // Trigger asynchronous, non-blocking real-time recommendation updates
+    queueProductRecommendationUpdate(newProduct.id);
 
     res.status(201).json({ message: 'Product created', product: newProduct });
   } catch (error) {
@@ -144,6 +148,9 @@ export const updateProduct = async (req, res) => {
 
       return product;
     });
+
+    // Trigger asynchronous, non-blocking real-time recommendation updates
+    queueProductRecommendationUpdate(updatedProduct.id);
 
     res.status(200).json({ message: 'Product updated', product: updatedProduct });
   } catch (error) {

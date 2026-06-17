@@ -28,6 +28,7 @@ Query: {query}
 Reply with ONLY one word: YES or NO
 """)
 
+
 def classify_business_query(query: str) -> bool:
     """
     Uses the LLM to classify whether the query is business-related.

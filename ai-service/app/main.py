@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+
 load_dotenv()  # must be first line before any other imports
 
 import os
@@ -13,7 +14,9 @@ app = FastAPI(title="NexCart AI Business Advisor")
 
 cors_origins = [
     origin.strip()
-    for origin in os.getenv("AI_CORS_ORIGINS", "http://localhost:5173,http://localhost:4173").split(",")
+    for origin in os.getenv(
+        "AI_CORS_ORIGINS", "http://localhost:5173,http://localhost:4173"
+    ).split(",")
     if origin.strip()
 ]
 app.add_middleware(
@@ -27,6 +30,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(history_router)
 app.include_router(ingest_router)
+
 
 @app.get("/health")
 def health():

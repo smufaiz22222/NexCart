@@ -2,6 +2,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
 import { normalizeEmail, validateRegistrationPayload } from '../utils/authValidation.js';
+import {
+  buildWholesalerAccessSummary,
+  ensureDefaultSubscriptionPlans,
+} from '../services/subscriptionService.js';
 
 const isUniqueEmailConstraintError = (error) => error?.code === 'P2002';
 
@@ -12,7 +16,8 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: validation.error });
     }
 
-    const { name, email, password, role, businessName } = validation.value;
+    const { name, email, password, role, businessName, businessPhone, taxId, businessAddress } =
+      validation.value;
 
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -29,6 +34,7 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     if (role === 'WHOLESALER') {
+      await ensureDefaultSubscriptionPlans(prisma);
       await prisma.user.create({
         data: {
           name,
@@ -36,10 +42,22 @@ export const register = async (req, res) => {
           password: hashedPassword,
           role: 'WHOLESALER',
           wholesalerProfile: {
-            create: { businessName },
+            create: {
+              businessName,
+              businessPhone,
+              taxId: taxId || null,
+              businessAddress,
+              onboardingStatus: 'APPLIED',
+              reviewSubmittedAt: new Date(),
+            },
           },
         },
         include: { wholesalerProfile: true },
+      });
+
+      return res.status(201).json({
+        message: 'Application submitted. Our team will review your wholesaler profile shortly.',
+        applicationSubmitted: true,
       });
     } else {
       await prisma.user.create({
@@ -79,7 +97,16 @@ export const login = async (req, res) => {
           mode: 'insensitive',
         },
       },
-      include: { wholesalerProfile: true },
+      include: {
+        wholesalerProfile: {
+          include: {
+            subscriptions: {
+              include: { plan: true },
+              orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -90,6 +117,11 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    const wholesalerSummary =
+      user.role === 'WHOLESALER' && user.wholesalerProfile
+        ? buildWholesalerAccessSummary(user.wholesalerProfile)
+        : null;
 
     const payload = {
       userId: user.id,
@@ -110,7 +142,28 @@ export const login = async (req, res) => {
         email: user.email,
         role: user.role,
         businessName: user.wholesalerProfile?.businessName || null,
+        subscription: wholesalerSummary?.subscription || null,
+        featureAccess: wholesalerSummary?.featureAccess || null,
+        wholesalerProfile: user.wholesalerProfile
+          ? {
+              id: user.wholesalerProfile.id,
+              businessName: user.wholesalerProfile.businessName,
+              businessPhone: user.wholesalerProfile.businessPhone,
+              taxId: user.wholesalerProfile.taxId,
+              businessAddress: user.wholesalerProfile.businessAddress,
+              onboardingStatus: wholesalerSummary?.onboardingStatus,
+              rejectionReason: wholesalerSummary?.rejectionReason || null,
+              trialStartedAt: wholesalerSummary?.trialState?.startedAt || null,
+              trialEndsAt: wholesalerSummary?.trialState?.endsAt || null,
+              trialUsedAt: wholesalerSummary?.trialState?.usedAt || null,
+            }
+          : null,
       },
+      onboardingStatus: wholesalerSummary?.onboardingStatus || null,
+      featureAccess: wholesalerSummary?.featureAccess || null,
+      subscription: wholesalerSummary?.subscription || null,
+      trialState: wholesalerSummary?.trialState || null,
+      supportContact: wholesalerSummary?.supportContact || null,
     });
   } catch (error) {
     console.error('LOGIN ERROR:', error);

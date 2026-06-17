@@ -16,6 +16,7 @@ Original query: {query}
 4 variations:
 """)
 
+
 def generate_multi_queries(query: str) -> list[str]:
     try:
         llm = get_llm()

@@ -85,6 +85,9 @@ const cleanupFixture = async (fixture) => {
   }
 
   if (fixture.wholesalerId) {
+    await prisma.wholesalerSubscription.deleteMany({
+      where: { wholesalerId: fixture.wholesalerId },
+    });
     await prisma.inventoryLog.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
     await prisma.ledgerEntry.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
     await prisma.product.deleteMany({ where: { id: { in: productIds } } });
@@ -119,6 +122,36 @@ const createCheckoutFixture = async (tag) => {
     data: {
       userId: sellerUser.id,
       businessName: `Wholesale ${tag}`,
+    },
+  });
+
+  const plan =
+    (await prisma.subscriptionPlan.findFirst({
+      where: { code: 'PREMIUM' },
+    })) ||
+    (await prisma.subscriptionPlan.create({
+      data: {
+        code: 'PREMIUM',
+        name: 'Premium',
+        price: 2999,
+        features: {
+          analytics: true,
+          recommendations: true,
+          advisor: true,
+          khatta: true,
+        },
+      },
+    }));
+
+  await prisma.wholesalerSubscription.create({
+    data: {
+      wholesalerId: wholesaler.id,
+      planId: plan.id,
+      status: 'ACTIVE',
+      startedAt: new Date(),
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      purchaseMethod: 'TRIAL',
     },
   });
 

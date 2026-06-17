@@ -4,6 +4,7 @@ import { ArrowLeft, ShoppingBag, Star, Store } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
+import { trackRecommendationClick } from '../utils/recommendation';
 import { toast } from 'sonner';
 import { useProductDetail, useSimilarProducts, useSubmitReview } from '../api/queries';
 
@@ -149,30 +150,14 @@ export default function ProductDetails() {
   };
 
   const handleRecommendationClick = (recommendedProduct) => {
-    let recommendationContext = null;
-
-    if (similarRecommendationId) {
-      recommendationContext = {
-        recommendationId: similarRecommendationId,
-        productId: recommendedProduct.id,
-        source: 'similar_products',
-      };
-
-      if (isAuthenticated) {
-        apiClient
-          .post('/interactions/recommendation-event', {
-            recommendationId: similarRecommendationId,
-            productId: recommendedProduct.id,
-            eventType: 'click',
-          })
-          .catch((error) => console.error('Failed to log recommendation click:', error));
-      }
-    }
-
-    navigate(
-      `/store/product/${recommendedProduct.id}`,
-      recommendationContext ? { state: { recommendationContext } } : undefined
-    );
+    trackRecommendationClick({
+      apiClient,
+      navigate,
+      product: recommendedProduct,
+      recommendationId: similarRecommendationId,
+      source: 'similar_products',
+      isAuthenticated,
+    });
   };
 
   const submitReviewMutation = useSubmitReview(id);

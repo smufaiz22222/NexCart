@@ -1,6 +1,10 @@
 import express from 'express';
 import { prisma } from '../config/db.js';
-import { authenticate, requireWholesaler } from '../middlewares/authMiddleware.js';
+import {
+  authenticate,
+  requireWholesaler,
+  requireWholesalerFeature,
+} from '../middlewares/authMiddleware.js';
 import { buildAnalyticsOverview } from '../services/analyticsOverviewService.js';
 
 const router = express.Router();
@@ -256,67 +260,73 @@ router.get('/advanced-summary', authenticate, requireWholesaler, async (req, res
   }
 });
 
-router.get('/analytics-overview', authenticate, requireWholesaler, async (req, res) => {
-  try {
-    const wholesalerId = req.user.wholesalerId;
-    const timeframe = ['daily', 'monthly', 'yearly'].includes(req.query.timeframe)
-      ? req.query.timeframe
-      : 'monthly';
+router.get(
+  '/analytics-overview',
+  authenticate,
+  requireWholesaler,
+  requireWholesalerFeature('analytics'),
+  async (req, res) => {
+    try {
+      const wholesalerId = req.user.wholesalerId;
+      const timeframe = ['daily', 'monthly', 'yearly'].includes(req.query.timeframe)
+        ? req.query.timeframe
+        : 'monthly';
 
-    const [products, orders] = await Promise.all([
-      prisma.product.findMany({
-        where: { wholesalerId },
-        select: {
-          id: true,
-          name: true,
-          sku: true,
-          price: true,
-          costPrice: true,
-          currentStock: true,
-        },
-      }),
-      prisma.order.findMany({
-        where: { sellerId: wholesalerId },
-        select: {
-          id: true,
-          buyerId: true,
-          createdAt: true,
-          buyer: {
-            select: {
-              name: true,
-              email: true,
-            },
+      const [products, orders] = await Promise.all([
+        prisma.product.findMany({
+          where: { wholesalerId },
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            price: true,
+            costPrice: true,
+            currentStock: true,
           },
-          items: {
-            select: {
-              id: true,
-              productId: true,
-              quantity: true,
-              returnedQuantity: true,
-              status: true,
-              price: true,
-              unitPriceAtPurchase: true,
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  sku: true,
-                  costPrice: true,
-                  currentStock: true,
+        }),
+        prisma.order.findMany({
+          where: { sellerId: wholesalerId },
+          select: {
+            id: true,
+            buyerId: true,
+            createdAt: true,
+            buyer: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            items: {
+              select: {
+                id: true,
+                productId: true,
+                quantity: true,
+                returnedQuantity: true,
+                status: true,
+                price: true,
+                unitPriceAtPurchase: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                    costPrice: true,
+                    currentStock: true,
+                  },
                 },
               },
             },
           },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-    ]);
+          orderBy: { createdAt: 'asc' },
+        }),
+      ]);
 
-    res.json(buildAnalyticsOverview({ products, orders, timeframe }));
-  } catch (error) {
-    console.error('Analytics Overview Error:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics overview' });
+      res.json(buildAnalyticsOverview({ products, orders, timeframe }));
+    } catch (error) {
+      console.error('Analytics Overview Error:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics overview' });
+    }
   }
-});
+);
 
 export default router;

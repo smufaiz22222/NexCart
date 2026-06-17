@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
 import { useMarketplaceProducts, useTrendingProducts } from '../api/queries';
 import useAuthStore from '../store/authStore';
+import { trackRecommendationClick } from '../utils/recommendation';
 
 const testimonialCards = [
   {
@@ -87,30 +88,15 @@ export default function Storefront() {
   }, [recommendationId, trendingProducts, isAuthenticated]);
 
   const handleProductClick = (product, source = 'storefront') => {
-    let recommendationContext = null;
-
-    if (recommendationId && recommendedProductIds.has(product.id)) {
-      recommendationContext = {
-        recommendationId,
-        productId: product.id,
-        source,
-      };
-
-      if (isAuthenticated) {
-        apiClient
-          .post('/interactions/recommendation-event', {
-            recommendationId,
-            productId: product.id,
-            eventType: 'click',
-          })
-          .catch((error) => console.error('Failed to log recommendation click:', error));
-      }
-    }
-
-    navigate(
-      `/store/product/${product.id}`,
-      recommendationContext ? { state: { recommendationContext } } : undefined
-    );
+    const isRecommended = recommendedProductIds.has(product.id);
+    trackRecommendationClick({
+      apiClient,
+      navigate,
+      product,
+      recommendationId: isRecommended ? recommendationId : null,
+      source,
+      isAuthenticated,
+    });
   };
 
   const categories = [

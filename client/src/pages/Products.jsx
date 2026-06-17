@@ -1,57 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, PackageSearch, Package } from 'lucide-react';
+import { Plus, PackageSearch, Package, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, useCreateProduct } from '../api/queries';
+import { ProductForm } from '../components/ProductForm';
 
 export default function Products() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 1. UPDATED: Added 'category' to the initial state
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    category: '', // <-- Added Category
-    price: '',
-    costPrice: '',
-    sku: '',
-    imageUrl: '',
-    currentStock: '',
-    minStock: '10',
-  });
-
   const { data: products = [], isLoading, isError, error, isFetching, refetch } = useProducts();
   const createProductMutation = useCreateProduct();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleCreateProduct = async (values) => {
     createProductMutation.mutate(
       {
-        ...formData,
-        price: parseFloat(formData.price),
-        costPrice: parseFloat(formData.costPrice || 0),
-        currentStock: parseInt(formData.currentStock || 0, 10),
-        minStock: parseInt(formData.minStock || 10, 10),
+        ...values,
+        price: parseFloat(values.price),
+        currentStock: parseInt(values.currentStock || 0, 10),
+        minStock: parseInt(values.minStock || 10, 10),
       },
       {
         onSuccess: () => {
           setIsModalOpen(false);
-          setFormData({
-            name: '',
-            description: '',
-            category: '',
-            price: '',
-            costPrice: '',
-            sku: '',
-            imageUrl: '',
-            currentStock: '',
-            minStock: '10',
-          });
           toast.success('Product created successfully!');
         },
         onError: (err) => {
@@ -212,167 +183,27 @@ export default function Products() {
       {/* Add Product Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1c1c1c] rounded-lg shadow-2xl border border-zinc-800 w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-zinc-800 bg-[#0a0a0a] sticky top-0 z-10">
-              <h3 className="text-lg font-bold text-white tracking-wide flex items-center">
-                <Plus className="h-5 w-5 mr-2 text-amber-500" />
-                Add New Product
-              </h3>
-            </div>
-
-            <div className="overflow-y-auto custom-scrollbar">
-              <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                    Product Name *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows="3"
-                    className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all resize-none"
-                  ></textarea>
-                </div>
-
-                {/* 5. UPDATED: SKU and Category placed side-by-side */}
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                      SKU Code *
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleChange}
-                      className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      name="category"
-                      placeholder="Optional"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                      Selling Price (₹) *
-                    </label>
-                    <input
-                      required
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleChange}
-                      className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                      Cost Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      name="costPrice"
-                      value={formData.costPrice}
-                      onChange={handleChange}
-                      placeholder="Optional"
-                      className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                      Initial Stock
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      name="currentStock"
-                      value={formData.currentStock}
-                      onChange={handleChange}
-                      className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                      Min Stock Alert
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      name="minStock"
-                      value={formData.minStock}
-                      onChange={handleChange}
-                      className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                    Image URL
-                  </label>
-                  <input
-                    type="url"
-                    name="imageUrl"
-                    placeholder="https://example.com/image.png"
-                    value={formData.imageUrl}
-                    onChange={handleChange}
-                    className="block w-full px-4 py-2.5 bg-[#0a0a0a] border border-zinc-700 rounded-md text-zinc-300 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                  />
-                </div>
-              </form>
-            </div>
-
-            {/* Sticky Footer */}
-            <div className="px-6 py-4 border-t border-zinc-800 bg-[#0a0a0a] flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:space-x-3 sticky bottom-0 z-10">
+          <div className="bg-[#1c1c1c] rounded-[32px] shadow-2xl border border-zinc-800 w-full max-w-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
+            <div className="px-8 py-6 border-b border-zinc-800 bg-[#0a0a0a] flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight flex items-center">
+                  <Plus className="h-5 w-5 mr-2 text-amber-500" />
+                  Add New Product
+                </h3>
+                <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest font-bold">
+                  Catalog Entry System
+                </p>
+              </div>
               <button
-                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-5 py-2.5 border border-zinc-700 rounded-md text-sm font-medium text-zinc-300 bg-[#1c1c1c] hover:bg-zinc-800 transition-colors"
+                className="rounded-full p-2 text-zinc-500 hover:bg-zinc-800 hover:text-white transition-all"
               >
-                Cancel
+                <X className="h-5 w-5" />
               </button>
-              <button
-                onClick={handleSubmit}
-                type="submit"
-                className="px-5 py-2.5 border border-transparent rounded-md text-sm font-bold text-[#0a0a0a] bg-amber-500 hover:bg-amber-400 transition-colors shadow-[0_0_10px_rgba(245,158,11,0.2)]"
-              >
-                Save Product
-              </button>
+            </div>
+
+            <div className="overflow-y-auto custom-scrollbar p-8">
+              <ProductForm onSubmit={handleCreateProduct} onCancel={() => setIsModalOpen(false)} />
             </div>
           </div>
         </div>

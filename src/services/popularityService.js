@@ -9,43 +9,73 @@ const calculateDecay = (createdAt, halfLifeDays = 14) => {
 };
 
 export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
-  const interactions = await prisma.recommendationInteraction.findMany({
-    where: {
-      action: { not: 'purchase' },
-    },
-    select: {
-      productId: true,
-      action: true,
-      quantity: true,
-      createdAt: true,
-    },
-  });
-
   const scores = new Map();
 
-  for (const interaction of interactions) {
-    const baseWeight = INTERACTION_WEIGHTS[interaction.action] || 1;
-    const quantity = Math.max(1, interaction.quantity || 1);
-    const decay = scope === 'trending' ? calculateDecay(interaction.createdAt) : 1;
-    const weightedScore = baseWeight * quantity * decay;
-    scores.set(interaction.productId, (scores.get(interaction.productId) || 0) + weightedScore);
-  }
+  if (scope === 'trending') {
+    // Trending: last 30 days with exponential time decay computed in database
+    const interactions = await prisma.$queryRaw`
+      SELECT 
+        "productId", 
+        "action"::text as "action", 
+        SUM(quantity * power(0.5, (extract(epoch from (now() - "createdAt")) / 86400.0) / 14.0)) as "weightedScore"
+      FROM "RecommendationInteraction"
+      WHERE "action" != 'purchase'::"InteractionAction"
+        AND "createdAt" >= now() - interval '30 days'
+      GROUP BY "productId", "action"
+    `;
 
-  const purchasedItems = await prisma.orderItem.findMany({
-    where: {
-      status: 'ACTIVE',
-    },
-    select: {
-      productId: true,
-      quantity: true,
-      order: { select: { createdAt: true } },
-    },
-  });
+    for (const row of interactions) {
+      const baseWeight = INTERACTION_WEIGHTS[row.action] || 1;
+      const score = baseWeight * Number(row.weightedScore || 0);
+      scores.set(row.productId, (scores.get(row.productId) || 0) + score);
+    }
 
-  for (const item of purchasedItems) {
-    const decay = scope === 'trending' ? calculateDecay(item.order.createdAt) : 1;
-    const weightedScore = INTERACTION_WEIGHTS.purchase * Math.max(1, item.quantity || 1) * decay;
-    scores.set(item.productId, (scores.get(item.productId) || 0) + weightedScore);
+    const purchases = await prisma.$queryRaw`
+      SELECT 
+        oi."productId", 
+        SUM(oi.quantity * power(0.5, (extract(epoch from (now() - o."createdAt")) / 86400.0) / 14.0)) as "weightedScore"
+      FROM "OrderItem" oi
+      JOIN "Order" o ON oi."orderId" = o.id
+      WHERE oi.status = 'ACTIVE'::"OrderItemStatus"
+        AND o."createdAt" >= now() - interval '30 days'
+      GROUP BY oi."productId"
+    `;
+
+    for (const row of purchases) {
+      const score = INTERACTION_WEIGHTS.purchase * Number(row.weightedScore || 0);
+      scores.set(row.productId, (scores.get(row.productId) || 0) + score);
+    }
+  } else {
+    // All-time: no time decay, grouped and summed in database
+    const interactions = await prisma.$queryRaw`
+      SELECT 
+        "productId", 
+        "action"::text as "action", 
+        SUM(quantity) as "weightedScore"
+      FROM "RecommendationInteraction"
+      WHERE "action" != 'purchase'::"InteractionAction"
+      GROUP BY "productId", "action"
+    `;
+
+    for (const row of interactions) {
+      const baseWeight = INTERACTION_WEIGHTS[row.action] || 1;
+      const score = baseWeight * Number(row.weightedScore || 0);
+      scores.set(row.productId, (scores.get(row.productId) || 0) + score);
+    }
+
+    const purchases = await prisma.$queryRaw`
+      SELECT 
+        oi."productId", 
+        SUM(oi.quantity) as "weightedScore"
+      FROM "OrderItem" oi
+      WHERE oi.status = 'ACTIVE'::"OrderItemStatus"
+      GROUP BY oi."productId"
+    `;
+
+    for (const row of purchases) {
+      const score = INTERACTION_WEIGHTS.purchase * Number(row.weightedScore || 0);
+      scores.set(row.productId, (scores.get(row.productId) || 0) + score);
+    }
   }
 
   return scores;

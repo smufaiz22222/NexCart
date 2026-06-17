@@ -4,6 +4,7 @@ import os
 
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
+
 @lru_cache(maxsize=1)
 def get_embedder() -> HuggingFaceEmbeddings:
     print(f"[Embedder] Loading model: {EMBEDDING_MODEL}")

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Store, Shield, LogOut, Menu, X } from 'lucide-react';
+import { CreditCard, LayoutDashboard, Shield, LogOut, Menu, X } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 export default function AdminLayout() {
@@ -10,9 +10,20 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   const navigation = [
-    { name: 'Platform Dashboard', href: '/admin', icon: LayoutDashboard },
-    { name: 'Wholesalers', href: '/admin', icon: Store },
-    { name: 'Users', href: '/admin', icon: Users },
+    {
+      name: 'Platform Overview',
+      href: '/admin',
+      icon: LayoutDashboard,
+      description: 'Marketplace pulse',
+      matcher: (pathname) => pathname === '/admin',
+    },
+    {
+      name: 'Subscriptions',
+      href: '/admin/subscriptions',
+      icon: CreditCard,
+      description: 'Plans and billing control',
+      matcher: (pathname) => pathname.startsWith('/admin/subscriptions'),
+    },
   ];
 
   const handleLogout = () => {
@@ -41,7 +52,7 @@ export default function AdminLayout() {
 
           <nav className="flex-1 space-y-2 px-4 py-6">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+              const isActive = item.matcher(location.pathname);
               const Icon = item.icon;
 
               return (
@@ -55,7 +66,14 @@ export default function AdminLayout() {
                   }`}
                 >
                   <Icon className="h-5 w-5" />
-                  {item.name}
+                  <div>
+                    <p>{item.name}</p>
+                    <p
+                      className={`mt-0.5 text-[11px] font-medium ${isActive ? 'text-[#d8d1c5]' : 'text-[#8b7e70]'}`}
+                    >
+                      {item.description}
+                    </p>
+                  </div>
                 </Link>
               );
             })}
@@ -111,7 +129,7 @@ export default function AdminLayout() {
             {isMobileMenuOpen && (
               <nav className="space-y-2 border-t border-[#d8ccb9] px-4 py-4 md:hidden">
                 {navigation.map((item) => {
-                  const isActive = location.pathname === item.href;
+                  const isActive = item.matcher(location.pathname);
                   const Icon = item.icon;
 
                   return (

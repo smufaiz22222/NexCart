@@ -23,10 +23,23 @@ const createMockResponse = () => {
 
 const createRegisterPrismaMock = ({ existingUser = null, createError = null } = {}) => {
   const createdUsers = [];
+  const seededPlans = new Map();
 
   return {
-    state: { createdUsers },
+    state: { createdUsers, seededPlans },
     client: {
+      subscriptionPlan: {
+        upsert: async ({ where, update, create }) => {
+          const code = where?.code;
+          const existingPlan = seededPlans.get(code);
+          const nextPlan = existingPlan
+            ? { ...existingPlan, ...update }
+            : { id: `plan-${seededPlans.size + 1}`, ...create };
+
+          seededPlans.set(code, nextPlan);
+          return nextPlan;
+        },
+      },
       user: {
         findFirst: async ({ where }) => {
           const candidate = where?.email?.equals;
@@ -53,7 +66,11 @@ const createRegisterPrismaMock = ({ existingUser = null, createError = null } = 
             id: `user-${createdUsers.length + 1}`,
             ...data,
             wholesalerProfile: data.wholesalerProfile?.create
-              ? { id: `wholesaler-${createdUsers.length + 1}`, ...data.wholesalerProfile.create }
+              ? {
+                  id: `wholesaler-${createdUsers.length + 1}`,
+                  subscriptions: [],
+                  ...data.wholesalerProfile.create,
+                }
               : null,
           };
 
@@ -131,6 +148,8 @@ test('register creates a wholesaler account when business name is provided', asy
         password: 'Strong@123',
         role: 'WHOLESALER',
         businessName: '  Seller Hub  ',
+        businessPhone: '9876543210',
+        businessAddress: '221 Market Road, Pune',
       },
     };
     const res = createMockResponse();
@@ -138,6 +157,7 @@ test('register creates a wholesaler account when business name is provided', asy
     await register(req, res);
 
     assert.equal(res.statusCode, 201);
+    assert.equal(res.body.applicationSubmitted, true);
     assert.equal(state.createdUsers[0].role, 'WHOLESALER');
     assert.equal(state.createdUsers[0].wholesalerProfile.businessName, 'Seller Hub');
   } finally {

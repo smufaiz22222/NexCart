@@ -5,6 +5,10 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from 'sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  OperationalAccessNotice,
+  PremiumFeatureNotice,
+} from './components/wholesaler/WholesalerAccessPanel';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +38,8 @@ const Storefront = lazy(() => import('./pages/Storefront'));
 const Cart = lazy(() => import('./pages/Cart'));
 const ProductDetails = lazy(() => import('./pages/ProductDetails'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
+const SuperAdminSubscriptions = lazy(() => import('./pages/SuperAdminSubscriptions'));
+const WholesalerBilling = lazy(() => import('./pages/WholesalerBilling'));
 const AboutUs = lazy(() => import('./pages/AboutUs'));
 const Faq = lazy(() => import('./pages/Faq'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
@@ -57,6 +63,32 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 const Unauthorized = () => (
   <div className="p-10 text-2xl font-bold text-red-600">403 - Unauthorized Access</div>
 );
+
+const OperationalRoute = ({ children }) => {
+  const { user } = useAuthStore();
+  const status = user?.wholesalerProfile?.onboardingStatus;
+
+  if (user?.role === 'WHOLESALER' && !['APPROVED', 'ACTIVE', 'PAST_DUE'].includes(status)) {
+    return (
+      <OperationalAccessNotice
+        status={status}
+        rejectionReason={user?.wholesalerProfile?.rejectionReason}
+      />
+    );
+  }
+
+  return children;
+};
+
+const PremiumRoute = ({ feature, title, children }) => {
+  const { user } = useAuthStore();
+
+  if (user?.role === 'WHOLESALER' && !user?.featureAccess?.[feature]) {
+    return <PremiumFeatureNotice featureName={title} />;
+  }
+
+  return children;
+};
 
 function App() {
   const { isAuthenticated, user } = useAuthStore();
@@ -114,14 +146,71 @@ function App() {
                 }
               >
                 <Route index element={<Dashboard />} />
-                <Route path="analytics" element={<Analytics />} />
-                <Route path="products" element={<Products />} />
-                <Route path="products/:id" element={<SellerProductDetails />} />
-                <Route path="inventory" element={<Inventory />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="ledger" element={<Ledger />} />
-                <Route path="advisor" element={<BusinessAdvisor />} />
-                <Route path="khatta" element={<AiKhatta />} />
+                <Route
+                  path="analytics"
+                  element={
+                    <PremiumRoute feature="analytics" title="Advanced Analytics">
+                      <Analytics />
+                    </PremiumRoute>
+                  }
+                />
+                <Route
+                  path="products"
+                  element={
+                    <OperationalRoute>
+                      <Products />
+                    </OperationalRoute>
+                  }
+                />
+                <Route
+                  path="products/:id"
+                  element={
+                    <OperationalRoute>
+                      <SellerProductDetails />
+                    </OperationalRoute>
+                  }
+                />
+                <Route
+                  path="inventory"
+                  element={
+                    <OperationalRoute>
+                      <Inventory />
+                    </OperationalRoute>
+                  }
+                />
+                <Route
+                  path="orders"
+                  element={
+                    <OperationalRoute>
+                      <Orders />
+                    </OperationalRoute>
+                  }
+                />
+                <Route
+                  path="ledger"
+                  element={
+                    <OperationalRoute>
+                      <Ledger />
+                    </OperationalRoute>
+                  }
+                />
+                <Route path="billing" element={<WholesalerBilling />} />
+                <Route
+                  path="advisor"
+                  element={
+                    <PremiumRoute feature="advisor" title="Business Advisor">
+                      <BusinessAdvisor />
+                    </PremiumRoute>
+                  }
+                />
+                <Route
+                  path="khatta"
+                  element={
+                    <PremiumRoute feature="khatta" title="AI Khatta Scan">
+                      <AiKhatta />
+                    </PremiumRoute>
+                  }
+                />
               </Route>
 
               <Route
@@ -133,6 +222,7 @@ function App() {
                 }
               >
                 <Route index element={<SuperAdminDashboard />} />
+                <Route path="subscriptions" element={<SuperAdminSubscriptions />} />
               </Route>
 
               {/* Global Wildcard 404 Route */}

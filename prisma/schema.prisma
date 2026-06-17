@@ -1,17 +1,52 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/client"
+  provider   = "prisma-client-js"
+  output     = "../src/generated/client"
+  engineType = "library"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
   CUSTOMER
   WHOLESALER
   SUPER_ADMIN
+}
+
+enum OnboardingStatus {
+  APPLIED
+  UNDER_REVIEW
+  APPROVED
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  EXPIRED
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+}
+
+enum SubscriptionPurchaseMethod {
+  TRIAL
+  RAZORPAY
+  ADMIN_MANUAL
+}
+
+enum SubscriptionPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
 }
 
 enum InventoryChangeReason {
@@ -217,6 +252,19 @@ model Wholesaler {
   userId       String @unique
   user         User   @relation(fields: [userId], references: [id])
   businessName String
+  businessPhone String?
+  taxId         String?
+  businessAddress String?
+  onboardingStatus OnboardingStatus @default(ACTIVE)
+  reviewSubmittedAt DateTime?
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  suspendedAt DateTime?
+  activatedAt DateTime?
+  rejectionReason String?
+  trialStartedAt DateTime?
+  trialEndsAt DateTime?
+  trialUsedAt DateTime?
 
   products      Product[]
   orders        Order[]        @relation("SellerOrders")
@@ -224,9 +272,81 @@ model Wholesaler {
   ledgerEntries LedgerEntry[]  @relation("WholesalerLedger")
   inventoryLogs InventoryLog[]
   disputes      Dispute[]      @relation("SellerDisputes")
+  subscriptions WholesalerSubscription[]
+  subscriptionPayments SubscriptionPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  features    Json
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  subscriptions WholesalerSubscription[]
+  payments    SubscriptionPayment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WholesalerSubscription {
+  id                String                      @id @default(uuid())
+  wholesalerId      String
+  wholesaler        Wholesaler                  @relation(fields: [wholesalerId], references: [id])
+  planId            String
+  plan              SubscriptionPlan            @relation(fields: [planId], references: [id])
+  status            SubscriptionStatus          @default(PENDING)
+  billingCycle      BillingCycle                @default(MONTHLY)
+  durationMonths    Int                         @default(1)
+  purchaseMethod    SubscriptionPurchaseMethod
+  activatedByAdmin  Boolean                     @default(false)
+  activationNotes   String?
+  externalReference String?
+  startedAt         DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd  DateTime?
+  autoRenews        Boolean                     @default(false)
+  payments          SubscriptionPayment[]
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  @@index([wholesalerId, status])
+  @@index([planId])
+}
+
+model SubscriptionPayment {
+  id                String                      @id @default(uuid())
+  wholesalerId      String
+  wholesaler        Wholesaler                  @relation(fields: [wholesalerId], references: [id])
+  subscriptionId    String?
+  subscription      WholesalerSubscription?     @relation(fields: [subscriptionId], references: [id])
+  planId            String?
+  plan              SubscriptionPlan?           @relation(fields: [planId], references: [id])
+  purchaseMethod    SubscriptionPurchaseMethod
+  status            SubscriptionPaymentStatus   @default(PENDING)
+  durationMonths    Int                         @default(1)
+  baseAmount        Decimal                     @db.Decimal(10, 2)
+  discountPercent   Int                         @default(0)
+  finalAmount       Decimal                     @db.Decimal(10, 2)
+  currency          String                      @default("INR")
+  razorpayOrderId   String?                     @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+  externalReference String?
+  activationNotes   String?
+  failureReason     String?
+  paidAt            DateTime?
+  validUntil        DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  @@index([wholesalerId, status])
+  @@index([subscriptionId])
 }
 
 model Product {

@@ -1,19 +1,22 @@
 import os
 from functools import lru_cache
 
+
 @lru_cache(maxsize=1)
 def get_llm():
     llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
 
     if llm_provider == "ollama":
         from langchain_community.llms import Ollama
-        model   = os.getenv("OLLAMA_MODEL", "mistral")
+
+        model = os.getenv("OLLAMA_MODEL", "mistral")
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         print(f"[LLM] Ollama: {model}")
         return Ollama(model=model, base_url=base_url)
 
     if llm_provider == "openrouter":
         from langchain_openai import ChatOpenAI
+
         print(f"[LLM] OpenRouter: {os.getenv('OPENROUTER_MODEL')}")
         return ChatOpenAI(
             base_url="https://openrouter.ai/api/v1",

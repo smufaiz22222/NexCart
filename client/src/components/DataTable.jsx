@@ -125,6 +125,7 @@ export default function DataTable({
   );
 
   // Initialize TanStack Table instance
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

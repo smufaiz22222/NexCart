@@ -4,19 +4,23 @@ from app.services.advisor_service import run_advisor
 
 router = APIRouter()
 
+
 class ChatRequest(BaseModel):
     query: str
     sessionId: str
     businessContext: dict = {}
 
+
 class ChatSource(BaseModel):
     file: str
     page: int
+
 
 class ChatResponse(BaseModel):
     answer: str
     sources: list[ChatSource]
     sessionId: str
+
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):

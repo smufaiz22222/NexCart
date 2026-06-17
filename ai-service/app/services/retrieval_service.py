@@ -30,7 +30,9 @@ def _build_documents_from_collection(collection: dict) -> list[Document]:
     result: list[Document] = []
 
     for content, metadata in zip(documents, metadatas):
-        result.append(Document(page_content=content, metadata=normalize_chunk_metadata(metadata)))
+        result.append(
+            Document(page_content=content, metadata=normalize_chunk_metadata(metadata))
+        )
     return result
 
 
@@ -63,7 +65,9 @@ def _get_vector_results(query: str, top_k: int) -> list[tuple[Document, float]]:
         return normalized_results
 
 
-def retrieve_documents(query: str, top_k: int | None = None, min_score: float | None = None) -> RetrievalResult:
+def retrieve_documents(
+    query: str, top_k: int | None = None, min_score: float | None = None
+) -> RetrievalResult:
     retrieval_top_k = top_k or RETRIEVAL_TOP_K
     min_retrieval_score = min_score if min_score is not None else MIN_RETRIEVAL_SCORE
 
@@ -80,7 +84,9 @@ def retrieve_documents(query: str, top_k: int | None = None, min_score: float | 
     vector_results = _get_vector_results(query, max(retrieval_top_k, 5))
     best_semantic_score = max((score for _, score in vector_results), default=0.0)
 
-    tokenized_corpus = [document.page_content.lower().split() for document in all_documents]
+    tokenized_corpus = [
+        document.page_content.lower().split() for document in all_documents
+    ]
     bm25 = BM25Okapi(tokenized_corpus)
     bm25_scores = bm25.get_scores(query.lower().split())
     max_bm25_score = max(bm25_scores) if len(bm25_scores) else 0.0
