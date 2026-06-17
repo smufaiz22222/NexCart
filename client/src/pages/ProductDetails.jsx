@@ -1,12 +1,12 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Star, Store } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Star, Store, MessageSquare } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { trackRecommendationClick } from '../utils/recommendation';
 import { toast } from 'sonner';
-import { useProductDetail, useSimilarProducts, useSubmitReview } from '../api/queries';
+import { useProductDetail, useSimilarProducts, useSubmitReview, useCreateRfq } from '../api/queries';
 
 const getAttributionStorageKey = (productId) => `nexcart:recommendationAttribution:${productId}`;
 
@@ -20,11 +20,7 @@ export default function ProductDetails() {
   const addToCart = useCartStore((state) => state.addToCart);
   const loggedImpressionRecommendationIds = useRef(new Set());
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
-  const [attributionRecommendationContext, setAttributionRecommendationContext] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
+  const user = useAuthStore((state) => state.user);
 
   const {
     data: product,
@@ -36,6 +32,26 @@ export default function ProductDetails() {
   } = useProductDetail(id);
 
   const { data: similarData, isLoading: isLoadingSimilarData } = useSimilarProducts(id);
+
+  const [attributionRecommendationContext, setAttributionRecommendationContext] = useState(null);
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+
+  // B2B & B2C parameters
+  const isB2BApproved = user?.businessProfile?.verification === 'APPROVED';
+  const minQty = isB2BApproved ? (product?.minOrderQty || 1) : 1;
+  const [quantity, setQuantity] = useState(1);
+  const [targetPrice, setTargetPrice] = useState('');
+  const [targetQty, setTargetQty] = useState('');
+  const [notes, setNotes] = useState('');
+  const createRfq = useCreateRfq();
+
+  useEffect(() => {
+    if (product) {
+      setQuantity(isB2BApproved ? (product.minOrderQty || 1) : 1);
+    }
+  }, [product, isB2BApproved]);
 
   const similarProducts = useMemo(() => similarData?.recommendations || [], [similarData]);
   const similarRecommendationId = similarData?.recommendationId || null;
@@ -120,11 +136,15 @@ export default function ProductDetails() {
       return toast.warning('Please select a size first!');
     }
 
+    if (isB2BApproved && quantity < product.minOrderQty) {
+      return toast.warning(`Minimum Order Quantity (MOQ) for B2B accounts is ${product.minOrderQty} units.`);
+    }
+
     try {
       await addToCart({
         productId: product.id,
         selectedSize: product.sizes?.length ? selectedSize : null,
-        quantity: 1,
+        quantity: quantity,
         recommendationId: attributionRecommendationContext?.recommendationId || null,
         recommendationSource: attributionRecommendationContext?.source || null,
       });
@@ -133,7 +153,7 @@ export default function ProductDetails() {
           .post('/interactions', {
             productId: product.id,
             action: 'cart',
-            quantity: 1,
+            quantity: quantity,
             source: 'product_detail',
             recommendationId: attributionRecommendationContext?.recommendationId,
             metadata: attributionRecommendationContext
@@ -147,6 +167,37 @@ export default function ProductDetails() {
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to add item to cart');
     }
+  };
+
+  const handleRfqSubmit = (e) => {
+    e.preventDefault();
+    if (!targetPrice || !targetQty) {
+      return toast.warning('Please specify both target price and target quantity');
+    }
+    const parsedQty = parseInt(targetQty, 10);
+    if (parsedQty < product.minOrderQty) {
+      return toast.warning(`Target quantity must meet MOQ of ${product.minOrderQty} units.`);
+    }
+
+    createRfq.mutate(
+      {
+        productId: product.id,
+        quantity: parsedQty,
+        targetPrice: parseFloat(targetPrice),
+        notes,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Custom quote proposal submitted to wholesaler!');
+          setTargetPrice('');
+          setTargetQty('');
+          setNotes('');
+        },
+        onError: (err) => {
+          toast.error(err.response?.data?.error || 'Failed to submit quote proposal');
+        },
+      }
+    );
   };
 
   const handleRecommendationClick = (recommendedProduct) => {
@@ -287,14 +338,34 @@ export default function ProductDetails() {
             )}
           </div>
 
+          {isB2BApproved && product.priceTiers?.length > 0 && (
+            <div className="mt-6 p-4 rounded-2xl bg-[#f8f6f1] border border-[#ddd7cc] text-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#8b857c] mb-3">Wholesale Volume Price Tiers</p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {product.priceTiers.map((tier) => (
+                  <div key={tier.id} className="flex justify-between border-b border-[#ddd7cc]/40 pb-2">
+                    <span className="font-semibold text-[#6b665f]">{tier.minQuantity}+ units</span>
+                    <span className="font-black text-[#161412]">{formatCurrency(tier.unitPrice)} / unit</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <p className="mt-6 text-base leading-8 text-[#5f5951]">
             {product.description || 'No description provided for this product.'}
           </p>
 
           <div className="mt-6 rounded-[26px] bg-[#f8f6f1] px-5 py-5">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">Sold by</p>
-            <p className="mt-2 text-lg font-black tracking-tight">
+            <p className="mt-2 text-lg font-black tracking-tight flex items-center justify-between">
               {product.wholesaler?.businessName || 'Unknown shop'}
+              <button 
+                onClick={() => navigate('/store/dashboard')} 
+                className="text-xs font-black uppercase tracking-wider text-amber-600 hover:text-amber-700 flex items-center gap-1 bg-transparent border-none outline-none cursor-pointer"
+              >
+                View Price Desk
+              </button>
             </p>
           </div>
 
@@ -321,13 +392,100 @@ export default function ProductDetails() {
             </div>
           )}
 
-          <button
-            onClick={handleAddToCart}
-            className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2d2a27]"
-          >
-            <ShoppingBag className="h-5 w-5" />
-            Add to cart
-          </button>
+          {/* Quantity selector and checkout */}
+          <div className="mt-8 grid grid-cols-[120px_1fr] gap-4 items-end">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c] mb-3">Quantity</p>
+              <div className="flex items-center justify-between border border-[#ddd7cc] rounded-full px-3 py-3 bg-[#fbfaf7]">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
+                  className="font-bold text-[#6b665f] hover:text-[#161412] px-1"
+                >
+                  -
+                </button>
+                <span className="font-bold text-sm font-mono">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="font-bold text-[#6b665f] hover:text-[#161412] px-1"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddToCart}
+              className="flex items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2d2a27]"
+            >
+              <ShoppingBag className="h-5 w-5" />
+              Add to cart
+            </button>
+          </div>
+
+          {isB2BApproved && product.minOrderQty > 1 && (
+            <p className="mt-3 text-xs font-semibold text-amber-600">
+              ⚠️ Minimum Wholesale Order Quantity (MOQ) is {product.minOrderQty} units.
+            </p>
+          )}
+
+          {/* RFQ Quote Proposal Form */}
+          {isB2BApproved && (
+            <div className="mt-8 pt-6 border-t border-[#f3efe8]">
+              <h3 className="font-black text-lg tracking-tight flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-amber-500" /> Request Custom Quote (RFQ)
+              </h3>
+              <p className="text-xs text-[#6b665f] mt-1 leading-relaxed">
+                Negotiate prices below tiers by proposing your target bid directly to the wholesaler.
+              </p>
+              <form onSubmit={handleRfqSubmit} className="mt-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">Target Quantity</label>
+                    <input
+                      required
+                      type="number"
+                      min={product.minOrderQty || 1}
+                      value={targetQty}
+                      onChange={(e) => setTargetQty(e.target.value)}
+                      placeholder={`Min ${product.minOrderQty}`}
+                      className="w-full px-3 py-2 bg-[#fbfaf7] border border-[#ddd7cc] rounded-xl text-xs focus:outline-none focus:border-[#161412] font-mono text-[#161412]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">Target Price (₹/unit)</label>
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      value={targetPrice}
+                      onChange={(e) => setTargetPrice(e.target.value)}
+                      placeholder={`Catalog is ₹${product.price}`}
+                      className="w-full px-3 py-2 bg-[#fbfaf7] border border-[#ddd7cc] rounded-xl text-xs focus:outline-none focus:border-[#161412] font-mono text-[#161412]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">Comments / Terms</label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Describe custom logistics, contracts, etc."
+                    className="w-full px-3 py-2 bg-[#fbfaf7] border border-[#ddd7cc] rounded-xl text-xs focus:outline-none focus:border-[#161412] text-[#161412]"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={createRfq.isPending}
+                  className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-[#0a0a0a] font-bold text-xs uppercase tracking-widest py-3.5 rounded-full transition-all"
+                >
+                  {createRfq.isPending ? 'Uploading Bid...' : 'Submit Target Price Offer'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </section>
 

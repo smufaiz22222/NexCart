@@ -28,6 +28,7 @@ import {
 const PAYMENT_METHODS = {
   COD: 'COD',
   PREPAID: 'PREPAID',
+  LEDGER_CREDIT: 'LEDGER_CREDIT',
 };
 
 const PAYMENT_STATUSES = {
@@ -144,8 +145,13 @@ const loadCheckoutCart = async (db, buyerId) => {
   return cart;
 };
 
-export const buildOrdersBySeller = async (cartItems) => {
+export const buildOrdersBySeller = async (tx, cartItems, buyerId) => {
   const ordersBySeller = {};
+
+  const businessProfile = buyerId
+    ? await tx.businessProfile.findUnique({ where: { userId: buyerId } })
+    : null;
+  const isApprovedB2B = businessProfile && businessProfile.verification === 'APPROVED';
 
   for (const item of cartItems) {
     const product = item.product;
@@ -160,7 +166,45 @@ export const buildOrdersBySeller = async (cartItems) => {
       ordersBySeller[sellerId] = { totalAmount: 0, orderItems: [], inventoryLogs: [] };
     }
 
-    const unitPriceAtPurchase = Number(product.price);
+    let unitPriceAtPurchase = Number(product.price);
+
+    if (isApprovedB2B) {
+      // 1. Check for active accepted RFQ first
+      const activeRfq = await tx.rfq.findFirst({
+        where: {
+          buyerId,
+          productId: product.id,
+          status: 'ACCEPTED',
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (activeRfq && item.quantity >= activeRfq.quantity) {
+        unitPriceAtPurchase = activeRfq.counterPrice || activeRfq.targetPrice;
+      } else {
+        // Enforce MOQ check
+        if (item.quantity < product.minOrderQty) {
+          throw buildCheckoutError(`Quantity for ${product.name} must meet the product MOQ of ${product.minOrderQty} units.`);
+        }
+
+        // 2. Check for matching quantity tiers
+        const tiers = await tx.productPriceTier.findMany({
+          where: { productId: product.id },
+          orderBy: { minQuantity: 'asc' },
+        });
+
+        let applicableTier = null;
+        for (const tier of tiers) {
+          if (item.quantity >= tier.minQuantity) {
+            applicableTier = tier;
+          }
+        }
+        if (applicableTier) {
+          unitPriceAtPurchase = applicableTier.unitPrice;
+        }
+      }
+    }
+
     const subtotalAtPurchase = unitPriceAtPurchase * item.quantity;
 
     ordersBySeller[sellerId].orderItems.push({
@@ -416,8 +460,8 @@ export const checkout = async (req, res) => {
     const buyerId = req.user.userId;
     validateCheckoutInput({ addressId, paymentMethod });
 
-    if (paymentMethod !== PAYMENT_METHODS.COD) {
-      return res.status(400).json({ error: 'Use prepaid checkout endpoints for prepaid orders' });
+    if (paymentMethod !== PAYMENT_METHODS.COD && paymentMethod !== PAYMENT_METHODS.LEDGER_CREDIT) {
+      return res.status(400).json({ error: 'Invalid payment method for this checkout endpoint' });
     }
 
     const createdOrders = await prisma.$transaction(async (tx) => {
@@ -426,14 +470,101 @@ export const checkout = async (req, res) => {
         loadCheckoutCart(tx, buyerId),
       ]);
       const shippingAddressSnapshot = formatShippingAddress(address);
-      const ordersBySeller = await buildOrdersBySeller(cart.items);
+      const ordersBySeller = await buildOrdersBySeller(tx, cart.items, buyerId);
+      const totalAmount = Object.values(ordersBySeller).reduce(
+        (sum, sellerOrder) => sum + sellerOrder.totalAmount,
+        0
+      );
+
+      if (paymentMethod === PAYMENT_METHODS.LEDGER_CREDIT) {
+        const businessProfile = await tx.businessProfile.findUnique({
+          where: { userId: buyerId },
+        });
+
+        if (!businessProfile || businessProfile.verification !== 'APPROVED' || businessProfile.status !== 'ACTIVE') {
+          throw buildCheckoutError('Only active approved B2B wholesale accounts can checkout using trade credit ledger.', 403);
+        }
+
+        const wholesalerIds = Object.keys(ordersBySeller);
+
+        const [creditLimits, ledgerEntries, wholesalers] = await Promise.all([
+          tx.wholesalerCreditLimit.findMany({
+            where: {
+              buyerId,
+              wholesalerId: { in: wholesalerIds },
+            },
+          }),
+          tx.ledgerEntry.findMany({
+            where: {
+              userId: buyerId,
+              wholesalerId: { in: wholesalerIds },
+            },
+          }),
+          tx.wholesaler.findMany({
+            where: {
+              id: { in: wholesalerIds },
+            },
+            select: {
+              id: true,
+              businessName: true,
+            },
+          }),
+        ]);
+
+        const limitMap = {};
+        for (const cl of creditLimits) {
+          limitMap[cl.wholesalerId] = Number(cl.creditLimit);
+        }
+
+        const balanceMap = {};
+        for (const entry of ledgerEntries) {
+          const wId = entry.wholesalerId;
+          if (!balanceMap[wId]) balanceMap[wId] = 0;
+          balanceMap[wId] += Number(entry.amount);
+        }
+
+        const nameMap = {};
+        for (const w of wholesalers) {
+          nameMap[w.id] = w.businessName;
+        }
+
+        for (const sellerId of wholesalerIds) {
+          const sellerOrder = ordersBySeller[sellerId];
+          const sellerOrderTotal = sellerOrder.totalAmount;
+
+          const balance = balanceMap[sellerId] || 0;
+          const currentOutstanding = balance < 0 ? -balance : 0;
+          const creditLimit = limitMap[sellerId] !== undefined ? limitMap[sellerId] : 50000.00;
+
+          const newOutstanding = currentOutstanding + sellerOrderTotal;
+
+          if (newOutstanding > creditLimit) {
+            const sellerName = nameMap[sellerId] || 'the wholesaler';
+            const available = Math.max(0, creditLimit - currentOutstanding);
+
+            const errorObj = {
+              sellerId,
+              sellerName,
+              creditLimit,
+              outstanding: currentOutstanding,
+              available,
+              attemptedPurchase: sellerOrderTotal,
+              message: `Trade credit limit exceeded with seller "${sellerName}".`,
+            };
+
+            const err = buildCheckoutError(errorObj.message, 400);
+            err.details = errorObj;
+            throw err;
+          }
+        }
+      }
 
       return createOrdersFromGroupedData({
         tx,
         buyerId,
         ordersBySeller,
         shippingAddressSnapshot,
-        paymentMethod: PAYMENT_METHODS.COD,
+        paymentMethod,
         paymentStatus: PAYMENT_STATUSES.PENDING,
         cartId: cart.id,
       });
@@ -444,7 +575,10 @@ export const checkout = async (req, res) => {
     console.error('Checkout Error:', error);
     res
       .status(error.statusCode || 400)
-      .json({ error: error.message || 'Failed to process checkout' });
+      .json({ 
+        error: error.message || 'Failed to process checkout',
+        details: error.details || null
+      });
   }
 };
 
@@ -468,7 +602,7 @@ export const createPrepaidOrder = async (req, res) => {
         loadCheckoutCart(tx, buyerId),
       ]);
       const shippingAddressSnapshot = formatShippingAddress(address);
-      const ordersBySeller = await buildOrdersBySeller(cart.items);
+      const ordersBySeller = await buildOrdersBySeller(tx, cart.items, buyerId);
       const totalAmount = Object.values(ordersBySeller).reduce(
         (sum, sellerOrder) => sum + sellerOrder.totalAmount,
         0

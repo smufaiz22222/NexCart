@@ -10,13 +10,16 @@ import apiClient from '../api/axios';
  */
 export function ProductForm({ initialData, onSubmit, onCancel }) {
   const form = useForm({
-    defaultValues: initialData || {
-      name: '',
-      description: '',
-      price: '',
-      sku: '',
-      category: '',
-      attributes: [{ name: '', value: '' }],
+    defaultValues: {
+      name: initialData?.name || '',
+      description: initialData?.description || '',
+      price: initialData?.price || '',
+      costPrice: initialData?.costPrice || '',
+      sku: initialData?.sku || '',
+      category: initialData?.category || '',
+      currentStock: initialData?.currentStock !== undefined ? initialData.currentStock : '',
+      minStock: initialData?.minStock !== undefined ? initialData.minStock : '',
+      attributes: initialData?.attributes || [{ name: '', value: '' }],
     },
     onSubmit: async ({ value }) => {
       await onSubmit(value);
@@ -106,6 +109,44 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
 
           <form.Field name="category">
             {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
+          </form.Field>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-3">
+          <form.Field
+            name="costPrice"
+            validators={{
+              onChange: ({ value }) =>
+                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0) ? 'Enter a valid cost price' : undefined,
+            }}
+          >
+            {(field) => (
+              <TextField field={field} label="Cost Price (₹)" type="number" placeholder="0.00" />
+            )}
+          </form.Field>
+
+          <form.Field
+            name="currentStock"
+            validators={{
+              onChange: ({ value }) =>
+                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0) ? 'Enter a valid stock number' : undefined,
+            }}
+          >
+            {(field) => (
+              <TextField field={field} label="Current Stock" type="number" placeholder="0" />
+            )}
+          </form.Field>
+
+          <form.Field
+            name="minStock"
+            validators={{
+              onChange: ({ value }) =>
+                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0) ? 'Enter a valid min stock alert' : undefined,
+            }}
+          >
+            {(field) => (
+              <TextField field={field} label="Min Stock Alert" type="number" placeholder="10" />
+            )}
           </form.Field>
         </div>
 

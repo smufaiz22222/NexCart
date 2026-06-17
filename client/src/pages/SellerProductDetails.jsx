@@ -8,6 +8,9 @@ import {
   Tag,
   TriangleAlert,
   X,
+  Plus,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../api/axios';
@@ -73,6 +76,19 @@ export default function SellerProductDetails() {
       setError('');
     } catch (saveError) {
       toast.error(saveError.response?.data?.error || 'Failed to save product changes.');
+    }
+  };
+
+  const handleUpdateTiers = async (newTiers) => {
+    try {
+      const response = await apiClient.post(`/b2b/products/${id}/tiers`, { tiers: newTiers });
+      setProduct((prev) => ({
+        ...prev,
+        priceTiers: response.data.tiers,
+      }));
+      toast.success('Volume price tiers updated successfully!');
+    } catch (saveError) {
+      toast.error(saveError.response?.data?.error || 'Failed to save price tiers.');
     }
   };
 
@@ -228,6 +244,10 @@ export default function SellerProductDetails() {
         </aside>
       </div>
 
+      <div className="mt-8">
+        <VolumeTiersSection product={product} onUpdateTiers={handleUpdateTiers} />
+      </div>
+
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-zinc-800 bg-[#161616] shadow-2xl flex flex-col">
@@ -251,6 +271,241 @@ export default function SellerProductDetails() {
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function VolumeTiersSection({ product, onUpdateTiers }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTiers, setEditedTiers] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const startEditing = () => {
+    const current = (product.priceTiers || []).map(t => ({
+      minQuantity: t.minQuantity,
+      unitPrice: t.unitPrice
+    }));
+    setEditedTiers(current.length > 0 ? current : [{ minQuantity: '', unitPrice: '' }]);
+    setIsEditing(true);
+  };
+
+  const handleAddRow = () => {
+    setEditedTiers([...editedTiers, { minQuantity: '', unitPrice: '' }]);
+  };
+
+  const handleRemoveRow = (index) => {
+    setEditedTiers(editedTiers.filter((_, i) => i !== index));
+  };
+
+  const handleChangeRow = (index, field, value) => {
+    const updated = [...editedTiers];
+    updated[index][field] = value;
+    setEditedTiers(updated);
+  };
+
+  const handleSave = async () => {
+    const validTiers = [];
+    const minQs = new Set();
+
+    for (let i = 0; i < editedTiers.length; i++) {
+      const { minQuantity, unitPrice } = editedTiers[i];
+      if (minQuantity === '' || unitPrice === '') {
+        toast.error('All tier fields must be filled.');
+        return;
+      }
+
+      const q = parseInt(minQuantity, 10);
+      const p = parseFloat(unitPrice);
+
+      if (isNaN(q) || q <= 1) {
+        toast.error('Minimum quantity must be greater than 1.');
+        return;
+      }
+
+      if (isNaN(p) || p <= 0) {
+        toast.error('Unit price must be a valid positive number.');
+        return;
+      }
+
+      if (p >= product.price) {
+        toast.error(`Unit price (₹${p}) must be lower than the base price (₹${product.price}).`);
+        return;
+      }
+
+      if (minQs.has(q)) {
+        toast.error(`Duplicate minimum quantity: ${q}. Each tier must have a unique minimum quantity.`);
+        return;
+      }
+
+      minQs.add(q);
+      validTiers.push({ minQuantity: q, unitPrice: p });
+    }
+
+    validTiers.sort((a, b) => a.minQuantity - b.minQuantity);
+
+    setIsSaving(true);
+    try {
+      await onUpdateTiers(validTiers);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-[28px] border border-zinc-800 bg-[#141414] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
+        <div>
+          <h2 className="text-lg font-bold tracking-wide text-white">Wholesale Volume Pricing Tiers</h2>
+          <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wider">
+            Configure tiered pricing options for B2B bulk purchases
+          </p>
+        </div>
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-200 transition hover:bg-zinc-700 hover:text-white"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Manage Tiers
+          </button>
+        )}
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-4 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+            <div>Min. Quantity *</div>
+            <div>Unit Price (₹) *</div>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="space-y-3">
+            {editedTiers.map((tier, index) => (
+              <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-4 items-center animate-in fade-in slide-in-from-top-1 duration-200">
+                <input
+                  type="number"
+                  value={tier.minQuantity}
+                  onChange={(e) => handleChangeRow(index, 'minQuantity', e.target.value)}
+                  placeholder="e.g. 10"
+                  min="2"
+                  step="1"
+                  className="w-full rounded-xl border border-zinc-700 bg-[#0a0a0a] px-4 py-2.5 text-sm text-white outline-none transition-all placeholder:text-zinc-700 focus:border-amber-400/50"
+                />
+                <input
+                  type="number"
+                  value={tier.unitPrice}
+                  onChange={(e) => handleChangeRow(index, 'unitPrice', e.target.value)}
+                  placeholder="e.g. 180.00"
+                  min="0.01"
+                  step="0.01"
+                  className="w-full rounded-xl border border-zinc-700 bg-[#0a0a0a] px-4 py-2.5 text-sm text-white outline-none transition-all placeholder:text-zinc-700 focus:border-amber-400/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveRow(index)}
+                  className="rounded-xl bg-red-500/10 p-3 text-red-400 hover:bg-red-500/20 transition-all"
+                  title="Remove row"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-zinc-800/50">
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-zinc-850 hover:text-white"
+            >
+              <Plus className="h-4 w-4 text-amber-400" />
+              Add Row
+            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                disabled={isSaving}
+                className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5" />
+                    Save Tiers
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {(!product.priceTiers || product.priceTiers.length === 0) ? (
+            <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/10 p-8 text-center flex flex-col items-center justify-center">
+              <p className="text-sm text-zinc-400 max-w-md">
+                No volume discount tiers set up yet. Incentivize wholesale buyers to place bulk orders by offering discounts for higher quantities.
+              </p>
+              <button
+                type="button"
+                onClick={startEditing}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4" />
+                Configure Volume Pricing
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+              {product.priceTiers.map((tier, idx) => {
+                const savings = product.price > 0 ? Math.round(((product.price - tier.unitPrice) / product.price) * 100) : 0;
+                return (
+                  <div key={tier.id || idx} className="rounded-2xl border border-zinc-800/80 bg-zinc-900/20 p-5 flex flex-col justify-between hover:border-zinc-700 transition duration-300">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center rounded-full bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                          {tier.minQuantity}+ units
+                        </span>
+                        {savings > 0 && (
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">
+                            {savings}% Off
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-4 text-2xl font-black text-white tracking-tight">
+                        ₹{tier.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wide">
+                        Unit price
+                      </p>
+                    </div>
+                    {savings > 0 && (
+                      <div className="mt-4 pt-3 border-t border-zinc-800/50 text-xs text-zinc-400">
+                        Saves <span className="font-semibold text-emerald-400">₹{(product.price - tier.unitPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span> per unit
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

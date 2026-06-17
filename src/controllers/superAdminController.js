@@ -614,3 +614,100 @@ export const getAdminSubscriptionPlans = async (_req, res) => {
     res.status(500).json({ error: 'Failed to fetch subscription plans' });
   }
 };
+
+export const getCoupons = async (req, res) => {
+  try {
+    const coupons = await prisma.coupon.findMany({
+      include: {
+        plan: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        usedBy: {
+          select: {
+            id: true,
+            businessName: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.status(200).json({ coupons });
+  } catch (error) {
+    console.error('Get Coupons Error:', error);
+    res.status(500).json({ error: 'Failed to fetch coupons.' });
+  }
+};
+
+export const createCoupon = async (req, res) => {
+  try {
+    const { code, planId, durationDays, expiryDate } = req.body || {};
+
+    if (!code || !planId || !durationDays || !expiryDate) {
+      return res.status(400).json({ error: 'All fields (code, planId, durationDays, expiryDate) are required.' });
+    }
+
+    const existing = await prisma.coupon.findUnique({
+      where: { code: code.trim().toUpperCase() },
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'Coupon code already exists.' });
+    }
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code: code.trim().toUpperCase(),
+        planId,
+        durationDays: parseInt(durationDays, 10),
+        expiryDate: new Date(expiryDate),
+      },
+      include: { plan: true },
+    });
+
+    res.status(201).json({
+      message: 'Coupon created successfully.',
+      coupon,
+    });
+  } catch (error) {
+    console.error('Create Coupon Error:', error);
+    res.status(500).json({ error: 'Failed to create coupon.' });
+  }
+};
+
+export const deleteCoupon = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const coupon = await prisma.coupon.findUnique({
+      where: { id },
+    });
+
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    if (coupon.isUsed) {
+      return res.status(400).json({ error: 'Cannot delete a coupon that has already been used.' });
+    }
+
+    await prisma.coupon.delete({
+      where: { id },
+    });
+
+    res.status(200).json({ message: 'Coupon deleted successfully.' });
+  } catch (error) {
+    console.error('Delete Coupon Error:', error);
+    res.status(500).json({ error: 'Failed to delete coupon.' });
+  }
+};

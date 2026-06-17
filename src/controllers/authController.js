@@ -106,6 +106,7 @@ export const login = async (req, res) => {
             },
           },
         },
+        businessProfile: true,
       },
     });
 
@@ -158,6 +159,7 @@ export const login = async (req, res) => {
               trialUsedAt: wholesalerSummary?.trialState?.usedAt || null,
             }
           : null,
+        businessProfile: user.businessProfile || null,
       },
       onboardingStatus: wholesalerSummary?.onboardingStatus || null,
       featureAccess: wholesalerSummary?.featureAccess || null,
@@ -168,5 +170,65 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error('LOGIN ERROR:', error);
     res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        wholesalerProfile: {
+          include: {
+            subscriptions: {
+              include: { plan: true },
+              orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        },
+        businessProfile: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const wholesalerSummary =
+      user.role === 'WHOLESALER' && user.wholesalerProfile
+        ? buildWholesalerAccessSummary(user.wholesalerProfile)
+        : null;
+
+    res.status(200).json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        businessName: user.wholesalerProfile?.businessName || null,
+        subscription: wholesalerSummary?.subscription || null,
+        featureAccess: wholesalerSummary?.featureAccess || null,
+        wholesalerProfile: user.wholesalerProfile
+          ? {
+              id: user.wholesalerProfile.id,
+              businessName: user.wholesalerProfile.businessName,
+              businessPhone: user.wholesalerProfile.businessPhone,
+              taxId: user.wholesalerProfile.taxId,
+              businessAddress: user.wholesalerProfile.businessAddress,
+              onboardingStatus: wholesalerSummary?.onboardingStatus,
+              rejectionReason: wholesalerSummary?.rejectionReason || null,
+              trialStartedAt: wholesalerSummary?.trialState?.startedAt || null,
+              trialEndsAt: wholesalerSummary?.trialState?.endsAt || null,
+              trialUsedAt: wholesalerSummary?.trialState?.usedAt || null,
+            }
+          : null,
+        businessProfile: user.businessProfile || null,
+      },
+    });
+  } catch (error) {
+    console.error('GET PROFILE ERROR:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 };

@@ -18,6 +18,7 @@ import recommendationRoutes from './routes/recommendationRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
+import b2bRoutes from './routes/b2bRoutes.js';
 
 dotenv.config({
   path: path.resolve(process.cwd(), '.env'),
@@ -53,6 +54,7 @@ app.use('/api/khatta', khattaRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/interactions', interactionRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/b2b', b2bRoutes);
 
 const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, 'client/dist')));

@@ -78,3 +78,31 @@ export const getAllLedgerEntries = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch ledger' });
   }
 };
+
+export const getMyLedger = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const entries = await prisma.ledgerEntry.findMany({
+      where: { userId },
+      include: {
+        wholesaler: { select: { businessName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const computedBalance = entries.reduce((sum, entry) => {
+      return sum + parseFloat(entry.amount);
+    }, 0);
+
+    res.status(200).json({
+      balance: computedBalance.toFixed(2),
+      entriesCount: entries.length,
+      entries,
+    });
+  } catch (error) {
+    console.error('Get My Ledger Error:', error);
+    res.status(500).json({ error: 'Failed to fetch your ledger statement' });
+  }
+};
+

@@ -40,6 +40,7 @@ enum SubscriptionPurchaseMethod {
   TRIAL
   RAZORPAY
   ADMIN_MANUAL
+  COUPON
 }
 
 enum SubscriptionPaymentStatus {
@@ -234,6 +235,7 @@ model User {
   prepaidCheckoutSessions PrepaidCheckoutSession[]
 
   wholesalerProfile Wholesaler?
+  businessProfile   BusinessProfile?
 
   ordersPlaced         Order[]               @relation("BuyerOrders")
   orderIssues          OrderIssue[]          @relation("OrderIssueRequester")
@@ -242,6 +244,8 @@ model User {
   disputeResolutions   DisputeResolution[]   @relation("DisputeResolvedByUser")
   disputeInternalNotes DisputeInternalNote[] @relation("DisputeInternalNoteAuthor")
   disputeEvents        DisputeEvent[]        @relation("DisputeEventPerformer")
+  rfqs                 Rfq[]
+  wholesalerCreditLimits WholesalerCreditLimit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -274,6 +278,9 @@ model Wholesaler {
   disputes      Dispute[]      @relation("SellerDisputes")
   subscriptions WholesalerSubscription[]
   subscriptionPayments SubscriptionPayment[]
+  rfqs          Rfq[]
+  creditLimits  WholesalerCreditLimit[]
+  usedCoupons   Coupon[]       @relation("WholesalerCoupon")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -290,6 +297,7 @@ model SubscriptionPlan {
   sortOrder   Int      @default(0)
   subscriptions WholesalerSubscription[]
   payments    SubscriptionPayment[]
+  coupons     Coupon[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -349,6 +357,23 @@ model SubscriptionPayment {
   @@index([subscriptionId])
 }
 
+model Coupon {
+  id           String           @id @default(uuid())
+  code         String           @unique
+  planId       String
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  durationDays Int
+  expiryDate   DateTime
+  isUsed       Boolean          @default(false)
+  usedById     String?
+  usedBy       Wholesaler?      @relation(fields: [usedById], references: [id], name: "WholesalerCoupon")
+  usedAt       DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([code])
+}
+
 model Product {
   id           String     @id @default(uuid())
   wholesalerId String
@@ -368,6 +393,9 @@ model Product {
   currentStock Int @default(0)
   minStock     Int @default(10)
 
+  isB2BEnabled Boolean @default(true)
+  minOrderQty  Int     @default(1)
+
   cartItems            CartItem[]
   inventoryLogs        InventoryLog[]
   orderItems           OrderItem[]
@@ -376,6 +404,8 @@ model Product {
   similaritiesFrom     ProductSimilarity[]         @relation("ProductSimilaritySource")
   similaritiesTo       ProductSimilarity[]         @relation("ProductSimilarityTarget")
   recommendationEvents RecommendationEvent[]
+  priceTiers           ProductPriceTier[]
+  rfqs                 Rfq[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -826,3 +856,72 @@ model RecommendationEvaluationReport {
   @@index([reportType])
   @@index([createdAt])
 }
+
+model BusinessProfile {
+  id              String           @id @default(uuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName     String
+  taxId           String
+  businessAddress String
+  verification    OnboardingStatus @default(APPLIED)
+  status          OnboardingStatus @default(ACTIVE)
+  rejectionReason String?
+  rfqs            Rfq[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model WholesalerCreditLimit {
+  id           String     @id @default(uuid())
+  wholesalerId String
+  wholesaler   Wholesaler @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  buyerId      String
+  buyer        User       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  creditLimit  Decimal    @default(50000.00) @db.Decimal(10, 2)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([wholesalerId, buyerId])
+}
+
+model ProductPriceTier {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  minQuantity Int
+  unitPrice   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, minQuantity])
+}
+
+enum RfqStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTER_OFFERED
+  ORDER_PLACED
+}
+
+model Rfq {
+  id                String           @id @default(uuid())
+  buyerId           String
+  buyer             User             @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId          String
+  seller            Wholesaler       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity          Int
+  targetPrice       Float
+  counterPrice      Float?
+  status            RfqStatus        @default(PENDING)
+  notes             String?
+  sellerNotes       String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  BusinessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id])
+  businessProfileId String?
+}
+

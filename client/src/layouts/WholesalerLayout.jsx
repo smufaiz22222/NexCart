@@ -13,6 +13,7 @@ import {
   X,
   Camera,
   BrainCircuit,
+  MessageSquare,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -34,6 +35,7 @@ export default function WholesalerLayout() {
     { name: 'Products', href: '/wholesaler/products', icon: Package },
     { name: 'Inventory Logs', href: '/wholesaler/inventory', icon: Archive },
     { name: 'Orders', href: '/wholesaler/orders', icon: ShoppingCart },
+    { name: 'Price Quotes (RFQs)', href: '/wholesaler/rfqs', icon: MessageSquare },
     { name: 'Financial Ledger', href: '/wholesaler/ledger', icon: BookOpen },
     { name: 'Business Advisor', href: '/wholesaler/advisor', icon: BrainCircuit },
     { name: 'AI Khatta Scan', href: '/wholesaler/khatta', icon: Camera },

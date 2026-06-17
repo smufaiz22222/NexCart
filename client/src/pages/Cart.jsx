@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
+import { useBuyerCreditStatus } from '../api/queries';
 import { cn } from '../utils/cn';
 import { toast } from 'sonner';
 
@@ -53,6 +54,81 @@ export default function Cart() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { cart, totals, hasHydrated, isHydrating, hydrateCart, updateQuantity, removeFromCart } =
     useCartStore();
+
+  const isB2BApproved =
+    user?.businessProfile?.verification === 'APPROVED' &&
+    user?.businessProfile?.status === 'ACTIVE';
+
+  const { data: creditStatus } = useBuyerCreditStatus({
+    enabled: !!isB2BApproved,
+  });
+
+  const creditValidation = useMemo(() => {
+    if (!isB2BApproved || !creditStatus) {
+      return { isValid: true, details: [], overLimitSellers: [] };
+    }
+
+    const groups = {};
+    cart.forEach((item) => {
+      const wId = item.product?.wholesalerId;
+      const wName = item.product?.wholesaler?.businessName || 'Unknown Wholesaler';
+      if (!wId) return;
+
+      if (!groups[wId]) {
+        groups[wId] = {
+          wholesalerId: wId,
+          wholesalerName: wName,
+          cartTotal: 0,
+        };
+      }
+      groups[wId].cartTotal += Number(item.price) * item.quantity;
+    });
+
+    const details = [];
+    const overLimitSellers = [];
+    const creditLineMap = {};
+
+    if (creditStatus.creditLines) {
+      creditStatus.creditLines.forEach((line) => {
+        creditLineMap[line.wholesalerId] = line;
+      });
+    }
+
+    Object.values(groups).forEach((group) => {
+      const line = creditLineMap[group.wholesalerId];
+      const outstanding = line ? line.outstanding : 0;
+      const creditLimit = line ? line.creditLimit : 50000.00;
+      const available = line ? line.available : 50000.00;
+      const remaining = available - group.cartTotal;
+      const eligible = remaining >= 0;
+
+      if (!eligible) {
+        overLimitSellers.push(group.wholesalerName);
+      }
+
+      details.push({
+        wholesalerId: group.wholesalerId,
+        wholesalerName: group.wholesalerName,
+        outstanding,
+        cartTotal: group.cartTotal,
+        creditLimit,
+        available,
+        remaining,
+        eligible,
+      });
+    });
+
+    return {
+      isValid: overLimitSellers.length === 0,
+      details,
+      overLimitSellers,
+    };
+  }, [cart, isB2BApproved, creditStatus]);
+
+  const hasMoqViolation = useMemo(() => {
+    if (!isB2BApproved) return false;
+    return cart.some((item) => item.quantity < (item.product?.minOrderQty || 1));
+  }, [cart, isB2BApproved]);
   const selectedAddressStorageKey = user?.id
     ? `nexcart:selectedAddressId:${user.id}`
     : 'nexcart:selectedAddressId';
@@ -325,6 +401,11 @@ export default function Cart() {
       return;
     }
 
+    if (hasMoqViolation) {
+      setCheckoutError('Some items in your cart do not meet the B2B MOQ constraint.');
+      return;
+    }
+
     if (!selectedAddressId) {
       setCheckoutError('Please select a saved shipping address before checkout.');
       return;
@@ -338,15 +419,15 @@ export default function Cart() {
     setIsProcessing(true);
 
     try {
-      if (paymentMethod === 'COD') {
+      if (paymentMethod === 'COD' || paymentMethod === 'LEDGER_CREDIT') {
         await apiClient.post('/orders/checkout', {
           addressId: selectedAddressId,
-          paymentMethod: 'COD',
+          paymentMethod: paymentMethod,
         });
 
         await hydrateCart();
         navigate('/store/orders');
-        toast.success('COD order placed successfully!');
+        toast.success(paymentMethod === 'LEDGER_CREDIT' ? 'B2B Wholesale Credit order placed successfully!' : 'COD order placed successfully!');
         return;
       }
 
@@ -490,14 +571,27 @@ export default function Cart() {
                       <p className="mt-3 text-xl font-black text-[#161412]">
                         {formatCurrency(item.price)}
                       </p>
+                      {isB2BApproved && item.product?.minOrderQty > 1 && (
+                        <div className="mt-2 flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-0.5 inline-block w-fit">
+                            Wholesale MOQ: {item.product.minOrderQty} units
+                          </span>
+                          {item.quantity < item.product.minOrderQty && (
+                            <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-0.5 inline-block w-fit animate-pulse">
+                              ⚠️ Below MOQ constraint
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-4 sm:justify-end">
                     <div className="flex items-center rounded-full border border-[#ddd7cc] bg-white">
                       <button
+                        disabled={isB2BApproved && item.quantity <= (item.product?.minOrderQty || 1)}
                         onClick={() => updateQuantity(item.id, item.quantity - 1).catch(() => {})}
-                        className="p-3 text-[#6b665f] transition hover:text-[#161412]"
+                        className="p-3 text-[#6b665f] transition hover:text-[#161412] disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -863,6 +957,15 @@ export default function Cart() {
             {isAuthenticated && (
               <div className="mt-6 space-y-3">
                 {[
+                  ...(isB2BApproved && user?.businessProfile
+                    ? [
+                        {
+                          value: 'LEDGER_CREDIT',
+                          label: 'Trade Ledger Credit Limit',
+                          description: 'Charge to wholesaler-specific trade ledger credit lines.',
+                        },
+                      ]
+                    : []),
                   {
                     value: 'COD',
                     label: 'Cash on Delivery',
@@ -899,6 +1002,44 @@ export default function Cart() {
               </div>
             )}
 
+            {paymentMethod === 'LEDGER_CREDIT' && isB2BApproved && creditValidation.details.length > 0 && (
+              <div className="mt-4 p-4 rounded-[22px] bg-white/5 border border-white/10 text-xs text-white space-y-3">
+                <p className="font-black text-amber-400 uppercase tracking-widest text-[9px]">Supplier Credit Allocation</p>
+                <div className="divide-y divide-white/10 space-y-3">
+                  {creditValidation.details.map((d) => (
+                    <div key={d.wholesalerId} className="pt-2 flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold">{d.wholesalerName}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${d.eligible ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                          {d.eligible ? '✓ Eligible' : '✗ Over Limit'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-[10px] text-zinc-400 mt-1">
+                        <div>
+                          <span>Outstanding:</span>
+                          <span className="block font-semibold text-white mt-0.5">₹{d.outstanding.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span>Current Cart:</span>
+                          <span className="block font-semibold text-white mt-0.5">₹{d.cartTotal.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span>Limit:</span>
+                          <span className="block font-semibold text-white mt-0.5">₹{d.creditLimit.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span>Remaining:</span>
+                          <span className={`block font-semibold mt-0.5 ${d.remaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            ₹{d.remaining.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-8 flex items-end justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#d8d1c5]">
@@ -913,6 +1054,18 @@ export default function Cart() {
 
             {checkoutError && <p className="mt-4 text-sm text-[#f4b4aa]">{checkoutError}</p>}
 
+            {hasMoqViolation && (
+              <div className="mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 text-xs leading-5">
+                ⚠️ One or more items in your cart are below the wholesale MOQ constraint. Please adjust the quantities before check out.
+              </div>
+            )}
+
+            {paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid && (
+              <div className="mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 text-xs leading-5">
+                ⚠️ Credit limit exceeded with the following suppliers: <strong className="text-white">{creditValidation.overLimitSellers.join(', ')}</strong>. Please adjust quantities or choose another payment method.
+              </div>
+            )}
+
             <button
               onClick={() => {
                 if (!isAuthenticated) {
@@ -921,10 +1074,10 @@ export default function Cart() {
                 }
                 handleCheckout();
               }}
-              disabled={isProcessing}
+              disabled={isProcessing || hasMoqViolation || (paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid)}
               className={cn(
                 'mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition',
-                isProcessing
+                (isProcessing || hasMoqViolation || (paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid))
                   ? 'cursor-not-allowed bg-white/10 text-[#d8d1c5]'
                   : 'bg-white text-[#161412] hover:bg-[#f3ede3]'
               )}
@@ -935,7 +1088,9 @@ export default function Cart() {
                   ? 'Processing order...'
                   : paymentMethod === 'PREPAID'
                     ? 'Pay and place order'
-                    : 'Place secure order'}
+                    : paymentMethod === 'LEDGER_CREDIT'
+                      ? 'Confirm credit order'
+                      : 'Place secure order'}
               {!isProcessing && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>

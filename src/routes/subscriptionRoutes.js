@@ -6,6 +6,8 @@ import {
   getSubscriptionSummary,
   startSubscriptionTrial,
   verifySubscriptionCheckout,
+  validateCoupon,
+  activateCoupon,
 } from '../controllers/subscriptionController.js';
 import { authenticate, requireWholesaler } from '../middlewares/authMiddleware.js';
 
@@ -20,5 +22,7 @@ router.get('/payments', getSubscriptionPayments);
 router.post('/checkout', createSubscriptionCheckout);
 router.post('/verify', verifySubscriptionCheckout);
 router.post('/trial/start', startSubscriptionTrial);
+router.post('/coupons/validate', validateCoupon);
+router.post('/coupons/activate', activateCoupon);
 
 export default router;

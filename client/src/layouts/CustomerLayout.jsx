@@ -6,8 +6,10 @@ import useCartStore from '../store/cartStore';
 import AuthModal from '../components/AuthModal';
 
 export default function CustomerLayout() {
-  const { logout, isAuthenticated } = useAuthStore();
+  const { logout, isAuthenticated, user } = useAuthStore();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isB2BMenuOpen, setIsB2BMenuOpen] = useState(false);
+  const isB2BApproved = user?.businessProfile?.verification === 'APPROVED' && user?.businessProfile?.status === 'ACTIVE';
   const hydrateCart = useCartStore((state) => state.hydrateCart);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const resetCartState = useCartStore((state) => state.resetCartState);
@@ -64,6 +66,47 @@ export default function CustomerLayout() {
               <a className="transition hover:text-[#161412]" href="#browse-style">
                 Categories
               </a>
+              {isAuthenticated && user?.role === 'CUSTOMER' && isB2BApproved && (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsB2BMenuOpen(!isB2BMenuOpen)}
+                    onMouseEnter={() => setIsB2BMenuOpen(true)}
+                    className="transition hover:text-emerald-800 text-emerald-700 font-extrabold flex items-center gap-1.5 focus:outline-none"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    B2B Portal
+                    <span className="text-[9px]">▼</span>
+                  </button>
+                  {isB2BMenuOpen && (
+                    <div
+                      onMouseLeave={() => setIsB2BMenuOpen(false)}
+                      className="absolute left-0 mt-2 w-48 rounded-2xl bg-white border border-[#ddd7cc] p-2 shadow-lg z-50 text-left"
+                    >
+                      <Link
+                        to="/store/rfqs"
+                        className="block px-4 py-2 text-xs font-bold text-[#161412] hover:bg-[#f8f6f1] rounded-xl transition"
+                        onClick={() => setIsB2BMenuOpen(false)}
+                      >
+                        Price Desk (RFQs)
+                      </Link>
+                      <Link
+                        to="/store/b2b-onboarding"
+                        className="block px-4 py-2 text-xs font-bold text-[#161412] hover:bg-[#f8f6f1] rounded-xl transition"
+                        onClick={() => setIsB2BMenuOpen(false)}
+                      >
+                        Business Account
+                      </Link>
+                      <Link
+                        to="/store/dashboard"
+                        className="block px-4 py-2 text-xs font-bold text-[#161412] hover:bg-[#f8f6f1] rounded-xl transition"
+                        onClick={() => setIsB2BMenuOpen(false)}
+                      >
+                        Trade Credit & Ledger
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
             </nav>
           </div>
 
@@ -95,7 +138,7 @@ export default function CustomerLayout() {
 
             <button
               onClick={() =>
-                isAuthenticated ? navigate('/store/orders') : setIsAuthModalOpen(true)
+                isAuthenticated ? navigate('/store/dashboard') : setIsAuthModalOpen(true)
               }
               className="rounded-full border border-[#ddd7cc] bg-white p-3 text-[#161412] transition hover:border-[#161412]"
               aria-label="Orders"
@@ -156,7 +199,7 @@ export default function CustomerLayout() {
           <FooterColumn
             title="Account"
             items={[
-              ['My Account', '/store/orders'],
+              ['My Account', '/store/dashboard'],
               ['Saved Cart', '/store/cart'],
               ['Sign Out', '/store'],
             ]}

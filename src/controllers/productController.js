@@ -103,6 +103,9 @@ export const getProductById = async (req, res) => {
           include: { user: { select: { name: true } } },
           orderBy: { createdAt: 'desc' },
         },
+        priceTiers: {
+          orderBy: { minQuantity: 'asc' },
+        },
       },
     });
 

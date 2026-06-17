@@ -14,6 +14,7 @@ export const productKeys = {
   similars: () => [...productKeys.all, 'similar'],
   similar: (id) => [...productKeys.similars(), id],
   trending: () => [...productKeys.all, 'trending'],
+  recommendations: () => [...productKeys.all, 'recommendations'],
 };
 
 // Fetchers
@@ -77,6 +78,18 @@ export const useTrendingProducts = () => {
   return useQuery({
     queryKey: productKeys.trending(),
     queryFn: fetchTrendingProducts,
+  });
+};
+
+export const fetchUserRecommendations = async () => {
+  const response = await apiClient.get('/recommendations/user?limit=8');
+  return response.data;
+};
+
+export const useUserRecommendations = () => {
+  return useQuery({
+    queryKey: productKeys.recommendations(),
+    queryFn: fetchUserRecommendations,
   });
 };
 
@@ -183,6 +196,7 @@ export const useAdjustStock = () => {
 export const ledgerKeys = {
   all: ['ledger'],
   entries: () => [...ledgerKeys.all, 'entries'],
+  myLedger: () => [...ledgerKeys.all, 'myLedger'],
 };
 
 export const fetchLedgerEntries = async () => {
@@ -197,6 +211,18 @@ export const useLedgerEntries = () => {
   });
 };
 
+export const fetchMyLedger = async () => {
+  const response = await apiClient.get('/ledger/my-ledger');
+  return response.data || { balance: '0.00', entriesCount: 0, entries: [] };
+};
+
+export const useMyLedger = () => {
+  return useQuery({
+    queryKey: ledgerKeys.myLedger(),
+    queryFn: fetchMyLedger,
+  });
+};
+
 export const useRecordPayment = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -206,6 +232,8 @@ export const useRecordPayment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.myLedger() });
+      queryClient.invalidateQueries({ queryKey: b2bKeys.buyerCreditStatus() });
     },
   });
 };
@@ -474,3 +502,179 @@ export const useCreateDisputeInternalNote = () => {
     },
   });
 };
+
+// ==========================================
+// 5. B2B & B2C HYBRID PLATFORM HOOKS
+// ==========================================
+
+export const b2bKeys = {
+  all: ['b2b'],
+  applications: () => [...b2bKeys.all, 'applications'],
+  rfqs: () => [...b2bKeys.all, 'rfqs'],
+  wholesalerBuyers: () => [...b2bKeys.all, 'wholesalerBuyers'],
+  buyerCreditStatus: () => [...b2bKeys.all, 'buyerCreditStatus'],
+};
+
+export const useB2BRegister = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (formData) => {
+      const response = await apiClient.post('/b2b/register', formData);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.all });
+    },
+  });
+};
+
+export const useB2BApplications = () => {
+  return useQuery({
+    queryKey: b2bKeys.applications(),
+    queryFn: async () => {
+      const response = await apiClient.get('/b2b/applications');
+      return response.data.applications || [];
+    },
+  });
+};
+
+export const useB2BApprove = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, verification, rejectionReason, creditLimit }) => {
+      const response = await apiClient.post(`/b2b/admin/approve/${id}`, {
+        verification,
+        rejectionReason,
+        creditLimit,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.applications() });
+    },
+  });
+};
+
+export const useCreateRfq = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ productId, quantity, targetPrice, notes }) => {
+      const response = await apiClient.post('/b2b/rfq', {
+        productId,
+        quantity,
+        targetPrice,
+        notes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useRfqs = () => {
+  return useQuery({
+    queryKey: b2bKeys.rfqs(),
+    queryFn: async () => {
+      const response = await apiClient.get('/b2b/rfq');
+      return response.data.rfqs || [];
+    },
+  });
+};
+
+export const useRespondRfq = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, counterPrice, sellerNotes }) => {
+      const response = await apiClient.patch(`/b2b/rfq/${id}`, {
+        status,
+        counterPrice,
+        sellerNotes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useAcceptQuote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }) => {
+      const response = await apiClient.post(`/b2b/rfq/${id}/accept`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useBuyerRespondRfq = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, targetPrice, notes }) => {
+      const response = await apiClient.post(`/b2b/rfq/${id}/buyer-respond`, {
+        status,
+        targetPrice,
+        notes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useUpdateProductTiers = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ productId, tiers }) => {
+      const response = await apiClient.post(`/b2b/products/${productId}/tiers`, { tiers });
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useWholesalerBuyers = () => {
+  return useQuery({
+    queryKey: b2bKeys.wholesalerBuyers(),
+    queryFn: async () => {
+      const response = await apiClient.get('/b2b/wholesaler/buyers');
+      return response.data.buyers || [];
+    },
+  });
+};
+
+export const useUpdateCreditLimit = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ buyerId, creditLimit }) => {
+      const response = await apiClient.post(`/b2b/wholesaler/buyers/${buyerId}/credit-limit`, { creditLimit });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.wholesalerBuyers() });
+      queryClient.invalidateQueries({ queryKey: b2bKeys.buyerCreditStatus() });
+    },
+  });
+};
+
+export const useBuyerCreditStatus = () => {
+  return useQuery({
+    queryKey: b2bKeys.buyerCreditStatus(),
+    queryFn: async () => {
+      const response = await apiClient.get('/b2b/buyer/credit-limits');
+      return response.data;
+    },
+  });
+};
+
+

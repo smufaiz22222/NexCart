@@ -8,8 +8,10 @@ import {
   getPendingWholesalerApplications,
   rejectWholesalerApplication,
   updateWholesalerLifecycle,
+  getCoupons,
+  createCoupon,
+  deleteCoupon,
 } from '../controllers/superAdminController.js';
-import { activateAdminManualSubscription } from '../controllers/subscriptionController.js';
 import { authenticate, requireSuperAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
@@ -25,9 +27,9 @@ router.post('/wholesalers/:wholesalerId/approve', approveWholesalerApplication);
 router.post('/wholesalers/:wholesalerId/reject', rejectWholesalerApplication);
 router.post('/wholesalers/:wholesalerId/lifecycle', updateWholesalerLifecycle);
 router.get('/subscriptions/plans', getAdminSubscriptionPlans);
-router.post(
-  '/wholesalers/:wholesalerId/subscriptions/activate-direct',
-  activateAdminManualSubscription
-);
+
+router.get('/coupons', getCoupons);
+router.post('/coupons', createCoupon);
+router.delete('/coupons/:id', deleteCoupon);
 
 export default router;

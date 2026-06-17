@@ -38,6 +38,9 @@ test('POST /api/orders/checkout creates snapshot-based orders from backend cart 
   });
   prisma.$transaction = async (callback) => {
     const tx = {
+      businessProfile: {
+        findUnique: async () => null,
+      },
       shippingAddress: {
         findUnique: async () => ({
           id: 'addr-1',

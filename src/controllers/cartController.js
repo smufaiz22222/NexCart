@@ -47,6 +47,11 @@ const getOrCreateCart = async (userId) =>
   });
 
 const getHydratedCart = async (userId) => {
+  const businessProfile = await prisma.businessProfile.findUnique({
+    where: { userId },
+  });
+  const isApprovedB2B = businessProfile && businessProfile.verification === 'APPROVED';
+
   const cart = await prisma.cart.findUnique({
     where: { userId },
     include: {
@@ -57,6 +62,7 @@ const getHydratedCart = async (userId) => {
               wholesaler: {
                 select: { businessName: true },
               },
+              priceTiers: true,
             },
           },
         },
@@ -65,27 +71,60 @@ const getHydratedCart = async (userId) => {
     },
   });
 
-  const items = (cart?.items || []).map((item) => ({
-    id: item.id,
-    productId: item.productId,
-    name: item.product.name,
-    imageUrl: item.product.imageUrl,
-    price: Number(item.product.price),
-    wholesaler: item.product.wholesaler,
-    selectedSize: item.selectedSize || null,
-    quantity: item.quantity,
-    currentStock: item.product.currentStock,
-    product: item.product,
-    lineTotal: Number(item.product.price) * item.quantity,
-    productSnapshot: {
-      id: item.product.id,
-      imageUrl: item.product.imageUrl,
+  const rfqs = isApprovedB2B
+    ? await prisma.rfq.findMany({
+        where: { buyerId: userId, status: 'ACCEPTED' },
+      })
+    : [];
+
+  const items = (cart?.items || []).map((item) => {
+    let price = Number(item.product.price);
+
+    if (isApprovedB2B) {
+      // 1. Check for active accepted RFQ first
+      const activeRfq = rfqs.find(
+        (r) => r.productId === item.productId && item.quantity >= r.quantity
+      );
+      if (activeRfq) {
+        price = activeRfq.counterPrice || activeRfq.targetPrice;
+      } else {
+        // 2. Check tiers
+        const tiers = item.product.priceTiers || [];
+        const sortedTiers = [...tiers].sort((a, b) => a.minQuantity - b.minQuantity);
+        let applicableTier = null;
+        for (const tier of sortedTiers) {
+          if (item.quantity >= tier.minQuantity) {
+            applicableTier = tier;
+          }
+        }
+        if (applicableTier) {
+          price = applicableTier.unitPrice;
+        }
+      }
+    }
+
+    return {
+      id: item.id,
+      productId: item.productId,
       name: item.product.name,
-      seller: item.product.wholesaler?.businessName || 'Unknown shop',
-      category: item.product.category,
-      price: Number(item.product.price),
-    },
-  }));
+      imageUrl: item.product.imageUrl,
+      price: price,
+      wholesaler: item.product.wholesaler,
+      selectedSize: item.selectedSize || null,
+      quantity: item.quantity,
+      currentStock: item.product.currentStock,
+      product: item.product,
+      lineTotal: price * item.quantity,
+      productSnapshot: {
+        id: item.product.id,
+        imageUrl: item.product.imageUrl,
+        name: item.product.name,
+        seller: item.product.wholesaler?.businessName || 'Unknown shop',
+        category: item.product.category,
+        price: price,
+      },
+    };
+  });
 
   return {
     id: cart?.id || null,

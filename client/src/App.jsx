@@ -28,6 +28,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
+const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'));
 const Store = lazy(() => import('./pages/Store'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Ledger = lazy(() => import('./pages/Ledger'));
@@ -45,6 +46,8 @@ const Faq = lazy(() => import('./pages/Faq'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const B2BOnboarding = lazy(() => import('./pages/B2BOnboarding'));
+const RfqManager = lazy(() => import('./pages/RfqManager'));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -114,7 +117,7 @@ function App() {
                   ) : user?.role === 'WHOLESALER' ? (
                     <Navigate to="/wholesaler" />
                   ) : (
-                    <Navigate to="/store" />
+                    <Navigate to="/store/dashboard" />
                   )
                 }
               />
@@ -124,10 +127,34 @@ function App() {
                 <Route path="cart" element={<Cart />} />
                 <Route path="product/:id" element={<ProductDetails />} />
                 <Route
+                  path="dashboard"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <CustomerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="orders"
                   element={
                     <ProtectedRoute allowedRoles={['CUSTOMER']}>
                       <Orders />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="b2b-onboarding"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <B2BOnboarding />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="rfqs"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <RfqManager />
                     </ProtectedRoute>
                   }
                 />
@@ -152,6 +179,14 @@ function App() {
                     <PremiumRoute feature="analytics" title="Advanced Analytics">
                       <Analytics />
                     </PremiumRoute>
+                  }
+                />
+                <Route
+                  path="rfqs"
+                  element={
+                    <OperationalRoute>
+                      <RfqManager />
+                    </OperationalRoute>
                   }
                 />
                 <Route

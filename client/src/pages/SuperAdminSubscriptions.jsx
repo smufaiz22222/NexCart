@@ -13,6 +13,8 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Ticket,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../api/axios';
@@ -58,27 +60,38 @@ export default function SuperAdminSubscriptions() {
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [searchValue, setSearchValue] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'activate', 'payments'
-  const [activationForm, setActivationForm] = useState({
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'coupons', 'history'
+  const [coupons, setCoupons] = useState([]);
+  const [couponForm, setCouponForm] = useState({
+    code: '',
     planId: '',
-    durationMonths: 1,
-    startDateTime: createDefaultStartDateTime(),
-    activationNotes: '',
-    externalReference: '',
+    durationDays: 30,
+    expiryDate: '',
   });
+  const [isCreatingCoupon, setIsCreatingCoupon] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTenantLoading, setIsTenantLoading] = useState(false);
-  const [isActivating, setIsActivating] = useState(false);
   const [error, setError] = useState('');
 
   const refreshWorkspace = async () => {
-    const [wholesalersResponse, plansResponse] = await Promise.all([
+    const [wholesalersResponse, plansResponse, couponsResponse] = await Promise.all([
       apiClient.get('/admin/wholesalers'),
       apiClient.get('/admin/subscriptions/plans'),
+      apiClient.get('/admin/coupons'),
     ]);
 
-    setWholesalers(wholesalersResponse.data.wholesalers || []);
-    setPlans(plansResponse.data.plans || []);
+    const loadedWholesalers = wholesalersResponse.data.wholesalers || [];
+    const loadedPlans = plansResponse.data.plans || [];
+    setWholesalers(loadedWholesalers);
+    setPlans(loadedPlans);
+    setCoupons(couponsResponse.data.coupons || []);
+
+    if (loadedPlans.length > 0) {
+      setCouponForm((prev) => ({
+        ...prev,
+        planId: prev.planId || loadedPlans[0].id,
+      }));
+    }
   };
 
   useEffect(() => {
@@ -177,84 +190,48 @@ export default function SuperAdminSubscriptions() {
     loadTenant();
   }, [selectedWholesalerId]);
 
-  useEffect(() => {
-    if (!selectedTenant || plans.length === 0) return;
-
-    const paidCurrentPlanId =
-      selectedTenant.currentSubscription?.plan?.code !== 'TRIAL'
-        ? selectedTenant.currentSubscription?.plan?.id
-        : null;
-
-    setActivationForm({
-      planId: paidCurrentPlanId || plans[0]?.id || '',
-      durationMonths:
-        selectedTenant.currentSubscription?.durationMonths ||
-        plans[0]?.purchaseOptions?.[0]?.months ||
-        1,
-      startDateTime: createDefaultStartDateTime(),
-      activationNotes: '',
-      externalReference: '',
-    });
-  }, [selectedTenant, plans]);
-
-  const selectedPlan = useMemo(
-    () => plans.find((plan) => plan.id === activationForm.planId) || plans[0] || null,
-    [plans, activationForm.planId]
-  );
-
-  const selectedOption = useMemo(
-    () =>
-      selectedPlan?.purchaseOptions?.find(
-        (option) => option.months === activationForm.durationMonths
-      ) ||
-      selectedPlan?.purchaseOptions?.[0] ||
-      null,
-    [selectedPlan, activationForm.durationMonths]
-  );
-
-  const validityPreview = useMemo(() => {
-    if (!activationForm.startDateTime || !selectedOption) return 'Not scheduled';
-    const start = new Date(activationForm.startDateTime);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + selectedOption.months);
-    return formatDate(end);
-  }, [activationForm.startDateTime, selectedOption]);
-
-  const handleFieldChange = (field, value) => {
-    setActivationForm((current) => ({
-      ...current,
-      [field]: field === 'durationMonths' ? Number(value) : value,
-    }));
+  const generateRandomCouponCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = 'NEX-';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   };
 
-  const handleActivate = async () => {
-    if (!selectedTenant) return;
-
+  const handleCreateCoupon = async () => {
     try {
-      setIsActivating(true);
+      setIsCreatingCoupon(true);
       setError('');
-      await apiClient.post(
-        `/admin/wholesalers/${selectedTenant.id}/subscriptions/activate-direct`,
-        {
-          planId: activationForm.planId,
-          durationMonths: activationForm.durationMonths,
-          startDateTime: activationForm.startDateTime,
-          activationNotes: activationForm.activationNotes || null,
-          externalReference: activationForm.externalReference || null,
-        }
-      );
-
-      toast.success('Subscription activated successfully!');
+      await apiClient.post('/admin/coupons', couponForm);
+      toast.success('Coupon created successfully!');
+      setCouponForm({
+        code: '',
+        planId: plans[0]?.id || '',
+        durationDays: 30,
+        expiryDate: '',
+      });
       await refreshWorkspace();
-      const refreshed = await apiClient.get(`/admin/wholesalers/${selectedTenant.id}`);
-      setSelectedTenant(refreshed.data.tenant);
-      setActiveTab('overview');
-    } catch (activationError) {
-      const errMsg = activationError.response?.data?.error || 'Failed to activate subscription.';
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Failed to create coupon.';
       setError(errMsg);
       toast.error(errMsg);
     } finally {
-      setIsActivating(false);
+      setIsCreatingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this coupon?')) return;
+    try {
+      setError('');
+      await apiClient.delete(`/admin/coupons/${id}`);
+      toast.success('Coupon deleted successfully!');
+      await refreshWorkspace();
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Failed to delete coupon.';
+      setError(errMsg);
+      toast.error(errMsg);
     }
   };
 
@@ -515,14 +492,14 @@ export default function SuperAdminSubscriptions() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('activate')}
+                  onClick={() => setActiveTab('coupons')}
                   className={`flex-1 rounded-xl py-2 px-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
-                    activeTab === 'activate'
+                    activeTab === 'coupons'
                       ? 'bg-[#bc6c25] text-white shadow-[0_4px_12px_rgba(188,108,37,0.15)]'
                       : 'text-[#5d5247] hover:bg-[#efe4d3]/80 hover:text-[#221c16]'
                   }`}
                 >
-                  Manual Activation
+                  Coupons
                 </button>
                 <button
                   type="button"
@@ -652,180 +629,209 @@ export default function SuperAdminSubscriptions() {
                   </div>
                 )}
 
-                {activeTab === 'activate' && (
-                  <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr] animate-fadeIn">
-                    {/* Activation setup form */}
-                    <div className="space-y-5 rounded-[24px] border border-[#eadfce] bg-[#fcf7f0] p-5 shadow-sm">
-                      <div>
-                        <h3 className="text-lg font-black text-[#221c16]">
-                          Direct Account Override
-                        </h3>
-                        <p className="text-xs text-[#6b6155] mt-1">
-                          Activate a standard or premium license. Intended for support staff after
-                          verifying offline check or bank wire details.
-                        </p>
-                      </div>
+                {activeTab === 'coupons' && (
+                  <div className="space-y-6 animate-fadeIn">
+                    <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+                      {/* Left: Create Coupon Form */}
+                      <div className="space-y-5 rounded-[24px] border border-[#eadfce] bg-[#fcf7f0] p-6 shadow-sm">
+                        <div>
+                          <h3 className="text-lg font-black text-[#221c16] flex items-center gap-2">
+                            <Ticket className="h-5 w-5 text-[#bc6c25]" />
+                            Create Subscription Coupon
+                          </h3>
+                          <p className="text-xs text-[#6b6155] mt-1">
+                            Generate unique coupon codes that wholesalers can redeem directly on their billing page to activate subscriptions.
+                          </p>
+                        </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <AdminField label="Select Plan">
-                          <select
-                            value={activationForm.planId}
-                            onChange={(event) => handleFieldChange('planId', event.target.value)}
-                            className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
-                          >
-                            {plans.map((plan) => (
-                              <option key={plan.id} value={plan.id}>
-                                {plan.name}
-                              </option>
-                            ))}
-                          </select>
-                        </AdminField>
+                        <div className="space-y-4">
+                          <div className="flex gap-2 items-end">
+                            <AdminField label="Coupon Code" className="flex-1">
+                              <input
+                                value={couponForm.code}
+                                onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
+                                placeholder="e.g. NEX-PREMIUM30"
+                                className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
+                              />
+                            </AdminField>
+                            <button
+                              type="button"
+                              onClick={() => setCouponForm({ ...couponForm, code: generateRandomCouponCode() })}
+                              className="h-11 px-4 rounded-xl border border-[#d8ccb9] bg-white text-xs font-bold uppercase tracking-wider text-[#5d5247] hover:bg-zinc-50 transition"
+                            >
+                              Generate
+                            </button>
+                          </div>
 
-                        <AdminField label="Billing Cycle Options">
-                          <select
-                            value={activationForm.durationMonths}
-                            onChange={(event) =>
-                              handleFieldChange('durationMonths', event.target.value)
-                            }
-                            className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
-                          >
-                            {(selectedPlan?.purchaseOptions || []).map((option) => (
-                              <option
-                                key={`${selectedPlan.id}-${option.months}`}
-                                value={option.months}
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <AdminField label="Select Plan">
+                              <select
+                                value={couponForm.planId}
+                                onChange={(e) => setCouponForm({ ...couponForm, planId: e.target.value })}
+                                className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
                               >
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </AdminField>
+                                <option value="" disabled>Select a plan</option>
+                                {plans.map((plan) => (
+                                  <option key={plan.id} value={plan.id}>
+                                    {plan.name} ({plan.code})
+                                  </option>
+                                ))}
+                              </select>
+                            </AdminField>
 
-                        <AdminField label="Start DateTime">
-                          <input
-                            type="datetime-local"
-                            value={activationForm.startDateTime}
-                            onChange={(event) =>
-                              handleFieldChange('startDateTime', event.target.value)
-                            }
-                            className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
-                          />
-                        </AdminField>
+                            <AdminField label="Duration (Days)">
+                              <input
+                                type="number"
+                                min="1"
+                                value={couponForm.durationDays}
+                                onChange={(e) => setCouponForm({ ...couponForm, durationDays: Number(e.target.value) })}
+                                className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
+                              />
+                            </AdminField>
+                          </div>
 
-                        <AdminField label="Reference Code">
-                          <input
-                            value={activationForm.externalReference}
-                            onChange={(event) =>
-                              handleFieldChange('externalReference', event.target.value)
-                            }
-                            placeholder="Bank reference, cash notes"
-                            className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none placeholder:text-[#8b7e70] focus:border-[#bc6c25] transition"
-                          />
-                        </AdminField>
+                          <AdminField label="Coupon Expiry Date">
+                            <input
+                              type="date"
+                              value={couponForm.expiryDate}
+                              onChange={(e) => setCouponForm({ ...couponForm, expiryDate: e.target.value })}
+                              className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
+                            />
+                          </AdminField>
+
+                          <button
+                            type="button"
+                            onClick={handleCreateCoupon}
+                            disabled={!couponForm.code || !couponForm.planId || !couponForm.durationDays || !couponForm.expiryDate || isCreatingCoupon}
+                            className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#bc6c25] py-3.5 px-4 text-sm font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 hover:bg-[#a05a1d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isCreatingCoupon ? (
+                              <>
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                                Creating Coupon...
+                              </>
+                            ) : (
+                              'Create Coupon'
+                            )}
+                          </button>
+                        </div>
                       </div>
 
-                      <AdminField label="Internal Activation Audit Notes">
-                        <textarea
-                          value={activationForm.activationNotes}
-                          onChange={(event) =>
-                            handleFieldChange('activationNotes', event.target.value)
-                          }
-                          rows={3}
-                          placeholder="State reasoning, invoice/receipt numbers, or offline payment terms"
-                          className="w-full rounded-xl border border-[#d8ccb9] bg-white px-3 py-2 text-sm text-[#221c16] outline-none placeholder:text-[#8b7e70] focus:border-[#bc6c25] transition resize-none"
-                        />
-                      </AdminField>
+                      {/* Right: Quick Info */}
+                      <div className="rounded-[28px] border border-[#bc6c25]/30 bg-[#221c16] p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-[#bc6c25]/10 rounded-full blur-2xl -mr-6 -mt-6"></div>
+
+                        <div>
+                          <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-widest text-[#d7c0a4]">
+                                System Access
+                              </p>
+                              <h4 className="text-lg font-black tracking-tight text-white mt-1">
+                                Coupon Invoicing
+                              </h4>
+                            </div>
+                            <BadgeIndianRupee className="h-7 w-7 text-[#d7c0a4] opacity-80" />
+                          </div>
+
+                          <p className="text-sm leading-6 text-zinc-300">
+                            Instead of overriding seller accounts manually, coupons put the activation power in the user's hands. Create a coupon, share the code with the wholesaler, and they can activate it themselves.
+                          </p>
+
+                          <div className="mt-5 space-y-3">
+                            <div className="flex justify-between items-center text-xs text-[#8b7e70] border-b border-white/5 pb-2">
+                              <span>Total Coupons Generated</span>
+                              <span className="font-bold text-white">{coupons.length}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-[#8b7e70] border-b border-white/5 pb-2">
+                              <span>Used Coupons</span>
+                              <span className="font-bold text-[#dda15e]">{coupons.filter(c => c.isUsed).length}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-[#8b7e70]">
+                              <span>Unused Coupons</span>
+                              <span className="font-bold text-[#a7c957]">{coupons.filter(c => !c.isUsed).length}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 text-[11px] text-[#8b7e70] italic">
+                          * Coupons cannot be reused once activated by a wholesaler.
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Dark Receipt Preview Card */}
-                    <div className="rounded-[28px] border border-[#bc6c25]/30 bg-[#221c16] p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#bc6c25]/10 rounded-full blur-2xl -mr-6 -mt-6"></div>
+                    {/* Coupons List */}
+                    <div className="rounded-[24px] border border-[#eadfce] bg-[#fcf7f0] p-5 shadow-sm">
+                      <h3 className="text-lg font-black text-[#221c16] mb-4">
+                        Coupon Registry
+                      </h3>
 
-                      <div>
-                        <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-[#d7c0a4]">
-                              Direct Billing
-                            </p>
-                            <h4 className="text-lg font-black tracking-tight text-white mt-1">
-                              Invoice Receipt Preview
-                            </h4>
-                          </div>
-                          <BadgeIndianRupee className="h-7 w-7 text-[#d7c0a4] opacity-80" />
-                        </div>
-
-                        <div className="space-y-3.5 my-5">
-                          <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
-                            <span className="text-[#8b7e70] font-semibold">Wholesaler</span>
-                            <span className="font-bold text-white text-right truncate max-w-[170px]">
-                              {selectedTenant.businessName}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-[#8b7e70] font-semibold">Selected Tier</span>
-                            <span className="font-bold text-white">
-                              {selectedPlan?.name || 'N/A'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-[#8b7e70] font-semibold">Billing Rate</span>
-                            <span className="font-bold text-white">
-                              {formatCurrency(selectedPlan?.price || 0)} / mo
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-[#8b7e70] font-semibold">Term Duration</span>
-                            <span className="font-bold text-white">
-                              {selectedOption?.months || 1} Month(s)
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-[#8b7e70] font-semibold">Subtotal</span>
-                            <span className="font-semibold text-[#f5efe4]">
-                              {formatCurrency(selectedOption?.baseAmount || 0)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-[#8b7e70] font-semibold">Package Discount</span>
-                            <span className="font-bold text-[#dda15e]">
-                              -{selectedOption?.discountPercent || 0}%
-                            </span>
-                          </div>
-
-                          <div className="border-t border-dashed border-white/20 my-4"></div>
-
-                          <div className="flex justify-between items-baseline py-1">
-                            <span className="text-sm font-bold text-[#d7c0a4] uppercase tracking-wider">
-                              Total Due
-                            </span>
-                            <span className="text-3xl font-black text-[#f5efe4]">
-                              {formatCurrency(selectedOption?.finalAmount || 0)}
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between items-center text-xs text-[#8b7e70] pt-2">
-                            <span>Validity End Preview</span>
-                            <span className="font-medium text-white">{validityPreview}</span>
-                          </div>
-                        </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-[#221c16]">
+                          <thead>
+                            <tr className="border-b border-[#eadfce] text-[#8b7e70] text-xs font-bold uppercase tracking-wider">
+                              <th className="pb-3 pl-2">Code</th>
+                              <th className="pb-3">Plan</th>
+                              <th className="pb-3">Duration</th>
+                              <th className="pb-3">Expiry</th>
+                              <th className="pb-3">Status</th>
+                              <th className="pb-3 text-right pr-2">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#efe4d3]">
+                            {coupons.length > 0 ? (
+                              coupons.map((coupon) => (
+                                <tr key={coupon.id} className="hover:bg-white/40 transition">
+                                  <td className="py-3.5 pl-2 font-bold font-mono text-zinc-800">{coupon.code}</td>
+                                  <td className="py-3.5">{coupon.plan?.name}</td>
+                                  <td className="py-3.5">{coupon.durationDays} days</td>
+                                  <td className="py-3.5">{new Date(coupon.expiryDate).toLocaleDateString()}</td>
+                                  <td className="py-3.5">
+                                    {coupon.isUsed ? (
+                                      <div className="space-y-1">
+                                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
+                                          Used
+                                        </span>
+                                        <span className="block text-[10px] text-zinc-500">
+                                          By: {coupon.usedBy?.businessName || 'Merchant'} ({new Date(coupon.usedAt).toLocaleDateString()})
+                                        </span>
+                                      </div>
+                                    ) : new Date(coupon.expiryDate) < new Date() ? (
+                                      <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 border border-rose-200">
+                                        Expired
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800 border border-sky-200">
+                                        Unused
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3.5 text-right pr-2">
+                                    {!coupon.isUsed ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteCoupon(coupon.id)}
+                                        className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-rose-600 transition"
+                                        title="Delete Coupon"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    ) : (
+                                      <span className="text-xs text-zinc-400">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="6" className="py-8 text-center text-zinc-500">
+                                  No coupons created yet. Use the form above to generate one.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={handleActivate}
-                        disabled={
-                          !activationForm.planId || !activationForm.startDateTime || isActivating
-                        }
-                        className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#bc6c25] py-3.5 px-4 text-sm font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 hover:bg-[#a05a1d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isActivating ? (
-                          <>
-                            <LoaderCircle className="h-4 w-4 animate-spin" />
-                            Activating Override...
-                          </>
-                        ) : (
-                          'Confirm & Activate Direct'
-                        )}
-                      </button>
                     </div>
                   </div>
                 )}

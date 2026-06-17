@@ -333,6 +333,7 @@ const createSubscriptionAudit = async ({
   wholesaler,
   plan,
   durationMonths,
+  durationDays = null,
   purchaseMethod,
   startDateTime,
   activationNotes = null,
@@ -340,9 +341,13 @@ const createSubscriptionAudit = async ({
   paymentId = null,
   activatedByAdmin = false,
 }) => {
-  const pricing = computePlanPricing(plan, durationMonths);
+  const pricing = computePlanPricing(plan, durationMonths || 1);
   const startAt = startDateTime ? new Date(startDateTime) : new Date();
-  const endAt = plan.code === 'TRIAL' ? addDays(startAt, 2) : addMonths(startAt, pricing.months);
+  const endAt = durationDays
+    ? addDays(startAt, durationDays)
+    : plan.code === 'TRIAL'
+      ? addDays(startAt, 2)
+      : addMonths(startAt, pricing.months);
 
   await expireCurrentSubscriptions(tx, wholesaler.id);
 
@@ -352,7 +357,11 @@ const createSubscriptionAudit = async ({
       planId: plan.id,
       status: 'ACTIVE',
       billingCycle: 'MONTHLY',
-      durationMonths: plan.code === 'TRIAL' ? 1 : pricing.months,
+      durationMonths: durationDays
+        ? Math.max(1, Math.round(durationDays / 30))
+        : plan.code === 'TRIAL'
+          ? 1
+          : pricing.months,
       purchaseMethod,
       activatedByAdmin,
       activationNotes,
@@ -383,17 +392,13 @@ const createSubscriptionAudit = async ({
     activatedAt: startAt,
     rejectedAt: null,
     rejectionReason: null,
+    onboardingStatus: 'ACTIVE',
   };
 
   if (purchaseMethod === 'TRIAL') {
     wholesalerUpdate.trialStartedAt = startAt;
     wholesalerUpdate.trialEndsAt = endAt;
     wholesalerUpdate.trialUsedAt = new Date();
-  } else if (
-    wholesaler.onboardingStatus === 'APPROVED' ||
-    wholesaler.onboardingStatus === 'PAST_DUE'
-  ) {
-    wholesalerUpdate.onboardingStatus = 'ACTIVE';
   }
 
   await tx.wholesaler.update({
@@ -674,4 +679,136 @@ export const buildSellerPlansResponse = async (db, wholesalerId) => {
     plans: plans.map((plan) => serializePlanForSeller(plan, wholesaler)),
     supportContact: SUPPORT_CONTACT,
   };
+};
+
+export const validateCouponCode = async (db, code) => {
+  if (!code) {
+    const error = new Error('Coupon code is required.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const coupon = await db.coupon.findFirst({
+    where: {
+      code: {
+        equals: code.trim(),
+        mode: 'insensitive',
+      },
+    },
+    include: { plan: true },
+  });
+
+  if (!coupon) {
+    const error = new Error('Invalid coupon code.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (coupon.isUsed) {
+    const error = new Error('This coupon has already been used.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (new Date(coupon.expiryDate) < new Date()) {
+    const error = new Error('This coupon has expired.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    id: coupon.id,
+    code: coupon.code,
+    durationDays: coupon.durationDays,
+    expiryDate: coupon.expiryDate,
+    plan: {
+      id: coupon.plan.id,
+      code: coupon.plan.code,
+      name: coupon.plan.name,
+      description: coupon.plan.description,
+      features: coupon.plan.features || {},
+    },
+  };
+};
+
+export const activateCouponSubscription = async (db, wholesalerId, code) => {
+  const couponDetails = await validateCouponCode(db, code);
+
+  const wholesaler = await db.wholesaler.findUnique({
+    where: { id: wholesalerId },
+    include: {
+      subscriptions: {
+        include: { plan: true },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      },
+    },
+  });
+
+  if (!wholesaler) {
+    const error = new Error('Wholesaler profile not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const plan = await db.subscriptionPlan.findUnique({
+    where: { id: couponDetails.plan.id },
+  });
+
+  let subscription;
+
+  await db.$transaction(async (tx) => {
+    // Double check used status inside transaction for concurrency safety
+    const txCoupon = await tx.coupon.findUnique({
+      where: { id: couponDetails.id },
+    });
+
+    if (txCoupon.isUsed) {
+      const error = new Error('This coupon has already been used.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Mark coupon as used
+    await tx.coupon.update({
+      where: { id: couponDetails.id },
+      data: {
+        isUsed: true,
+        usedById: wholesalerId,
+        usedAt: new Date(),
+      },
+    });
+
+    // Create free subscription payment record for audit log
+    const payment = await tx.subscriptionPayment.create({
+      data: {
+        wholesalerId,
+        planId: plan.id,
+        purchaseMethod: 'COUPON',
+        status: 'PAID',
+        durationMonths: Math.max(1, Math.round(couponDetails.durationDays / 30)),
+        baseAmount: plan.price,
+        discountPercent: 100,
+        finalAmount: 0,
+        currency: 'INR',
+        paidAt: new Date(),
+        activationNotes: `Coupon applied: ${couponDetails.code}`,
+        externalReference: couponDetails.code,
+      },
+    });
+
+    // Create the active subscription
+    subscription = await createSubscriptionAudit({
+      tx,
+      wholesaler,
+      plan,
+      durationMonths: Math.max(1, Math.round(couponDetails.durationDays / 30)),
+      durationDays: couponDetails.durationDays,
+      purchaseMethod: 'COUPON',
+      paymentId: payment.id,
+      activationNotes: `Activated via Coupon: ${couponDetails.code}`,
+      externalReference: couponDetails.code,
+    });
+  });
+
+  return subscription;
 };

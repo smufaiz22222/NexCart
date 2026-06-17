@@ -39,7 +39,12 @@ test('buildOrdersBySeller groups cart items by seller and preserves purchase sna
     },
   ];
 
-  const grouped = await buildOrdersBySeller(cartItems);
+  const tx = {
+    businessProfile: {
+      findUnique: async () => null,
+    },
+  };
+  const grouped = await buildOrdersBySeller(tx, cartItems, null);
 
   assert.deepEqual(Object.keys(grouped), ['seller-1']);
   assert.equal(grouped['seller-1'].orderItems.length, 2);

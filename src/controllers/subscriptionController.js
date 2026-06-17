@@ -1,12 +1,13 @@
 import { prisma } from '../config/db.js';
 import {
-  activateSubscriptionManually,
   buildSellerPlansResponse,
   buildWholesalerAccessSummary,
   createCheckoutForSubscription,
   ensureDefaultSubscriptionPlans,
   startFreeTrial,
   verifyCheckoutPayment,
+  validateCouponCode,
+  activateCouponSubscription,
 } from '../services/subscriptionService.js';
 
 export const getSubscriptionPlans = async (req, res) => {
@@ -142,12 +143,26 @@ export const startSubscriptionTrial = async (req, res) => {
   }
 };
 
-export const activateAdminManualSubscription = async (req, res) => {
+export const validateCoupon = async (req, res) => {
   try {
-    await activateSubscriptionManually(prisma, req.params.wholesalerId, req.body || {});
+    const { code } = req.body || {};
+    const details = await validateCouponCode(prisma, code);
+    res.status(200).json(details);
+  } catch (error) {
+    console.error('Validate Coupon Error:', error);
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to validate coupon code.',
+    });
+  }
+};
+
+export const activateCoupon = async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    await activateCouponSubscription(prisma, req.user.wholesalerId, code);
 
     const wholesaler = await prisma.wholesaler.findUnique({
-      where: { id: req.params.wholesalerId },
+      where: { id: req.user.wholesalerId },
       include: {
         subscriptions: {
           include: { plan: true },
@@ -161,9 +176,9 @@ export const activateAdminManualSubscription = async (req, res) => {
       ...buildWholesalerAccessSummary(wholesaler),
     });
   } catch (error) {
-    console.error('Activate Admin Manual Subscription Error:', error);
+    console.error('Activate Coupon Error:', error);
     res.status(error.statusCode || 500).json({
-      error: error.message || 'Failed to activate subscription manually.',
+      error: error.message || 'Failed to activate coupon subscription.',
     });
   }
 };

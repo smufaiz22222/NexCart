@@ -9,6 +9,7 @@ import {
   Phone,
   ShieldCheck,
   Sparkles,
+  Ticket,
 } from 'lucide-react';
 import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
@@ -58,6 +59,9 @@ export default function WholesalerBilling() {
   const [isLoading, setIsLoading] = useState(true);
   const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [validatedCoupon, setValidatedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
 
   const refreshBilling = async () => {
     try {
@@ -215,6 +219,37 @@ export default function WholesalerBilling() {
     } catch (trialError) {
       console.error('Failed to activate free trial:', trialError);
       setError(trialError.response?.data?.error || 'Failed to activate free trial.');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  const handleValidateCoupon = async () => {
+    try {
+      setBusyAction('coupon:validate');
+      setCouponError('');
+      setValidatedCoupon(null);
+      const response = await apiClient.post('/subscriptions/coupons/validate', { code: couponCode });
+      setValidatedCoupon(response.data);
+    } catch (err) {
+      setCouponError(err.response?.data?.error || 'Invalid coupon code.');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  const handleActivateCoupon = async () => {
+    try {
+      setBusyAction('coupon:redeem');
+      setCouponError('');
+      const response = await apiClient.post('/subscriptions/coupons/activate', { code: couponCode });
+      updateSessionFromBilling(response.data);
+      await refreshBilling();
+      setValidatedCoupon(null);
+      setCouponCode('');
+      setCouponError('');
+    } catch (err) {
+      setCouponError(err.response?.data?.error || 'Failed to activate coupon subscription.');
     } finally {
       setBusyAction('');
     }
@@ -490,6 +525,76 @@ export default function WholesalerBilling() {
         </div>
 
         <div className="space-y-6">
+          {/* Coupon Redemption Card */}
+          <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+            <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <Ticket className="h-5 w-5 text-amber-400" />
+              Redeem Coupon
+            </h2>
+            <p className="mt-2 text-xs text-zinc-400">
+              Enter a valid coupon code below to activate subscription plans instantly.
+            </p>
+
+            <div className="mt-4 space-y-4">
+              <div className="flex gap-2">
+                <input
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    setValidatedCoupon(null);
+                    setCouponError('');
+                  }}
+                  disabled={busyAction === 'coupon:redeem'}
+                  placeholder="ENTER COUPON CODE"
+                  className="h-11 flex-1 rounded-2xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-white outline-none focus:border-amber-400 transition placeholder:text-zinc-600"
+                />
+                <button
+                  type="button"
+                  onClick={handleValidateCoupon}
+                  disabled={!couponCode || busyAction === 'coupon:redeem' || busyAction === 'coupon:validate'}
+                  className="h-11 px-4 rounded-full bg-white text-xs font-black uppercase tracking-wider text-black transition hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busyAction === 'coupon:validate' ? 'Checking...' : 'Apply'}
+                </button>
+              </div>
+
+              {couponError && (
+                <p className="text-xs text-rose-400 mt-1">{couponError}</p>
+              )}
+
+              {validatedCoupon && (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 space-y-3 animate-fadeIn">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                    Coupon Verified!
+                  </p>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Plan:</span>
+                      <span className="font-bold text-white">{validatedCoupon.plan.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Duration:</span>
+                      <span className="font-bold text-white">{validatedCoupon.durationDays} days</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Expires:</span>
+                      <span className="font-semibold text-white">{new Date(validatedCoupon.expiryDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleActivateCoupon}
+                    disabled={busyAction === 'coupon:redeem'}
+                    className="mt-2 flex w-full items-center justify-center rounded-full bg-emerald-400 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-black transition hover:bg-emerald-300"
+                  >
+                    {busyAction === 'coupon:redeem' ? 'Activating Plan...' : 'Activate Subscription'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
             <h2 className="text-xl font-black tracking-tight text-white">Current subscription</h2>
             <div className="mt-5 space-y-3">
