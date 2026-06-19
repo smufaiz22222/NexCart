@@ -1,29 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  MessageSquare,
-  Sparkles,
-  ArrowRight,
-  TrendingUp,
-  XCircle,
-  CheckCircle,
-  FileText,
-  DollarSign,
-  Briefcase,
-  AlertCircle,
-  Send,
-  Loader,
-  Clock,
-  ExternalLink,
-} from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { MessageSquare, Sparkles, ArrowRight, FileText, Clock } from 'lucide-react';
 import { useRfqs, useRespondRfq, useAcceptQuote, useBuyerRespondRfq } from '../api/queries';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
+import { cn } from '../utils/cn';
 
 export default function RfqManager() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
-  const { data: rfqs = [], isLoading, isError, refetch } = useRfqs();
+  const { data: rfqs = [], isLoading, refetch } = useRfqs();
+
+  const isWholesalerPath = location.pathname.startsWith('/wholesaler');
 
   const respondRfq = useRespondRfq();
   const acceptQuote = useAcceptQuote();
@@ -79,7 +68,11 @@ export default function RfqManager() {
       { id, status, ...extra },
       {
         onSuccess: () => {
-          toast.success(status === 'REJECTED' ? 'Quote declined successfully' : 'Counter offer sent successfully');
+          toast.success(
+            status === 'REJECTED'
+              ? 'Quote declined successfully'
+              : 'Counter offer sent successfully'
+          );
           setBuyerCounterState({ rfqId: null, targetPrice: '', notes: '' });
           refetch();
         },
@@ -91,15 +84,31 @@ export default function RfqManager() {
   };
 
   const getStatusBadge = (status) => {
-    const maps = {
-      PENDING: 'bg-amber-50 border-amber-100 text-amber-700',
-      ACCEPTED: 'bg-emerald-50 border-emerald-100 text-emerald-700',
-      REJECTED: 'bg-rose-50 border-rose-100 text-rose-700',
-      COUNTER_OFFERED: 'bg-blue-50 border-blue-100 text-blue-700',
-      ORDER_PLACED: 'bg-purple-50 border-purple-100 text-purple-700',
-    };
+    const maps = isWholesalerPath
+      ? {
+          PENDING: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+          ACCEPTED: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+          REJECTED: 'bg-red-500/10 border-red-500/20 text-red-400',
+          COUNTER_OFFERED: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+          ORDER_PLACED: 'bg-zinc-800 border-zinc-700 text-zinc-400',
+        }
+      : {
+          PENDING: 'bg-[#EFEFEF] border-[#C0C0C0] text-amber-800',
+          ACCEPTED: 'bg-[#EFEFEF] border-[#C0C0C0] text-emerald-800',
+          REJECTED: 'bg-[#EFEFEF] border-[#C0C0C0] text-[#8B0000]',
+          COUNTER_OFFERED: 'bg-[#EFEFEF] border-[#C0C0C0] text-[#0047AB]',
+          ORDER_PLACED: 'bg-[#EFEFEF] border-[#C0C0C0] text-[#6C757D]',
+        };
     return (
-      <span className={`px-2.5 py-1 rounded text-xs font-bold border uppercase tracking-wider ${maps[status] || 'bg-zinc-100 text-zinc-600'}`}>
+      <span
+        className={cn(
+          'px-2.5 py-1 rounded-md text-xs font-semibold border uppercase tracking-wider',
+          maps[status] ||
+            (isWholesalerPath
+              ? 'bg-zinc-800 text-zinc-400 border-zinc-700'
+              : 'bg-[#EFEFEF] text-[#6C757D] border-[#C0C0C0]')
+        )}
+      >
         {status.replace('_', ' ')}
       </span>
     );
@@ -107,40 +116,104 @@ export default function RfqManager() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-[#6b665f]">
-        <Loader className="h-8 w-8 animate-spin text-[#161412]" />
-        <p className="text-sm font-bold uppercase tracking-[0.24em]">Loading negotiations desk...</p>
+      <div
+        className={cn(
+          'max-w-6xl mx-auto px-4 py-8 space-y-8 animate-pulse',
+          isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
+        )}
+      >
+        <div
+          className={cn(
+            'h-24 rounded-lg border',
+            isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#EFEFEF] border-[#C0C0C0]'
+          )}
+        />
+        <div className="space-y-4">
+          <div
+            className={cn(
+              'h-48 rounded-lg border',
+              isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#EFEFEF] border-[#C0C0C0]'
+            )}
+          />
+          <div
+            className={cn(
+              'h-48 rounded-lg border',
+              isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#EFEFEF] border-[#C0C0C0]'
+            )}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 font-sans text-[#161412]">
+    <div
+      className={cn(
+        'max-w-6xl mx-auto px-4 py-8 font-sans',
+        isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
+      )}
+    >
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[#ddd7cc] pb-6 mb-8">
+      <div
+        className={cn(
+          'flex flex-col md:flex-row md:items-center justify-between gap-6 border-b pb-6 mb-8',
+          isWholesalerPath ? 'border-zinc-800' : 'border-[#C0C0C0]'
+        )}
+      >
         <div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#161412]/5 text-[#161412]/80 border border-[#161412]/10 uppercase tracking-widest">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider border',
+              isWholesalerPath
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                : 'bg-[#EFEFEF] text-[#0047AB] border-[#C0C0C0]'
+            )}
+          >
             <MessageSquare className="w-3.5 h-3.5" /> B2B Price Desk
           </span>
-          <h1 className="text-3xl font-black mt-4 tracking-tight">RFQ Negotiation Room</h1>
-          <p className="text-sm text-[#6b665f] mt-2">
-            {isWholesaler 
+          <h1
+            className={cn(
+              'text-3xl font-bold mt-4 tracking-tight',
+              isWholesalerPath ? 'text-white' : 'text-[#16171a]'
+            )}
+          >
+            RFQ Negotiation Room
+          </h1>
+          <p className={cn('text-sm mt-2', isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]')}>
+            {isWholesaler
               ? 'Review custom quote bids, approve pricing tiers, or counter-propose custom invoice rates.'
-              : 'Monitor custom quotes, review counter-offers, and proceed to checkout at accepted rates.'
-            }
+              : 'Monitor custom quotes, review counter-offers, and proceed to checkout at accepted rates.'}
           </p>
         </div>
       </div>
 
       {rfqs.length === 0 ? (
-        <div className="bg-white rounded-[28px] border border-dashed border-[#ddd7cc] p-16 text-center flex flex-col items-center justify-center">
-          <Clock className="w-12 h-12 text-[#ddd7cc] mb-4 stroke-[1.5]" />
-          <h3 className="text-lg font-bold text-[#161412]">No quotes under negotiation</h3>
-          <p className="text-sm text-[#6b665f] mt-1 max-w-md">
-            {isWholesaler 
+        <div
+          className={cn(
+            'border-dashed p-16 text-center flex flex-col items-center justify-center rounded-2xl border',
+            isWholesalerPath ? 'bg-[#111111] border-zinc-800' : 'swiss-panel'
+          )}
+        >
+          <Clock
+            className={cn(
+              'w-12 h-12 mb-4 stroke-[1.5]',
+              isWholesalerPath ? 'text-zinc-600' : 'text-[#C0C0C0]'
+            )}
+          />
+          <h3
+            className={cn('text-lg font-bold', isWholesalerPath ? 'text-white' : 'text-[#16171a]')}
+          >
+            No quotes under negotiation
+          </h3>
+          <p
+            className={cn(
+              'text-sm mt-1 max-w-md',
+              isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+            )}
+          >
+            {isWholesaler
               ? 'When B2B business buyers request custom prices for your products, they will show up here.'
-              : 'You haven\'t requested any custom prices yet. Use "Request Quote" on product detail pages.'
-            }
+              : 'You haven\'t requested any custom prices yet. Use "Request Quote" on product detail pages.'}
           </p>
         </div>
       ) : (
@@ -148,32 +221,76 @@ export default function RfqManager() {
           {rfqs.map((rfq) => {
             const isCounterOpen = counterState.rfqId === rfq.id;
             return (
-              <div 
+              <div
                 key={rfq.id}
-                className="bg-white border border-[#ddd7cc] rounded-[24px] overflow-hidden shadow-[0_8px_30px_rgba(22,20,18,0.01)] hover:border-[#161412]/20 transition-all p-6"
+                className={cn(
+                  'p-6 space-y-6 rounded-2xl border transition-all duration-300 shadow-md',
+                  isWholesalerPath
+                    ? 'bg-[#1c1c1c] border-zinc-800 hover:border-zinc-700'
+                    : 'swiss-card bg-white border-[#ddd7cc] hover:border-[#c8c1b4]'
+                )}
               >
                 {/* 1. Header Information */}
-                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#f3efe8] pb-4 mb-4">
+                <div
+                  className={cn(
+                    'flex flex-wrap items-start justify-between gap-4 border-b pb-4',
+                    isWholesalerPath ? 'border-zinc-800' : 'border-[#C0C0C0]'
+                  )}
+                >
                   <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 bg-[#f8f6f1] rounded-2xl flex items-center justify-center overflow-hidden border border-[#ddd7cc]/40">
+                    <div
+                      className={cn(
+                        'h-16 w-16 rounded-md flex items-center justify-center overflow-hidden border',
+                        isWholesalerPath
+                          ? 'bg-zinc-950 border-zinc-800'
+                          : 'bg-[#EFEFEF] border-[#C0C0C0]'
+                      )}
+                    >
                       {rfq.product?.imageUrl ? (
-                        <img src={rfq.product.imageUrl} alt={rfq.product.name} className="h-full w-full object-contain mix-blend-multiply p-1" />
+                        <img
+                          src={rfq.product.imageUrl}
+                          alt={rfq.product.name}
+                          className="h-full w-full object-contain p-1"
+                        />
                       ) : (
-                        <FileText className="w-6 h-6 text-[#8b857c]" />
+                        <FileText
+                          className={cn(
+                            'w-6 h-6',
+                            isWholesalerPath ? 'text-zinc-600' : 'text-[#6C757D]'
+                          )}
+                        />
                       )}
                     </div>
                     <div>
-                      <h3 className="font-extrabold text-base">{rfq.product?.name}</h3>
-                      <p className="text-xs text-[#6b665f] mt-0.5">
-                        {isWholesaler 
+                      <h3
+                        className={cn(
+                          'font-bold text-base',
+                          isWholesalerPath ? 'text-white' : 'text-[#16171a]'
+                        )}
+                      >
+                        {rfq.product?.name}
+                      </h3>
+                      <p
+                        className={cn(
+                          'text-xs mt-0.5',
+                          isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+                        )}
+                      >
+                        {isWholesaler
                           ? `Requested by: ${rfq.buyer?.name || 'B2B Client'} (${rfq.buyer?.email})`
-                          : `Merchant: ${rfq.seller?.businessName || 'Wholesaler'}`
-                        }
+                          : `Merchant: ${rfq.seller?.businessName || 'Wholesaler'}`}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono bg-[#f8f6f1] border border-[#ddd7cc] px-2 py-1 rounded">
+                    <span
+                      className={cn(
+                        'text-xs font-mono px-2.5 py-1 rounded-md font-semibold border',
+                        isWholesalerPath
+                          ? 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                          : 'bg-[#EFEFEF] border-[#C0C0C0] text-[#16171a]'
+                      )}
+                    >
                       ID: #{rfq.id.slice(0, 8).toUpperCase()}
                     </span>
                     {getStatusBadge(rfq.status)}
@@ -181,44 +298,147 @@ export default function RfqManager() {
                 </div>
 
                 {/* 2. Parameters Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-[#f8f6f1]/50 border border-[#ddd7cc]/30 text-sm">
+                <div
+                  className={cn(
+                    'grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-md text-sm border',
+                    isWholesalerPath
+                      ? 'bg-zinc-950 border-zinc-800'
+                      : 'bg-[#EFEFEF]/30 border-[#C0C0C0]/40'
+                  )}
+                >
                   <div>
-                    <p className="text-xs font-bold text-[#8f877b] uppercase tracking-wider">Requested Qty</p>
-                    <p className="font-black text-[#161412] mt-1">{rfq.quantity} units</p>
+                    <p
+                      className={cn(
+                        'text-xs font-semibold uppercase tracking-wider',
+                        isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+                      )}
+                    >
+                      Requested Qty
+                    </p>
+                    <p
+                      className={cn(
+                        'font-bold font-mono mt-1',
+                        isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
+                      )}
+                    >
+                      {rfq.quantity} units
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#8f877b] uppercase tracking-wider">Catalog Price</p>
-                    <p className="font-extrabold text-[#161412] mt-1">₹{parseFloat(rfq.product?.price || 0).toFixed(2)} / unit</p>
+                    <p
+                      className={cn(
+                        'text-xs font-semibold uppercase tracking-wider',
+                        isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+                      )}
+                    >
+                      Catalog Price
+                    </p>
+                    <p
+                      className={cn(
+                        'font-bold font-mono mt-1',
+                        isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
+                      )}
+                    >
+                      ₹{parseFloat(rfq.product?.price || 0).toFixed(2)} / unit
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#8f877b] uppercase tracking-wider">Target Price Bid</p>
-                    <p className="font-extrabold text-amber-600 mt-1">₹{parseFloat(rfq.targetPrice).toFixed(2)} / unit</p>
+                    <p
+                      className={cn(
+                        'text-xs font-semibold uppercase tracking-wider',
+                        isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+                      )}
+                    >
+                      Target Price Bid
+                    </p>
+                    <p
+                      className={cn(
+                        'font-bold font-mono mt-1',
+                        isWholesalerPath ? 'text-amber-400' : 'text-[#0047AB]'
+                      )}
+                    >
+                      ₹{parseFloat(rfq.targetPrice).toFixed(2)} / unit
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#8f877b] uppercase tracking-wider">Counter Proposed</p>
-                    <p className="font-extrabold text-blue-600 mt-1">
-                      {rfq.counterPrice ? `₹${parseFloat(rfq.counterPrice).toFixed(2)} / unit` : '--'}
+                    <p
+                      className={cn(
+                        'text-xs font-semibold uppercase tracking-wider',
+                        isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+                      )}
+                    >
+                      Counter Proposed
+                    </p>
+                    <p
+                      className={cn(
+                        'font-bold font-mono mt-1',
+                        isWholesalerPath ? 'text-emerald-400' : 'text-emerald-800'
+                      )}
+                    >
+                      {rfq.counterPrice
+                        ? `₹${parseFloat(rfq.counterPrice).toFixed(2)} / unit`
+                        : '--'}
                     </p>
                   </div>
                 </div>
 
                 {/* Notes logs */}
-                <div className="mt-4 space-y-2 text-xs">
+                <div className="space-y-2 text-xs">
                   {rfq.notes && (
-                    <div className="p-3 bg-white border border-[#ddd7cc]/60 rounded-xl leading-relaxed text-[#6b665f]">
-                      <span className="font-black text-[#161412] mr-1">Buyer Notes:</span> {rfq.notes}
+                    <div
+                      className={cn(
+                        'p-3 rounded-md leading-relaxed border',
+                        isWholesalerPath
+                          ? 'bg-zinc-950 border-zinc-800 text-zinc-300'
+                          : 'bg-white border-[#C0C0C0] text-[#16171a]'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'font-bold mr-1',
+                          isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+                        )}
+                      >
+                        Buyer Notes:
+                      </span>{' '}
+                      {rfq.notes}
                     </div>
                   )}
                   {rfq.sellerNotes && (
-                    <div className="p-3 bg-white border border-blue-100 rounded-xl leading-relaxed text-[#6b665f]">
-                      <span className="font-black text-blue-800 mr-1">Seller Notes:</span> {rfq.sellerNotes}
+                    <div
+                      className={cn(
+                        'p-3 rounded-md leading-relaxed border',
+                        isWholesalerPath
+                          ? 'bg-zinc-900/30 border-zinc-800 text-zinc-300'
+                          : 'bg-[#EFEFEF]/20 border-[#C0C0C0] text-[#16171a]'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'font-bold mr-1',
+                          isWholesalerPath ? 'text-amber-500' : 'text-[#0047AB]'
+                        )}
+                      >
+                        Seller Notes:
+                      </span>{' '}
+                      {rfq.sellerNotes}
                     </div>
                   )}
                 </div>
 
                 {/* 3. Action Triggers */}
-                <div className="mt-6 border-t border-[#f3efe8] pt-4 flex flex-wrap justify-between items-center gap-4">
-                  <span className="text-[11px] text-[#8f877b]">
+                <div
+                  className={cn(
+                    'border-t pt-4 flex flex-wrap justify-between items-center gap-4',
+                    isWholesalerPath ? 'border-zinc-800' : 'border-[#C0C0C0]'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'text-[11px] font-mono',
+                      isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+                    )}
+                  >
                     Updated: {new Date(rfq.updatedAt).toLocaleDateString()}
                   </span>
 
@@ -229,13 +449,23 @@ export default function RfqManager() {
                         <>
                           <button
                             onClick={() => handleResponse(rfq.id, 'ACCEPTED')}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-[#0a0a0a] font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-full transition-all"
+                            className={cn(
+                              'font-semibold text-xs uppercase tracking-wider px-4 py-2 rounded-md transition-all active:scale-[0.98]',
+                              isWholesalerPath
+                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20'
+                                : 'bg-[#0047AB] hover:bg-[#003B91] text-white'
+                            )}
                           >
                             Accept Bid
                           </button>
                           <button
                             onClick={() => handleResponse(rfq.id, 'REJECTED')}
-                            className="border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-full transition-all"
+                            className={cn(
+                              'font-semibold text-xs uppercase tracking-wider px-4 py-2 rounded-md transition-all active:scale-[0.98] border',
+                              isWholesalerPath
+                                ? 'border-zinc-800 bg-zinc-900 text-red-400 hover:bg-red-500/10 hover:border-red-500/20'
+                                : 'border-[#C0C0C0] bg-white hover:bg-[#EFEFEF] text-[#8B0000]'
+                            )}
                           >
                             Reject Quote
                           </button>
@@ -247,7 +477,12 @@ export default function RfqManager() {
                             setCounterState({ rfqId: rfq.id, counterPrice: '', sellerNotes: '' });
                             setBuyerCounterState({ rfqId: null, targetPrice: '', notes: '' });
                           }}
-                          className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-full transition-all"
+                          className={cn(
+                            'font-semibold text-xs uppercase tracking-wider px-4 py-2 rounded-md transition-all active:scale-[0.98]',
+                            isWholesalerPath
+                              ? 'bg-amber-500 hover:bg-amber-400 text-black font-bold shadow-md shadow-amber-500/10'
+                              : 'bg-[#0047AB] hover:bg-[#003B91] text-white'
+                          )}
                         >
                           {rfq.status === 'REJECTED' ? 'Send Another Offer' : 'Counter Offer'}
                         </button>
@@ -260,7 +495,7 @@ export default function RfqManager() {
                         <>
                           <button
                             onClick={() => handleAcceptQuote(rfq.id)}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-[#0a0a0a] font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5"
+                            className="bg-[#0047AB] hover:bg-[#003B91] text-white font-semibold text-xs uppercase tracking-wider px-4 py-2.5 rounded-md transition-colors"
                           >
                             Accept Counter Offer
                           </button>
@@ -269,13 +504,13 @@ export default function RfqManager() {
                               setBuyerCounterState({ rfqId: rfq.id, targetPrice: '', notes: '' });
                               setCounterState({ rfqId: null, counterPrice: '', sellerNotes: '' });
                             }}
-                            className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-full transition-all"
+                            className="bg-white border border-[#C0C0C0] hover:bg-[#EFEFEF] text-[#0047AB] font-semibold text-xs uppercase tracking-wider px-4 py-2.5 rounded-md transition-colors"
                           >
                             Counter Back
                           </button>
                           <button
                             onClick={() => handleBuyerResponse(rfq.id, 'REJECTED')}
-                            className="border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-full transition-all"
+                            className="border border-[#C0C0C0] bg-white hover:bg-[#EFEFEF] text-[#8B0000] font-semibold text-xs uppercase tracking-wider px-4 py-2.5 rounded-md transition-colors"
                           >
                             Decline
                           </button>
@@ -284,9 +519,9 @@ export default function RfqManager() {
                       {rfq.status === 'ACCEPTED' && (
                         <button
                           onClick={() => navigate('/store/cart')}
-                          className="bg-[#161412] hover:bg-[#34302b] text-white font-black text-xs uppercase tracking-[0.16em] px-5 py-2.5 rounded-full transition-all flex items-center gap-1.5"
+                          className="bg-[#0047AB] hover:bg-[#003B91] text-white font-semibold text-xs uppercase tracking-wider px-5 py-2.5 rounded-md transition-colors flex items-center gap-1.5"
                         >
-                          Go to Cart to Checkout <ArrowRight className="w-4 h-4" />
+                          Go to Checkout <ArrowRight className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -295,11 +530,30 @@ export default function RfqManager() {
 
                 {/* 4. Counter offer sub-form (Wholesaler only) */}
                 {isCounterOpen && (
-                  <div className="mt-6 border-t border-[#f3efe8] pt-6 bg-[#f8f6f1]/50 p-5 rounded-2xl border border-[#ddd7cc] space-y-4">
-                    <h4 className="font-bold text-sm text-[#161412]">Propose Counter Offer</h4>
+                  <div
+                    className={cn(
+                      'mt-6 border-t pt-6 p-5 rounded-md border space-y-4',
+                      isWholesalerPath
+                        ? 'bg-zinc-900/50 border-zinc-800'
+                        : 'bg-[#EFEFEF]/30 border-[#C0C0C0]'
+                    )}
+                  >
+                    <h4
+                      className={cn(
+                        'font-bold text-sm',
+                        isWholesalerPath ? 'text-white' : 'text-[#16171a]'
+                      )}
+                    >
+                      Propose Counter Offer
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#8f877b] uppercase tracking-wider mb-2">
+                        <label
+                          className={cn(
+                            'block text-xs font-semibold uppercase tracking-wider mb-2',
+                            isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+                          )}
+                        >
                           Counter Offer Price (₹ per unit) *
                         </label>
                         <input
@@ -307,37 +561,70 @@ export default function RfqManager() {
                           type="number"
                           step="0.01"
                           value={counterState.counterPrice}
-                          onChange={(e) => setCounterState({ ...counterState, counterPrice: e.target.value })}
+                          onChange={(e) =>
+                            setCounterState({ ...counterState, counterPrice: e.target.value })
+                          }
                           placeholder={`Bid is ₹${rfq.targetPrice}`}
-                          className="w-full px-4 py-2 bg-white border border-[#ddd7cc] rounded-xl focus:outline-none focus:border-[#161412] text-sm font-mono text-[#161412]"
+                          className={cn(
+                            'w-full px-4 py-2 rounded-md focus:outline-none focus:ring-1 text-sm font-mono transition-all border',
+                            isWholesalerPath
+                              ? 'bg-zinc-950 border-zinc-800 text-zinc-100 focus:ring-amber-500'
+                              : 'bg-white border-[#C0C0C0] text-[#16171a] focus:ring-[#0047AB]'
+                          )}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-[#8f877b] uppercase tracking-wider mb-2">
+                        <label
+                          className={cn(
+                            'block text-xs font-semibold uppercase tracking-wider mb-2',
+                            isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+                          )}
+                        >
                           Counter Notes / Justification
                         </label>
                         <input
                           type="text"
                           value={counterState.sellerNotes}
-                          onChange={(e) => setCounterState({ ...counterState, sellerNotes: e.target.value })}
+                          onChange={(e) =>
+                            setCounterState({ ...counterState, sellerNotes: e.target.value })
+                          }
                           placeholder="Why this price? e.g. shipping/freight costs"
-                          className="w-full px-4 py-2 bg-white border border-[#ddd7cc] rounded-xl focus:outline-none focus:border-[#161412] text-sm text-[#161412]"
+                          className={cn(
+                            'w-full px-4 py-2 rounded-md focus:outline-none focus:ring-1 text-sm transition-all border',
+                            isWholesalerPath
+                              ? 'bg-zinc-950 border-zinc-800 text-zinc-100 focus:ring-amber-500'
+                              : 'bg-white border-[#C0C0C0] text-[#16171a] focus:ring-[#0047AB]'
+                          )}
                         />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => setCounterState({ rfqId: null, counterPrice: '', sellerNotes: '' })}
-                        className="px-4 py-2 border border-[#ddd7cc] bg-white rounded-full text-xs font-medium hover:bg-zinc-50"
+                        onClick={() =>
+                          setCounterState({ rfqId: null, counterPrice: '', sellerNotes: '' })
+                        }
+                        className={cn(
+                          'px-4 py-2 rounded-md text-xs font-medium transition-all border',
+                          isWholesalerPath
+                            ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+                            : 'bg-white border-[#C0C0C0] text-zinc-700 hover:bg-[#EFEFEF]'
+                        )}
                       >
                         Cancel
                       </button>
                       <button
-                        onClick={() => handleResponse(rfq.id, 'COUNTER_OFFERED', {
-                          counterPrice: counterState.counterPrice,
-                          sellerNotes: counterState.sellerNotes
-                        })}
-                        className="px-4 py-2 bg-[#161412] text-white rounded-full text-xs font-bold hover:bg-[#34302b]"
+                        onClick={() =>
+                          handleResponse(rfq.id, 'COUNTER_OFFERED', {
+                            counterPrice: counterState.counterPrice,
+                            sellerNotes: counterState.sellerNotes,
+                          })
+                        }
+                        className={cn(
+                          'px-4 py-2 rounded-md text-xs font-bold transition-all',
+                          isWholesalerPath
+                            ? 'bg-amber-500 hover:bg-amber-400 text-black font-bold'
+                            : 'bg-[#0047AB] text-white hover:bg-[#003B91]'
+                        )}
                       >
                         Send Proposal
                       </button>
@@ -347,13 +634,13 @@ export default function RfqManager() {
 
                 {/* 5. Counter back sub-form (Buyer/Customer only) */}
                 {buyerCounterState.rfqId === rfq.id && (
-                  <div className="mt-6 border-t border-[#f3efe8] pt-6 bg-blue-50/10 p-5 rounded-2xl border border-blue-200/50 space-y-4">
-                    <h4 className="font-bold text-sm text-[#161412] flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber-500" /> Propose Counter Back
+                  <div className="mt-6 border-t border-[#C0C0C0] pt-6 bg-[#EFEFEF]/30 p-5 rounded-md border border-[#C0C0C0] space-y-4">
+                    <h4 className="font-bold text-sm text-[#16171a] flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-[#0047AB]" /> Propose Counter Back
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#8f877b] uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2">
                           New Target Price Bid (₹ per unit) *
                         </label>
                         <input
@@ -361,37 +648,48 @@ export default function RfqManager() {
                           type="number"
                           step="0.01"
                           value={buyerCounterState.targetPrice}
-                          onChange={(e) => setBuyerCounterState({ ...buyerCounterState, targetPrice: e.target.value })}
+                          onChange={(e) =>
+                            setBuyerCounterState({
+                              ...buyerCounterState,
+                              targetPrice: e.target.value,
+                            })
+                          }
                           placeholder={`Merchant counter is ₹${rfq.counterPrice || rfq.targetPrice}`}
-                          className="w-full px-4 py-2 bg-white border border-[#ddd7cc] rounded-xl focus:outline-none focus:border-[#161412] text-sm font-mono text-[#161412]"
+                          className="w-full px-4 py-2 bg-white border border-[#C0C0C0] rounded-md focus:outline-none focus:ring-1 focus:ring-[#0047AB] text-sm font-mono text-[#16171a]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-[#8f877b] uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2">
                           Notes / Message to Seller
                         </label>
                         <input
                           type="text"
                           value={buyerCounterState.notes}
-                          onChange={(e) => setBuyerCounterState({ ...buyerCounterState, notes: e.target.value })}
+                          onChange={(e) =>
+                            setBuyerCounterState({ ...buyerCounterState, notes: e.target.value })
+                          }
                           placeholder="Suggest why this target fits, e.g. shipping adjustment"
-                          className="w-full px-4 py-2 bg-white border border-[#ddd7cc] rounded-xl focus:outline-none focus:border-[#161412] text-sm text-[#161412]"
+                          className="w-full px-4 py-2 bg-white border border-[#C0C0C0] rounded-md focus:outline-none focus:ring-1 focus:ring-[#0047AB] text-sm text-[#16171a]"
                         />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => setBuyerCounterState({ rfqId: null, targetPrice: '', notes: '' })}
-                        className="px-4 py-2 border border-[#ddd7cc] bg-white rounded-full text-xs font-medium hover:bg-zinc-50"
+                        onClick={() =>
+                          setBuyerCounterState({ rfqId: null, targetPrice: '', notes: '' })
+                        }
+                        className="px-4 py-2 border border-[#C0C0C0] bg-white rounded-md text-xs font-medium hover:bg-[#EFEFEF] transition-colors"
                       >
                         Cancel
                       </button>
                       <button
-                        onClick={() => handleBuyerResponse(rfq.id, 'PENDING', {
-                          targetPrice: buyerCounterState.targetPrice,
-                          notes: buyerCounterState.notes
-                        })}
-                        className="px-4 py-2 bg-[#161412] text-white rounded-full text-xs font-bold hover:bg-[#34302b]"
+                        onClick={() =>
+                          handleBuyerResponse(rfq.id, 'PENDING', {
+                            targetPrice: buyerCounterState.targetPrice,
+                            notes: buyerCounterState.notes,
+                          })
+                        }
+                        className="px-4 py-2 bg-[#0047AB] text-white rounded-md text-xs font-bold hover:bg-[#003B91] transition-colors"
                       >
                         Send Counter Offer
                       </button>

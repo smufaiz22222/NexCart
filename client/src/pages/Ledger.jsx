@@ -1,11 +1,35 @@
 import { useState, useMemo } from 'react';
-import { BookOpen, Plus, ArrowUpRight, ArrowDownRight, FileText, Shield, CreditCard, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { cn } from '../utils/cn';
+import DataTable from '../components/DataTable';
+import {
+  BookOpen,
+  Plus,
+  ArrowUpRight,
+  ArrowDownRight,
+  FileText,
+  Shield,
+  CreditCard,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { useLedgerEntries, useRecordPayment, useWholesalerBuyers, useUpdateCreditLimit } from '../api/queries';
+import {
+  useLedgerEntries,
+  useRecordPayment,
+  useWholesalerBuyers,
+  useUpdateCreditLimit,
+} from '../api/queries';
 
 export default function Ledger() {
   const [activeTab, setActiveTab] = useState('ledger'); // 'ledger' or 'credits'
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Controlled states for table visibility & selection
+  const [ledgerColumnVisibility, setLedgerColumnVisibility] = useState({});
+  const [ledgerRowSelection, setLedgerRowSelection] = useState({});
+  const [creditColumnVisibility, setCreditColumnVisibility] = useState({});
+  const [creditRowSelection, setCreditRowSelection] = useState({});
 
   // Form state for recording a new payment
   const [formData, setFormData] = useState({
@@ -16,26 +40,308 @@ export default function Ledger() {
   });
 
   const { data: entries = [], isLoading, isError, error, isFetching, refetch } = useLedgerEntries();
-  const { data: buyers = [], isLoading: isBuyersLoading, refetch: refetchBuyers } = useWholesalerBuyers();
+  const {
+    data: buyers = [],
+    isLoading: isBuyersLoading,
+    refetch: refetchBuyers,
+  } = useWholesalerBuyers();
   const updateCreditLimit = useUpdateCreditLimit();
   const [editingLimit, setEditingLimit] = useState({});
+
+  // 1. Ledger state derivation
+  const ledgerPage = Number(searchParams.get('l_page')) || 1;
+  const ledgerPageSize = Number(searchParams.get('l_pageSize')) || 10;
+  const ledgerPagination = useMemo(
+    () => ({
+      pageIndex: ledgerPage - 1,
+      pageSize: ledgerPageSize,
+    }),
+    [ledgerPage, ledgerPageSize]
+  );
+
+  const ledgerSortParam = searchParams.get('l_sort') || 'createdAt:desc';
+  const ledgerSorting = useMemo(() => {
+    const [id, order] = ledgerSortParam.split(':');
+    if (!id) return [];
+    return [{ id, desc: order === 'desc' }];
+  }, [ledgerSortParam]);
+
+  const ledgerGlobalFilter = searchParams.get('l_q') || '';
+
+  const setLedgerPagination = (updater) => {
+    const next = typeof updater === 'function' ? updater(ledgerPagination) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('l_page', String(next.pageIndex + 1));
+    nextParams.set('l_pageSize', String(next.pageSize));
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setLedgerSorting = (updater) => {
+    const next = typeof updater === 'function' ? updater(ledgerSorting) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next && next.length > 0) {
+      nextParams.set('l_sort', `${next[0].id}:${next[0].desc ? 'desc' : 'asc'}`);
+    } else {
+      nextParams.delete('l_sort');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setLedgerGlobalFilter = (updater) => {
+    const next = typeof updater === 'function' ? updater(ledgerGlobalFilter) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next) {
+      nextParams.set('l_q', next);
+      nextParams.set('l_page', '1');
+    } else {
+      nextParams.delete('l_q');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  // 2. Credits state derivation
+  const creditPage = Number(searchParams.get('c_page')) || 1;
+  const creditPageSize = Number(searchParams.get('c_pageSize')) || 10;
+  const creditPagination = useMemo(
+    () => ({
+      pageIndex: creditPage - 1,
+      pageSize: creditPageSize,
+    }),
+    [creditPage, creditPageSize]
+  );
+
+  const creditSortParam = searchParams.get('c_sort') || 'companyName:asc';
+  const creditSorting = useMemo(() => {
+    const [id, order] = creditSortParam.split(':');
+    if (!id) return [];
+    return [{ id, desc: order === 'desc' }];
+  }, [creditSortParam]);
+
+  const creditGlobalFilter = searchParams.get('c_q') || '';
+
+  const setCreditPagination = (updater) => {
+    const next = typeof updater === 'function' ? updater(creditPagination) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('c_page', String(next.pageIndex + 1));
+    nextParams.set('c_pageSize', String(next.pageSize));
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setCreditSorting = (updater) => {
+    const next = typeof updater === 'function' ? updater(creditSorting) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next && next.length > 0) {
+      nextParams.set('c_sort', `${next[0].id}:${next[0].desc ? 'desc' : 'asc'}`);
+    } else {
+      nextParams.delete('c_sort');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setCreditGlobalFilter = (updater) => {
+    const next = typeof updater === 'function' ? updater(creditGlobalFilter) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next) {
+      nextParams.set('c_q', next);
+      nextParams.set('c_page', '1');
+    } else {
+      nextParams.delete('c_q');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  // Define table columns
+  const ledgerColumns = useMemo(
+    () => [
+      {
+        accessorKey: 'createdAt',
+        header: 'Date',
+        cell: ({ getValue }) => (
+          <span className="font-mono text-zinc-400">
+            {new Date(getValue()).toLocaleDateString(undefined, {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </span>
+        ),
+      },
+      {
+        id: 'buyer',
+        accessorFn: (row) => row.user?.name,
+        header: 'Buyer',
+        cell: ({ row }) => {
+          const entry = row.original;
+          return (
+            <div>
+              <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
+                {entry.user?.name || 'System'}
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5">{entry.user?.email}</div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'description',
+        header: 'Description',
+        cell: ({ getValue }) => <span className="text-zinc-300">{getValue()}</span>,
+      },
+      {
+        accessorKey: 'referenceId',
+        header: 'Ref ID',
+        cell: ({ getValue }) => {
+          const refId = getValue();
+          return refId ? (
+            <span className="bg-zinc-800 px-2 py-1 rounded text-xs font-mono text-zinc-500">
+              {refId.slice(0, 8).toUpperCase()}
+            </span>
+          ) : (
+            <span className="text-zinc-600">-</span>
+          );
+        },
+      },
+      {
+        accessorKey: 'amount',
+        header: 'Amount (₹)',
+        cell: ({ getValue }) => {
+          const amount = parseFloat(getValue());
+          const isCredit = amount > 0;
+          return (
+            <span
+              className={`px-3 py-1.5 rounded-sm inline-flex items-center tracking-wide border font-bold ${
+                isCredit
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                  : 'bg-red-500/10 text-red-400 border-red-500/20 drop-shadow-[0_0_8px_rgba(248,113,113,0.2)]'
+              }`}
+            >
+              {isCredit ? (
+                <ArrowUpRight className="h-4 w-4 mr-1.5" />
+              ) : (
+                <ArrowDownRight className="h-4 w-4 mr-1.5" />
+              )}
+              {isCredit ? '+' : ''}
+              {Math.abs(amount).toFixed(2)}
+            </span>
+          );
+        },
+        meta: {
+          className: 'text-right justify-end flex items-center h-full',
+        },
+      },
+    ],
+    []
+  );
+
+  const creditColumns = useMemo(
+    () => [
+      {
+        accessorKey: 'companyName',
+        header: 'Retail Buyer / Company',
+        cell: ({ row }) => {
+          const buyer = row.original;
+          return (
+            <div>
+              <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
+                {buyer.companyName}
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5">
+                Contact: {buyer.name} · {buyer.email}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'taxId',
+        header: 'Tax ID / GSTIN',
+        cell: ({ getValue }) => <span className="font-mono text-zinc-400">{getValue()}</span>,
+      },
+      {
+        accessorKey: 'businessAddress',
+        header: 'Address',
+        cell: ({ getValue }) => {
+          const address = getValue();
+          return (
+            <span className="truncate max-w-xs block text-zinc-400" title={address}>
+              {address}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'balance',
+        header: 'Outstanding Balance (₹)',
+        cell: ({ getValue }) => {
+          const val = parseFloat(getValue());
+          const isOwed = val < 0;
+          return (
+            <span className={cn('font-bold', isOwed ? 'text-red-400' : 'text-emerald-400')}>
+              {isOwed ? '-' : ''}₹{Math.abs(val).toFixed(2)}
+            </span>
+          );
+        },
+        meta: {
+          className: 'text-right',
+        },
+      },
+      {
+        accessorKey: 'creditLimit',
+        header: 'Wholesale Credit Limit (₹)',
+        cell: ({ row }) => {
+          const buyer = row.original;
+          return (
+            <div className="flex items-center gap-2 justify-end font-bold">
+              <span className="text-zinc-500 font-mono text-sm">₹</span>
+              <input
+                type="number"
+                placeholder={buyer.creditLimit}
+                value={editingLimit[buyer.buyerId] !== undefined ? editingLimit[buyer.buyerId] : ''}
+                onChange={(e) =>
+                  setEditingLimit({
+                    ...editingLimit,
+                    [buyer.buyerId]: e.target.value,
+                  })
+                }
+                className="w-28 px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-right text-sm text-white font-mono focus:outline-none focus:border-amber-500"
+              />
+              <button
+                onClick={() => handleUpdateLimit(buyer.buyerId)}
+                disabled={updateCreditLimit.isPending}
+                className="bg-amber-500 hover:bg-amber-400 text-black px-3.5 py-1.5 rounded text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          );
+        },
+        meta: {
+          className: 'text-right',
+        },
+      },
+    ],
+    [editingLimit, updateCreditLimit.isPending]
+  );
 
   const recordPaymentMutation = useRecordPayment();
 
   const handleUpdateLimit = (buyerId) => {
     const limit = editingLimit[buyerId];
     if (limit === undefined || limit === '' || isNaN(parseFloat(limit))) {
-      return toast.error("Please enter a valid credit limit amount.");
+      return toast.error('Please enter a valid credit limit amount.');
     }
-    updateCreditLimit.mutate({ buyerId, creditLimit: parseFloat(limit) }, {
-      onSuccess: () => {
-        toast.success("Credit limit updated successfully!");
-        refetchBuyers();
-      },
-      onError: (err) => {
-        toast.error(err.response?.data?.error || "Failed to update credit limit");
+    updateCreditLimit.mutate(
+      { buyerId, creditLimit: parseFloat(limit) },
+      {
+        onSuccess: () => {
+          toast.success('Credit limit updated successfully!');
+          refetchBuyers();
+        },
+        onError: (err) => {
+          toast.error(err.response?.data?.error || 'Failed to update credit limit');
+        },
       }
-    });
+    );
   };
 
   // UX Magic: Extract unique buyers from the ledger history so we can put them in a dropdown!
@@ -87,7 +393,8 @@ export default function Ledger() {
             )}
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Track marketplace sales, record manual settlements, and configure B2B client credit lines.
+            Track marketplace sales, record manual settlements, and configure B2B client credit
+            lines.
           </p>
         </div>
 
@@ -96,7 +403,9 @@ export default function Ledger() {
             <button
               onClick={() => setActiveTab('ledger')}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                activeTab === 'ledger' ? 'bg-amber-50 text-[#0a0a0a]' : 'text-zinc-400 hover:text-white'
+                activeTab === 'ledger'
+                  ? 'bg-amber-50 text-[#0a0a0a]'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
               Ledger History
@@ -104,7 +413,9 @@ export default function Ledger() {
             <button
               onClick={() => setActiveTab('credits')}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                activeTab === 'credits' ? 'bg-amber-50 text-[#0a0a0a]' : 'text-zinc-400 hover:text-white'
+                activeTab === 'credits'
+                  ? 'bg-amber-50 text-[#0a0a0a]'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
               B2B Credit Lines
@@ -126,10 +437,11 @@ export default function Ledger() {
       {activeTab === 'ledger' ? (
         <>
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-100">
-            Marketplace COD orders are now settled automatically when you mark them as delivered. Use
+            Marketplace COD orders are now settled automatically when you mark them as delivered.
+            Use
             <span className="font-semibold"> Record Payment </span>
-            only for exceptional offline collections or manual ledger adjustments that are outside the
-            normal marketplace order flow.
+            only for exceptional offline collections or manual ledger adjustments that are outside
+            the normal marketplace order flow.
           </div>
 
           {/* Ledger Table */}
@@ -160,95 +472,37 @@ export default function Ledger() {
               </div>
               <h3 className="text-lg font-semibold text-white tracking-wide">Clean Ledger</h3>
               <p className="mt-2 text-zinc-400 max-w-md">
-                No financial transactions have occurred yet. Once customers buy from your shop, order
-                charges, automatic COD settlements, return adjustments, and manual payments will appear
-                here.
+                No financial transactions have occurred yet. Once customers buy from your shop,
+                order charges, automatic COD settlements, return adjustments, and manual payments
+                will appear here.
               </p>
             </div>
           ) : (
-            <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-zinc-800">
-                  <thead className="bg-[#0a0a0a]">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Date
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Buyer
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Description
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Ref ID
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Amount (₹)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
-                    {entries.map((entry) => {
-                      const amount = parseFloat(entry.amount);
-                      const isCredit = amount > 0;
-
-                      return (
-                        <tr key={entry.id} className="hover:bg-zinc-800/30 transition-colors group">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400 font-mono">
-                            {new Date(entry.createdAt).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
-                              {entry.user?.name || 'System'}
-                            </div>
-                            <div className="text-xs text-zinc-500 mt-0.5">{entry.user?.email}</div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-zinc-300">{entry.description}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 font-mono">
-                            {entry.referenceId ? (
-                              <span className="bg-zinc-800 px-2 py-1 rounded text-xs">
-                                {entry.referenceId.slice(0, 8).toUpperCase()}
-                              </span>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold flex justify-end items-center h-full">
-                            <span
-                              className={`px-3 py-1.5 rounded-sm flex items-center tracking-wide border ${
-                                isCredit
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-                                  : 'bg-red-500/10 text-red-400 border-red-500/20 drop-shadow-[0_0_8px_rgba(248,113,113,0.2)]'
-                              }`}
-                            >
-                              {isCredit ? (
-                                <ArrowUpRight className="h-4 w-4 mr-1.5" />
-                              ) : (
-                                <ArrowDownRight className="h-4 w-4 mr-1.5" />
-                              )}
-                              {isCredit ? '+' : ''}
-                              {Math.abs(amount).toFixed(2)}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DataTable
+              columns={ledgerColumns}
+              data={entries}
+              isLoading={isLoading}
+              sorting={ledgerSorting}
+              setSorting={setLedgerSorting}
+              pagination={ledgerPagination}
+              setPagination={setLedgerPagination}
+              globalFilter={ledgerGlobalFilter}
+              setGlobalFilter={setLedgerGlobalFilter}
+              columnVisibility={ledgerColumnVisibility}
+              setColumnVisibility={setLedgerColumnVisibility}
+              rowSelection={ledgerRowSelection}
+              setRowSelection={setLedgerRowSelection}
+              searchPlaceholder="Search buyer name or description..."
+              emptyStateMessage="No matching ledger entries found."
+            />
           )}
         </>
       ) : (
         /* Credits tab content */
         <div className="space-y-4">
           <div className="rounded-lg border border-zinc-800 bg-[#1c1c1c] p-4 text-sm text-zinc-300">
-            Set custom credit limits for approved B2B retail buyers. If a buyer's outstanding dues with your business exceed this threshold, credit ledger checkouts will be restricted.
+            Set custom credit limits for approved B2B retail buyers. If a buyer's outstanding dues
+            with your business exceed this threshold, credit ledger checkouts will be restricted.
           </div>
 
           {isBuyersLoading ? (
@@ -263,85 +517,32 @@ export default function Ledger() {
               <div className="bg-[#0a0a0a] p-5 rounded-full mb-5 border border-zinc-800 shadow-inner">
                 <Shield className="h-10 w-10 text-amber-500" />
               </div>
-              <h3 className="text-lg font-semibold text-white tracking-wide">No B2B Retail Partners</h3>
+              <h3 className="text-lg font-semibold text-white tracking-wide">
+                No B2B Retail Partners
+              </h3>
               <p className="mt-2 text-zinc-400 max-w-md">
-                Once retail buyers are approved in the marketplace by the Super Admin, they will show up here so you can assign them credit limits.
+                Once retail buyers are approved in the marketplace by the Super Admin, they will
+                show up here so you can assign them credit limits.
               </p>
             </div>
           ) : (
-            <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-zinc-800">
-                  <thead className="bg-[#0a0a0a]">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Retail Buyer / Company
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Tax ID / GSTIN
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Address
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Outstanding Balance (₹)
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                        Wholesale Credit Limit (₹)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
-                    {buyers.map((buyer) => {
-                      const balanceValue = parseFloat(buyer.balance);
-                      const isOwed = balanceValue < 0;
-
-                      return (
-                        <tr key={buyer.buyerId} className="hover:bg-zinc-800/30 transition-colors group">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
-                              {buyer.companyName}
-                            </div>
-                            <div className="text-xs text-zinc-500 mt-0.5">Contact: {buyer.name} · {buyer.email}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400 font-mono">
-                            {buyer.taxId}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-zinc-400 truncate max-w-xs" title={buyer.businessAddress}>
-                            {buyer.businessAddress}
-                          </td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-bold ${isOwed ? 'text-red-400' : 'text-emerald-400'}`}>
-                            {isOwed ? '-' : ''}₹{Math.abs(balanceValue).toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold">
-                            <div className="flex items-center gap-2 justify-end">
-                              <span className="text-zinc-500 font-mono text-sm">₹</span>
-                              <input
-                                type="number"
-                                placeholder={buyer.creditLimit}
-                                value={editingLimit[buyer.buyerId] !== undefined ? editingLimit[buyer.buyerId] : ''}
-                                onChange={(e) => setEditingLimit({
-                                  ...editingLimit,
-                                  [buyer.buyerId]: e.target.value
-                                })}
-                                className="w-28 px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-right text-sm text-white font-mono focus:outline-none focus:border-amber-500"
-                              />
-                              <button
-                                onClick={() => handleUpdateLimit(buyer.buyerId)}
-                                disabled={updateCreditLimit.isPending}
-                                className="bg-amber-500 hover:bg-amber-400 text-black px-3.5 py-1.5 rounded text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50"
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DataTable
+              columns={creditColumns}
+              data={buyers}
+              isLoading={isBuyersLoading}
+              sorting={creditSorting}
+              setSorting={setCreditSorting}
+              pagination={creditPagination}
+              setPagination={setCreditPagination}
+              globalFilter={creditGlobalFilter}
+              setGlobalFilter={setCreditGlobalFilter}
+              columnVisibility={creditColumnVisibility}
+              setColumnVisibility={setCreditColumnVisibility}
+              rowSelection={creditRowSelection}
+              setRowSelection={setCreditRowSelection}
+              searchPlaceholder="Search buyer or company..."
+              emptyStateMessage="No B2B credit lines found."
+            />
           )}
         </div>
       )}

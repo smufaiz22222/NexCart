@@ -6,7 +6,12 @@ import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { trackRecommendationClick } from '../utils/recommendation';
 import { toast } from 'sonner';
-import { useProductDetail, useSimilarProducts, useSubmitReview, useCreateRfq } from '../api/queries';
+import {
+  useProductDetail,
+  useSimilarProducts,
+  useSubmitReview,
+  useCreateRfq,
+} from '../api/queries';
 
 const getAttributionStorageKey = (productId) => `nexcart:recommendationAttribution:${productId}`;
 
@@ -40,7 +45,7 @@ export default function ProductDetails() {
 
   // B2B & B2C parameters
   const isB2BApproved = user?.businessProfile?.verification === 'APPROVED';
-  const minQty = isB2BApproved ? (product?.minOrderQty || 1) : 1;
+  const minQty = isB2BApproved ? product?.minOrderQty || 1 : 1;
   const [quantity, setQuantity] = useState(1);
   const [targetPrice, setTargetPrice] = useState('');
   const [targetQty, setTargetQty] = useState('');
@@ -49,7 +54,7 @@ export default function ProductDetails() {
 
   useEffect(() => {
     if (product) {
-      setQuantity(isB2BApproved ? (product.minOrderQty || 1) : 1);
+      setQuantity(isB2BApproved ? product.minOrderQty || 1 : 1);
     }
   }, [product, isB2BApproved]);
 
@@ -137,7 +142,9 @@ export default function ProductDetails() {
     }
 
     if (isB2BApproved && quantity < product.minOrderQty) {
-      return toast.warning(`Minimum Order Quantity (MOQ) for B2B accounts is ${product.minOrderQty} units.`);
+      return toast.warning(
+        `Minimum Order Quantity (MOQ) for B2B accounts is ${product.minOrderQty} units.`
+      );
     }
 
     try {
@@ -340,12 +347,19 @@ export default function ProductDetails() {
 
           {isB2BApproved && product.priceTiers?.length > 0 && (
             <div className="mt-6 p-4 rounded-2xl bg-[#f8f6f1] border border-[#ddd7cc] text-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#8b857c] mb-3">Wholesale Volume Price Tiers</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#8b857c] mb-3">
+                Wholesale Volume Price Tiers
+              </p>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 {product.priceTiers.map((tier) => (
-                  <div key={tier.id} className="flex justify-between border-b border-[#ddd7cc]/40 pb-2">
+                  <div
+                    key={tier.id}
+                    className="flex justify-between border-b border-[#ddd7cc]/40 pb-2"
+                  >
                     <span className="font-semibold text-[#6b665f]">{tier.minQuantity}+ units</span>
-                    <span className="font-black text-[#161412]">{formatCurrency(tier.unitPrice)} / unit</span>
+                    <span className="font-black text-[#161412]">
+                      {formatCurrency(tier.unitPrice)} / unit
+                    </span>
                   </div>
                 ))}
               </div>
@@ -360,8 +374,8 @@ export default function ProductDetails() {
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">Sold by</p>
             <p className="mt-2 text-lg font-black tracking-tight flex items-center justify-between">
               {product.wholesaler?.businessName || 'Unknown shop'}
-              <button 
-                onClick={() => navigate('/store/dashboard')} 
+              <button
+                onClick={() => navigate('/store/dashboard')}
                 className="text-xs font-black uppercase tracking-wider text-amber-600 hover:text-amber-700 flex items-center gap-1 bg-transparent border-none outline-none cursor-pointer"
               >
                 View Price Desk
@@ -395,7 +409,9 @@ export default function ProductDetails() {
           {/* Quantity selector and checkout */}
           <div className="mt-8 grid grid-cols-[120px_1fr] gap-4 items-end">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c] mb-3">Quantity</p>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c] mb-3">
+                Quantity
+              </p>
               <div className="flex items-center justify-between border border-[#ddd7cc] rounded-full px-3 py-3 bg-[#fbfaf7]">
                 <button
                   type="button"
@@ -437,12 +453,15 @@ export default function ProductDetails() {
                 <MessageSquare className="w-4 h-4 text-amber-500" /> Request Custom Quote (RFQ)
               </h3>
               <p className="text-xs text-[#6b665f] mt-1 leading-relaxed">
-                Negotiate prices below tiers by proposing your target bid directly to the wholesaler.
+                Negotiate prices below tiers by proposing your target bid directly to the
+                wholesaler.
               </p>
               <form onSubmit={handleRfqSubmit} className="mt-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">Target Quantity</label>
+                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">
+                      Target Quantity
+                    </label>
                     <input
                       required
                       type="number"
@@ -454,7 +473,9 @@ export default function ProductDetails() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">Target Price (₹/unit)</label>
+                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">
+                      Target Price (₹/unit)
+                    </label>
                     <input
                       required
                       type="number"
@@ -467,7 +488,9 @@ export default function ProductDetails() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">Comments / Terms</label>
+                  <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">
+                    Comments / Terms
+                  </label>
                   <input
                     type="text"
                     value={notes}

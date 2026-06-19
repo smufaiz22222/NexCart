@@ -1,13 +1,6 @@
 import { prisma } from '../config/db.js';
 import { INTERACTION_WEIGHTS } from './recommendationConstants.js';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const calculateDecay = (createdAt, halfLifeDays = 14) => {
-  const ageDays = Math.max(0, (Date.now() - new Date(createdAt).getTime()) / DAY_MS);
-  return Math.pow(0.5, ageDays / halfLifeDays);
-};
-
 export const getPopularityScores = async ({ scope = 'trending' } = {}) => {
   const scores = new Map();
 

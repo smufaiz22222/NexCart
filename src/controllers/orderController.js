@@ -347,6 +347,10 @@ const createOrdersFromGroupedData = async ({
   razorpayOrderId = null,
   razorpayPaymentId = null,
   cartId,
+  shippingStreet = null,
+  shippingCity = null,
+  shippingState = null,
+  shippingPostalCode = null,
 }) => {
   const createdOrders = [];
 
@@ -365,6 +369,10 @@ const createOrdersFromGroupedData = async ({
         razorpayOrderId,
         razorpayPaymentId,
         shippingAddress: shippingAddressSnapshot,
+        shippingStreet,
+        shippingCity,
+        shippingState,
+        shippingPostalCode,
         items: {
           create: data.orderItems.map(
             ({ recommendationSource: _, cartItemId: __, ...orderItem }) => ({
@@ -421,20 +429,24 @@ const createOrdersFromGroupedData = async ({
       });
     }
 
-    for (const log of data.inventoryLogs) {
-      await decrementProductStockAtomic(tx, {
-        sellerId,
-        productId: log.productId,
-        quantity: log.quantity,
-      });
+    await Promise.all(
+      data.inventoryLogs.map((log) =>
+        decrementProductStockAtomic(tx, {
+          sellerId,
+          productId: log.productId,
+          quantity: log.quantity,
+        })
+      )
+    );
 
-      await tx.inventoryLog.create({
-        data: {
+    if (data.inventoryLogs.length > 0) {
+      await tx.inventoryLog.createMany({
+        data: data.inventoryLogs.map((log) => ({
           wholesalerId: sellerId,
           productId: log.productId,
           changeAmount: -log.quantity,
           reason: 'SALE',
-        },
+        })),
       });
     }
 
@@ -487,16 +499,10 @@ export const checkout = async (req, res) => {
 
         const wholesalerIds = Object.keys(ordersBySeller);
 
-        const [creditLimits, ledgerEntries, wholesalers] = await Promise.all([
+        const [creditLimits, wholesalers] = await Promise.all([
           tx.wholesalerCreditLimit.findMany({
             where: {
               buyerId,
-              wholesalerId: { in: wholesalerIds },
-            },
-          }),
-          tx.ledgerEntry.findMany({
-            where: {
-              userId: buyerId,
               wholesalerId: { in: wholesalerIds },
             },
           }),
@@ -517,10 +523,8 @@ export const checkout = async (req, res) => {
         }
 
         const balanceMap = {};
-        for (const entry of ledgerEntries) {
-          const wId = entry.wholesalerId;
-          if (!balanceMap[wId]) balanceMap[wId] = 0;
-          balanceMap[wId] += Number(entry.amount);
+        for (const cl of creditLimits) {
+          balanceMap[cl.wholesalerId] = Number(cl.balance);
         }
 
         const nameMap = {};
@@ -564,6 +568,10 @@ export const checkout = async (req, res) => {
         buyerId,
         ordersBySeller,
         shippingAddressSnapshot,
+        shippingStreet: address.addressLine1 + (address.addressLine2 ? `, ${address.addressLine2}` : ''),
+        shippingCity: address.city,
+        shippingState: address.state,
+        shippingPostalCode: address.postalCode,
         paymentMethod,
         paymentStatus: PAYMENT_STATUSES.PENDING,
         cartId: cart.id,
@@ -611,6 +619,10 @@ export const createPrepaidOrder = async (req, res) => {
       return {
         cartId: cart.id,
         shippingAddressSnapshot,
+        shippingStreet: address.addressLine1 + (address.addressLine2 ? `, ${address.addressLine2}` : ''),
+        shippingCity: address.city,
+        shippingState: address.state,
+        shippingPostalCode: address.postalCode,
         ordersBySeller,
         totalAmount,
       };
@@ -634,6 +646,10 @@ export const createPrepaidOrder = async (req, res) => {
           payload: {
             addressId,
             shippingAddressSnapshot: checkoutDetails.shippingAddressSnapshot,
+            shippingStreet: checkoutDetails.shippingStreet,
+            shippingCity: checkoutDetails.shippingCity,
+            shippingState: checkoutDetails.shippingState,
+            shippingPostalCode: checkoutDetails.shippingPostalCode,
             ordersBySeller: checkoutDetails.ordersBySeller,
             paymentMethod,
             cartId: checkoutDetails.cartId,
@@ -733,6 +749,10 @@ export const verifyPrepaidOrder = async (req, res) => {
         buyerId,
         ordersBySeller: payload.ordersBySeller,
         shippingAddressSnapshot: payload.shippingAddressSnapshot,
+        shippingStreet: payload.shippingStreet,
+        shippingCity: payload.shippingCity,
+        shippingState: payload.shippingState,
+        shippingPostalCode: payload.shippingPostalCode,
         paymentMethod: PAYMENT_METHODS.PREPAID,
         paymentStatus: PAYMENT_STATUSES.PAID,
         paymentCaptureStatus: PAYMENT_CAPTURE_STATUSES.CAPTURED,

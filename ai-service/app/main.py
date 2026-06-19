@@ -3,14 +3,27 @@ from dotenv import load_dotenv
 load_dotenv()  # must be first line before any other imports
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.chat import router as chat_router
 from app.routes.history import router as history_router
 from app.routes.ingest import router as ingest_router
+from app.embeddings.embedder import get_embedder
 
-app = FastAPI(title="NexCart AI Business Advisor")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: pre-load embedding model weights to eliminate first-query cold-start
+    print("[Lifespan] Pre-loading embedding model...")
+    get_embedder()
+    print("[Lifespan] Embedding model ready.")
+    yield
+    # Shutdown: nothing to clean up
+
+
+app = FastAPI(title="NexCart AI Business Advisor", lifespan=lifespan)
 
 cors_origins = [
     origin.strip()

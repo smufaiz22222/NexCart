@@ -9,7 +9,9 @@ export default function CustomerLayout() {
   const { logout, isAuthenticated, user } = useAuthStore();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isB2BMenuOpen, setIsB2BMenuOpen] = useState(false);
-  const isB2BApproved = user?.businessProfile?.verification === 'APPROVED' && user?.businessProfile?.status === 'ACTIVE';
+  const isB2BApproved =
+    user?.businessProfile?.verification === 'APPROVED' &&
+    user?.businessProfile?.status === 'ACTIVE';
   const hydrateCart = useCartStore((state) => state.hydrateCart);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const resetCartState = useCartStore((state) => state.resetCartState);
@@ -50,7 +52,7 @@ export default function CustomerLayout() {
               onClick={() => navigate('/store')}
               className="text-3xl font-black tracking-tight text-[#161412]"
             >
-              SHOP.CO
+              Nex<span className="text-[#8f5d31]">Cart</span>
             </button>
 
             <nav className="hidden items-center gap-6 text-sm font-semibold text-[#49443d] md:flex">
@@ -110,18 +112,6 @@ export default function CustomerLayout() {
             </nav>
           </div>
 
-          <div className="hidden flex-1 justify-center lg:flex">
-            <div className="flex w-full max-w-xl items-center gap-3 rounded-full border border-[#ddd7cc] bg-white px-4 py-3">
-              <Search className="h-4 w-4 text-[#8b857c]" />
-              <input
-                readOnly
-                value=""
-                placeholder="Search for products, styles and stores"
-                className="w-full bg-transparent text-sm text-[#161412] outline-none placeholder:text-[#8b857c]"
-              />
-            </div>
-          </div>
-
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/store/cart')}
@@ -174,7 +164,9 @@ export default function CustomerLayout() {
       <footer className="mt-16 bg-[#161412] text-[#f2f0ea]">
         <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.2fr_repeat(3,1fr)] lg:px-8">
           <div>
-            <h2 className="text-3xl font-black tracking-tight">SHOP.CO</h2>
+            <h2 className="text-3xl font-black tracking-tight">
+              Nex<span className="text-amber-500">Cart</span>
+            </h2>
             <p className="mt-4 max-w-sm text-sm leading-7 text-[#c8c1b4]">
               A marketplace experience tuned for fashion-style discovery, wholesaler credibility,
               and smooth repeat buying.

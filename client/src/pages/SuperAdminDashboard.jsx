@@ -64,7 +64,7 @@ export default function SuperAdminDashboard() {
 
   // B2B Applications state
   const [b2bApps, setB2bApps] = useState([]);
-  const [isLoadingB2B, setIsLoadingB2B] = useState(false);
+  const [_isLoadingB2B, setIsLoadingB2B] = useState(false);
 
   const fetchB2BApps = async () => {
     try {
@@ -82,13 +82,20 @@ export default function SuperAdminDashboard() {
     try {
       setError('');
       if (action === 'approve') {
-        const confirmApprove = window.confirm('Are you sure you want to approve this B2B wholesale onboarding request?');
+        const confirmApprove = window.confirm(
+          'Are you sure you want to approve this B2B wholesale onboarding request?'
+        );
         if (!confirmApprove) return;
         await apiClient.post(`/b2b/admin/approve/${appId}`, { verification: 'APPROVED' });
       } else if (action === 'reject') {
-        const reason = window.prompt('Enter a rejection reason for this B2B onboarding application:');
+        const reason = window.prompt(
+          'Enter a rejection reason for this B2B onboarding application:'
+        );
         if (reason === null) return;
-        await apiClient.post(`/b2b/admin/approve/${appId}`, { verification: 'REJECTED', rejectionReason: reason });
+        await apiClient.post(`/b2b/admin/approve/${appId}`, {
+          verification: 'REJECTED',
+          rejectionReason: reason,
+        });
       }
       await fetchB2BApps();
     } catch (err) {
@@ -355,48 +362,56 @@ export default function SuperAdminDashboard() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-1">
-        <Panel title="B2B Business Applications" eyebrow="Retail buyer business verification requests" icon={Shield}>
+        <Panel
+          title="B2B Business Applications"
+          eyebrow="Retail buyer business verification requests"
+          icon={Shield}
+        >
           <div className="space-y-3">
-            {b2bApps.filter(app => app.verification === 'APPLIED').length > 0 ? (
-              b2bApps.filter(app => app.verification === 'APPLIED').map((application) => (
-                <div
-                  key={application.id}
-                  className="rounded-[24px] border border-[#eadfce] bg-white p-5 shadow-sm"
-                >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <p className="text-base font-black tracking-tight text-[#221c16]">
-                        {application.companyName}
-                      </p>
-                      <p className="mt-1 text-sm text-[#6b6155]">
-                        <span className="font-semibold">Applicant Name:</span> {application.user?.name} · {application.user?.email}
-                      </p>
-                      <p className="mt-2 text-xs font-mono bg-[#fcf7f0] border border-[#eadfce] px-2.5 py-1 rounded inline-block text-[#8f5d31]">
-                        Tax ID / GSTIN: {application.taxId}
-                      </p>
-                      <p className="mt-3 text-sm text-[#6b6155]">
-                        <span className="font-semibold">Business Location:</span> {application.businessAddress}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleB2BAction(application.id, 'approve')}
-                        className="rounded-full bg-[#221c16] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#f5efe4] hover:bg-[#3e342a] transition-all"
-                      >
-                        Approve Application
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleB2BAction(application.id, 'reject')}
-                        className="rounded-full border border-[#e6b6b0] bg-[#fff3f1] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#9d3b30] hover:bg-rose-100 transition-all"
-                      >
-                        Reject
-                      </button>
+            {b2bApps.filter((app) => app.verification === 'APPLIED').length > 0 ? (
+              b2bApps
+                .filter((app) => app.verification === 'APPLIED')
+                .map((application) => (
+                  <div
+                    key={application.id}
+                    className="rounded-[24px] border border-[#eadfce] bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-base font-black tracking-tight text-[#221c16]">
+                          {application.companyName}
+                        </p>
+                        <p className="mt-1 text-sm text-[#6b6155]">
+                          <span className="font-semibold">Applicant Name:</span>{' '}
+                          {application.user?.name} · {application.user?.email}
+                        </p>
+                        <p className="mt-2 text-xs font-mono bg-[#fcf7f0] border border-[#eadfce] px-2.5 py-1 rounded inline-block text-[#8f5d31]">
+                          Tax ID / GSTIN: {application.taxId}
+                        </p>
+                        <p className="mt-3 text-sm text-[#6b6155]">
+                          <span className="font-semibold">Business Location:</span>{' '}
+                          {application.businessAddress}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleB2BAction(application.id, 'approve')}
+                          className="rounded-full bg-[#221c16] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#f5efe4] hover:bg-[#3e342a] transition-all"
+                        >
+                          Approve Application
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleB2BAction(application.id, 'reject')}
+                          className="rounded-full border border-[#e6b6b0] bg-[#fff3f1] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#9d3b30] hover:bg-rose-100 transition-all"
+                        >
+                          Reject
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))
             ) : (
               <div className="rounded-[24px] border border-dashed border-[#d8ccb9] bg-[#fcf7f0] px-4 py-6 text-sm text-[#6b6155]">
                 No pending B2B business verification requests.

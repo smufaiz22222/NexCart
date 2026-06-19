@@ -229,7 +229,9 @@ export default function WholesalerBilling() {
       setBusyAction('coupon:validate');
       setCouponError('');
       setValidatedCoupon(null);
-      const response = await apiClient.post('/subscriptions/coupons/validate', { code: couponCode });
+      const response = await apiClient.post('/subscriptions/coupons/validate', {
+        code: couponCode,
+      });
       setValidatedCoupon(response.data);
     } catch (err) {
       setCouponError(err.response?.data?.error || 'Invalid coupon code.');
@@ -242,7 +244,9 @@ export default function WholesalerBilling() {
     try {
       setBusyAction('coupon:redeem');
       setCouponError('');
-      const response = await apiClient.post('/subscriptions/coupons/activate', { code: couponCode });
+      const response = await apiClient.post('/subscriptions/coupons/activate', {
+        code: couponCode,
+      });
       updateSessionFromBilling(response.data);
       await refreshBilling();
       setValidatedCoupon(null);
@@ -551,16 +555,18 @@ export default function WholesalerBilling() {
                 <button
                   type="button"
                   onClick={handleValidateCoupon}
-                  disabled={!couponCode || busyAction === 'coupon:redeem' || busyAction === 'coupon:validate'}
+                  disabled={
+                    !couponCode ||
+                    busyAction === 'coupon:redeem' ||
+                    busyAction === 'coupon:validate'
+                  }
                   className="h-11 px-4 rounded-full bg-white text-xs font-black uppercase tracking-wider text-black transition hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busyAction === 'coupon:validate' ? 'Checking...' : 'Apply'}
                 </button>
               </div>
 
-              {couponError && (
-                <p className="text-xs text-rose-400 mt-1">{couponError}</p>
-              )}
+              {couponError && <p className="text-xs text-rose-400 mt-1">{couponError}</p>}
 
               {validatedCoupon && (
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 space-y-3 animate-fadeIn">
@@ -574,11 +580,15 @@ export default function WholesalerBilling() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-400">Duration:</span>
-                      <span className="font-bold text-white">{validatedCoupon.durationDays} days</span>
+                      <span className="font-bold text-white">
+                        {validatedCoupon.durationDays} days
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-400">Expires:</span>
-                      <span className="font-semibold text-white">{new Date(validatedCoupon.expiryDate).toLocaleDateString()}</span>
+                      <span className="font-semibold text-white">
+                        {new Date(validatedCoupon.expiryDate).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
 
@@ -588,7 +598,9 @@ export default function WholesalerBilling() {
                     disabled={busyAction === 'coupon:redeem'}
                     className="mt-2 flex w-full items-center justify-center rounded-full bg-emerald-400 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-black transition hover:bg-emerald-300"
                   >
-                    {busyAction === 'coupon:redeem' ? 'Activating Plan...' : 'Activate Subscription'}
+                    {busyAction === 'coupon:redeem'
+                      ? 'Activating Plan...'
+                      : 'Activate Subscription'}
                   </button>
                 </div>
               )}

@@ -637,7 +637,7 @@ export const useUpdateProductTiers = () => {
       const response = await apiClient.post(`/b2b/products/${productId}/tiers`, { tiers });
       return response.data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
@@ -657,7 +657,9 @@ export const useUpdateCreditLimit = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ buyerId, creditLimit }) => {
-      const response = await apiClient.post(`/b2b/wholesaler/buyers/${buyerId}/credit-limit`, { creditLimit });
+      const response = await apiClient.post(`/b2b/wholesaler/buyers/${buyerId}/credit-limit`, {
+        creditLimit,
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -676,5 +678,3 @@ export const useBuyerCreditStatus = () => {
     },
   });
 };
-
-

@@ -132,7 +132,7 @@ export const login = async (req, res) => {
         : {}),
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({
       message: 'Login successful',
@@ -230,5 +230,31 @@ export const getProfile = async (req, res) => {
   } catch (error) {
     console.error('GET PROFILE ERROR:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(400).json({ error: 'No token provided' });
+    }
+
+    const decoded = jwt.decode(token);
+    const expiresAt = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.blacklistedToken.upsert({
+      where: { token },
+      update: {},
+      create: {
+        token,
+        expiresAt,
+      },
+    });
+
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('LOGOUT ERROR:', error);
+    res.status(500).json({ error: 'Logout failed' });
   }
 };

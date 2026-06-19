@@ -1,4 +1,5 @@
 import os
+import threading
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
@@ -9,6 +10,61 @@ from app.vectorstore.chroma_store import get_vectorstore
 
 MIN_RETRIEVAL_SCORE = float(os.getenv("MIN_RETRIEVAL_SCORE", "0.55"))
 RETRIEVAL_TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "5"))
+
+
+# ── In-memory BM25 index cache ────────────────────────────────────────────────
+
+_cache_lock = threading.Lock()
+_cached_documents: list[Document] | None = None
+_cached_bm25: BM25Okapi | None = None
+_cache_ready: bool = False
+
+
+def _rebuild_cache() -> None:
+    """Rebuild the in-memory BM25 index from the current ChromaDB collection."""
+    global _cached_documents, _cached_bm25, _cache_ready
+
+    collection = get_vectorstore().get()
+    raw_documents = collection.get("documents") or []
+    raw_metadatas = collection.get("metadatas") or []
+
+    documents: list[Document] = []
+    for content, metadata in zip(raw_documents, raw_metadatas):
+        documents.append(
+            Document(page_content=content, metadata=normalize_chunk_metadata(metadata))
+        )
+
+    if documents:
+        tokenized_corpus = [doc.page_content.lower().split() for doc in documents]
+        bm25 = BM25Okapi(tokenized_corpus)
+    else:
+        bm25 = None
+
+    _cached_documents = documents
+    _cached_bm25 = bm25
+    _cache_ready = True
+
+
+def invalidate_bm25_cache() -> None:
+    """Invalidate and rebuild the BM25 cache. Call after ingestion."""
+    with _cache_lock:
+        _rebuild_cache()
+
+
+def _get_cached_state() -> tuple[list[Document], BM25Okapi | None, bool]:
+    """Return cached documents and BM25 index, building on first access."""
+    global _cache_ready
+
+    if not _cache_ready:
+        with _cache_lock:
+            # Double-check after acquiring lock
+            if not _cache_ready:
+                _rebuild_cache()
+
+    return _cached_documents or [], _cached_bm25, _cache_ready
+
+
+# ── Data structures ────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -24,25 +80,16 @@ def _doc_key(document: Document) -> str:
     return f"{metadata.get('source', 'unknown')}::{metadata.get('page', '?')}::{document.page_content}"
 
 
-def _build_documents_from_collection(collection: dict) -> list[Document]:
-    documents = collection.get("documents") or []
-    metadatas = collection.get("metadatas") or []
-    result: list[Document] = []
-
-    for content, metadata in zip(documents, metadatas):
-        result.append(
-            Document(page_content=content, metadata=normalize_chunk_metadata(metadata))
-        )
-    return result
+# ── Public API ─────────────────────────────────────────────────────────────────
 
 
 def get_knowledge_base_state() -> dict:
-    collection = get_vectorstore().get()
-    documents = collection.get("documents") or []
+    """Return knowledge base readiness info using the cached documents."""
+    all_documents, _, _ = _get_cached_state()
     return {
-        "ready": len(documents) > 0,
-        "count": len(documents),
-        "documents": _build_documents_from_collection(collection),
+        "ready": len(all_documents) > 0,
+        "count": len(all_documents),
+        "documents": all_documents,
     }
 
 
@@ -71,8 +118,9 @@ def retrieve_documents(
     retrieval_top_k = top_k or RETRIEVAL_TOP_K
     min_retrieval_score = min_score if min_score is not None else MIN_RETRIEVAL_SCORE
 
-    knowledge_base = get_knowledge_base_state()
-    if not knowledge_base["ready"]:
+    all_documents, bm25, _ = _get_cached_state()
+
+    if not all_documents:
         return RetrievalResult(
             confident=False,
             knowledge_base_ready=False,
@@ -80,16 +128,16 @@ def retrieve_documents(
             best_semantic_score=0.0,
         )
 
-    all_documents = knowledge_base["documents"]
     vector_results = _get_vector_results(query, max(retrieval_top_k, 5))
     best_semantic_score = max((score for _, score in vector_results), default=0.0)
 
-    tokenized_corpus = [
-        document.page_content.lower().split() for document in all_documents
-    ]
-    bm25 = BM25Okapi(tokenized_corpus)
-    bm25_scores = bm25.get_scores(query.lower().split())
-    max_bm25_score = max(bm25_scores) if len(bm25_scores) else 0.0
+    # Use cached BM25 index instead of rebuilding
+    if bm25 is not None:
+        bm25_scores = bm25.get_scores(query.lower().split())
+        max_bm25_score = max(bm25_scores) if len(bm25_scores) else 0.0
+    else:
+        bm25_scores = []
+        max_bm25_score = 0.0
 
     combined: dict[str, dict] = {}
 
@@ -103,7 +151,7 @@ def retrieve_documents(
 
     for index, document in enumerate(all_documents):
         keyword_score = 0.0
-        if max_bm25_score > 0:
+        if max_bm25_score > 0 and index < len(bm25_scores):
             keyword_score = float(bm25_scores[index]) / float(max_bm25_score)
         key = _doc_key(document)
         if key not in combined:

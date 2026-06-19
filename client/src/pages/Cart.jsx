@@ -97,8 +97,8 @@ export default function Cart() {
     Object.values(groups).forEach((group) => {
       const line = creditLineMap[group.wholesalerId];
       const outstanding = line ? line.outstanding : 0;
-      const creditLimit = line ? line.creditLimit : 50000.00;
-      const available = line ? line.available : 50000.00;
+      const creditLimit = line ? line.creditLimit : 50000.0;
+      const available = line ? line.available : 50000.0;
       const remaining = available - group.cartTotal;
       const eligible = remaining >= 0;
 
@@ -427,7 +427,11 @@ export default function Cart() {
 
         await hydrateCart();
         navigate('/store/orders');
-        toast.success(paymentMethod === 'LEDGER_CREDIT' ? 'B2B Wholesale Credit order placed successfully!' : 'COD order placed successfully!');
+        toast.success(
+          paymentMethod === 'LEDGER_CREDIT'
+            ? 'B2B Wholesale Credit order placed successfully!'
+            : 'COD order placed successfully!'
+        );
         return;
       }
 
@@ -589,7 +593,9 @@ export default function Cart() {
                   <div className="flex items-center justify-between gap-4 sm:justify-end">
                     <div className="flex items-center rounded-full border border-[#ddd7cc] bg-white">
                       <button
-                        disabled={isB2BApproved && item.quantity <= (item.product?.minOrderQty || 1)}
+                        disabled={
+                          isB2BApproved && item.quantity <= (item.product?.minOrderQty || 1)
+                        }
                         onClick={() => updateQuantity(item.id, item.quantity - 1).catch(() => {})}
                         className="p-3 text-[#6b665f] transition hover:text-[#161412] disabled:opacity-30 disabled:cursor-not-allowed"
                       >
@@ -1002,43 +1008,57 @@ export default function Cart() {
               </div>
             )}
 
-            {paymentMethod === 'LEDGER_CREDIT' && isB2BApproved && creditValidation.details.length > 0 && (
-              <div className="mt-4 p-4 rounded-[22px] bg-white/5 border border-white/10 text-xs text-white space-y-3">
-                <p className="font-black text-amber-400 uppercase tracking-widest text-[9px]">Supplier Credit Allocation</p>
-                <div className="divide-y divide-white/10 space-y-3">
-                  {creditValidation.details.map((d) => (
-                    <div key={d.wholesalerId} className="pt-2 flex flex-col gap-1">
-                      <div className="flex justify-between items-center">
-                        <span className="font-extrabold">{d.wholesalerName}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${d.eligible ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
-                          {d.eligible ? '✓ Eligible' : '✗ Over Limit'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 text-[10px] text-zinc-400 mt-1">
-                        <div>
-                          <span>Outstanding:</span>
-                          <span className="block font-semibold text-white mt-0.5">₹{d.outstanding.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span>Current Cart:</span>
-                          <span className="block font-semibold text-white mt-0.5">₹{d.cartTotal.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span>Limit:</span>
-                          <span className="block font-semibold text-white mt-0.5">₹{d.creditLimit.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span>Remaining:</span>
-                          <span className={`block font-semibold mt-0.5 ${d.remaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            ₹{d.remaining.toLocaleString()}
+            {paymentMethod === 'LEDGER_CREDIT' &&
+              isB2BApproved &&
+              creditValidation.details.length > 0 && (
+                <div className="mt-4 p-4 rounded-[22px] bg-white/5 border border-white/10 text-xs text-white space-y-3">
+                  <p className="font-black text-amber-400 uppercase tracking-widest text-[9px]">
+                    Supplier Credit Allocation
+                  </p>
+                  <div className="divide-y divide-white/10 space-y-3">
+                    {creditValidation.details.map((d) => (
+                      <div key={d.wholesalerId} className="pt-2 flex flex-col gap-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-extrabold">{d.wholesalerName}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${d.eligible ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}
+                          >
+                            {d.eligible ? '✓ Eligible' : '✗ Over Limit'}
                           </span>
                         </div>
+                        <div className="grid grid-cols-4 gap-2 text-[10px] text-zinc-400 mt-1">
+                          <div>
+                            <span>Outstanding:</span>
+                            <span className="block font-semibold text-white mt-0.5">
+                              ₹{d.outstanding.toLocaleString()}
+                            </span>
+                          </div>
+                          <div>
+                            <span>Current Cart:</span>
+                            <span className="block font-semibold text-white mt-0.5">
+                              ₹{d.cartTotal.toLocaleString()}
+                            </span>
+                          </div>
+                          <div>
+                            <span>Limit:</span>
+                            <span className="block font-semibold text-white mt-0.5">
+                              ₹{d.creditLimit.toLocaleString()}
+                            </span>
+                          </div>
+                          <div>
+                            <span>Remaining:</span>
+                            <span
+                              className={`block font-semibold mt-0.5 ${d.remaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+                            >
+                              ₹{d.remaining.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             <div className="mt-8 flex items-end justify-between">
               <div>
@@ -1056,13 +1076,18 @@ export default function Cart() {
 
             {hasMoqViolation && (
               <div className="mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 text-xs leading-5">
-                ⚠️ One or more items in your cart are below the wholesale MOQ constraint. Please adjust the quantities before check out.
+                ⚠️ One or more items in your cart are below the wholesale MOQ constraint. Please
+                adjust the quantities before check out.
               </div>
             )}
 
             {paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid && (
               <div className="mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 text-xs leading-5">
-                ⚠️ Credit limit exceeded with the following suppliers: <strong className="text-white">{creditValidation.overLimitSellers.join(', ')}</strong>. Please adjust quantities or choose another payment method.
+                ⚠️ Credit limit exceeded with the following suppliers:{' '}
+                <strong className="text-white">
+                  {creditValidation.overLimitSellers.join(', ')}
+                </strong>
+                . Please adjust quantities or choose another payment method.
               </div>
             )}
 
@@ -1074,10 +1099,16 @@ export default function Cart() {
                 }
                 handleCheckout();
               }}
-              disabled={isProcessing || hasMoqViolation || (paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid)}
+              disabled={
+                isProcessing ||
+                hasMoqViolation ||
+                (paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid)
+              }
               className={cn(
                 'mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition',
-                (isProcessing || hasMoqViolation || (paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid))
+                isProcessing ||
+                  hasMoqViolation ||
+                  (paymentMethod === 'LEDGER_CREDIT' && !creditValidation.isValid)
                   ? 'cursor-not-allowed bg-white/10 text-[#d8d1c5]'
                   : 'bg-white text-[#161412] hover:bg-[#f3ede3]'
               )}

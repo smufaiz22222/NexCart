@@ -5,18 +5,20 @@ import {
   AlertCircle,
   ArrowRight,
   Boxes,
-  ClipboardList,
-  DollarSign,
   Hourglass,
   PackageCheck,
-  Package,
   RotateCcw,
-  Tags,
   Truck,
   Wallet,
 } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import apiClient from '../api/axios';
+import StatCard from '../components/dashboard/StatCard';
+import QuickStrip from '../components/dashboard/QuickStrip';
+import InfoTile from '../components/dashboard/InfoTile';
+import MiniMetric from '../components/dashboard/MiniMetric';
+import AlertRow from '../components/dashboard/AlertRow';
+import WatchRow from '../components/dashboard/WatchRow';
+import StockPressureChart from '../components/dashboard/StockPressureChart';
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
@@ -213,29 +215,7 @@ export default function Dashboard() {
             <h2 className="mt-2 text-lg font-black text-white">Stock asset pressure</h2>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid stroke="#27272a" vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 12 }} />
-                <Tooltip
-                  cursor={{ fill: '#18181b', opacity: 0.4 }}
-                  contentStyle={{
-                    backgroundColor: '#09090b',
-                    border: '1px solid #27272a',
-                    borderRadius: '12px',
-                    color: '#fff',
-                  }}
-                />
-                <Bar dataKey="stock" fill="#d4d4d8" radius={[4, 4, 0, 0]} name="Units in stock" />
-                <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Value (₹)" />
-              </BarChart>
-            </ResponsiveContainer>
+            <StockPressureChart chartData={chartData} />
           </div>
         </div>
 
@@ -376,83 +356,6 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function StatCard({ title, value, icon: Icon, tone, desc }) {
-  return (
-    <div className="rounded-[22px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-      <div className="mb-4 flex items-center justify-between">
-        <div className={`rounded-xl border px-3 py-2 ${tone}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
-          {title}
-        </span>
-      </div>
-      <p className="text-2xl font-black tracking-tight text-white">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-zinc-500">{desc}</p>
-    </div>
-  );
-}
-
-function QuickStrip({ label, value, detail }) {
-  return (
-    <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] px-4 py-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">{label}</p>
-      <p className="mt-2 text-lg font-black text-white">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-zinc-500">{detail}</p>
-    </div>
-  );
-}
-
-function InfoTile({ label, value, detail }) {
-  return (
-    <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-      <p className="mt-3 text-xl font-black text-white">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-zinc-500">{detail}</p>
-    </div>
-  );
-}
-
-function MiniMetric({ label, value }) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-[#111111] px-3 py-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-2 text-sm font-bold text-white">{value}</p>
-    </div>
-  );
-}
-
-function AlertRow({ icon: Icon, label, value, detail, tone }) {
-  return (
-    <div className={`rounded-[18px] border p-4 ${tone}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Icon className="mt-0.5 h-4 w-4" />
-          <div>
-            <p className="text-sm font-bold">{label}</p>
-            <p className="mt-1 text-xs leading-5 opacity-80">{detail}</p>
-          </div>
-        </div>
-        <span className="text-lg font-black">{value}</span>
-      </div>
-    </div>
-  );
-}
-
-function WatchRow({ name, meta, detail, tone }) {
-  return (
-    <div className={`rounded-[18px] border p-4 ${tone}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold">{name}</p>
-          <p className="mt-1 text-xs leading-5 opacity-80">{detail}</p>
-        </div>
-        <span className="text-[11px] font-black uppercase tracking-[0.18em]">{meta}</span>
-      </div>
     </div>
   );
 }

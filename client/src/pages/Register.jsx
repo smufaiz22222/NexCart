@@ -97,7 +97,7 @@ export default function Register() {
     <div className="min-h-screen bg-[#f2f0ea] px-4 py-10 text-[#161412]">
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl overflow-hidden rounded-[36px] border border-[#ddd7cc] bg-white shadow-[0_30px_90px_rgba(22,20,18,0.08)] lg:grid-cols-[0.96fr_1.04fr]">
         <section className="border-b border-[#ddd7cc] bg-[#faf8f4] px-8 py-10 lg:border-b-0 lg:border-r lg:px-12 lg:py-14">
-          <p className="text-sm font-black tracking-[0.24em] text-[#161412]">SHOP.CO</p>
+          <p className="text-sm font-black tracking-[0.24em] text-[#161412]">NEXCART</p>
           <h1 className="mt-10 text-5xl font-black leading-none tracking-tight text-[#161412]">
             Join the marketplace on your terms.
           </h1>

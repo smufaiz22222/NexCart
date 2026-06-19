@@ -44,17 +44,26 @@ export const saveKhattaEntries = async (req, res) => {
     const wholesalerId = req.user.wholesalerId;
 
     const savedEntries = await prisma.$transaction(async (tx) => {
+      const emails = [...new Set(entries.map(e => e.customerEmail).filter(Boolean))];
+
+      const customers = await tx.user.findMany({
+        where: {
+          email: { in: emails },
+          role: 'CUSTOMER',
+        },
+      });
+
+      const customerMap = new Map(customers.map(c => [c.email.toLowerCase(), c]));
       const results = [];
+
       for (const entry of entries) {
-        const customer = await tx.customer.findFirst({
-          where: { user: { email: entry.customerEmail } },
-        });
+        const customer = entry.customerEmail ? customerMap.get(entry.customerEmail.toLowerCase()) : null;
 
         if (customer) {
           const newEntry = await tx.ledgerEntry.create({
             data: {
               wholesalerId,
-              customerId: customer.id,
+              userId: customer.id,
               amount: parseFloat(entry.amount),
               description: `AI Scan: ${entry.notes}`,
               referenceId: 'AI_UPLOAD',

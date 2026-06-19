@@ -32,7 +32,7 @@ export default function Login() {
         <section className="relative overflow-hidden bg-[#161412] px-8 py-10 text-white sm:px-12 sm:py-14">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(227,190,120,0.18),_transparent_28%)]" />
           <div className="relative">
-            <p className="text-sm font-black tracking-[0.24em]">SHOP.CO</p>
+            <p className="text-sm font-black tracking-[0.24em]">NEXCART</p>
             <h1 className="mt-12 max-w-md text-5xl font-black leading-none tracking-tight sm:text-6xl">
               Fashion-first wholesale made easy.
             </h1>

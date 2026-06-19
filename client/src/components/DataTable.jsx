@@ -46,6 +46,8 @@ export default function DataTable({
   showGlobalFilter = true,
   searchPlaceholder = 'Search records...',
   emptyStateMessage = 'No records found.',
+  onRowClick,
+  rowClassName,
 }) {
   // Local state fallbacks if no external state is supplied
   const [localSorting, setLocalSorting] = useState([]);
@@ -318,9 +320,12 @@ export default function DataTable({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
+                    onClick={() => onRowClick && onRowClick(row.original)}
                     className={cn(
                       'hover:bg-zinc-800/20 transition-colors group',
-                      row.getIsSelected() && 'bg-amber-500/5 hover:bg-amber-500/10'
+                      onRowClick && 'cursor-pointer',
+                      row.getIsSelected() && 'bg-amber-500/5 hover:bg-amber-500/10',
+                      rowClassName
                     )}
                   >
                     {row.getVisibleCells().map((cell) => {

@@ -37,24 +37,24 @@ export default function Faq() {
   };
 
   return (
-    <div className="space-y-12 pb-16 text-[#161412] max-w-4xl mx-auto">
+    <div className="space-y-12 pb-16 text-[#16171a] max-w-4xl mx-auto font-sans">
       {/* Header */}
       <section className="text-center space-y-4 pt-6">
-        <div className="inline-flex items-center gap-2 rounded-full bg-[#161412]/5 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.24em] text-[#8f5d31]">
+        <div className="inline-flex items-center gap-2 rounded-md bg-[#EFEFEF] border border-[#C0C0C0] px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#0047AB]">
           <HelpCircle className="h-4.5 w-4.5" />
           Help Center
         </div>
-        <h1 className="text-5xl font-black leading-none tracking-tight sm:text-6xl">
+        <h1 className="text-5xl font-bold leading-none tracking-tight sm:text-6xl text-[#16171a]">
           Frequently Asked Questions
         </h1>
-        <p className="text-base leading-8 text-[#6b665f]">
+        <p className="text-base leading-8 text-[#6C757D]">
           Got questions? We have answers. If you do not find what you are looking for, contact our
           support team.
         </p>
       </section>
 
       {/* Accordions */}
-      <section className="rounded-[36px] bg-white p-6 sm:p-10 shadow-[0_18px_45px_rgba(22,20_18,0.04)] divide-y divide-[#ece7de]">
+      <section className="swiss-panel p-6 sm:p-10 divide-y divide-[#C0C0C0]">
         {faqData.map((item, index) => {
           const isOpen = activeIndex === index;
           return (
@@ -63,10 +63,10 @@ export default function Faq() {
                 onClick={() => toggleAccordion(index)}
                 className="flex w-full items-center justify-between text-left focus:outline-none"
               >
-                <span className="text-lg font-black tracking-tight text-[#161412]">
+                <span className="text-lg font-bold tracking-tight text-[#16171a]">
                   {item.question}
                 </span>
-                <span className="rounded-full bg-[#fbfaf7] border border-[#ece7de] p-2 text-[#161412]">
+                <span className="rounded-md bg-[#EFEFEF] border border-[#C0C0C0] p-2 text-[#16171a]">
                   {isOpen ? (
                     <ChevronUp className="h-4.5 w-4.5" />
                   ) : (
@@ -76,9 +76,7 @@ export default function Faq() {
               </button>
 
               {isOpen && (
-                <div className="mt-4 text-sm leading-8 text-[#5f5951] pr-12 animate-fade-in">
-                  {item.answer}
-                </div>
+                <div className="mt-4 text-sm leading-8 text-[#6C757D] pr-12">{item.answer}</div>
               )}
             </div>
           );

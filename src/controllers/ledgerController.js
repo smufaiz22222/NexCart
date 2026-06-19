@@ -47,13 +47,16 @@ export const getCustomerLedger = async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    const computedBalance = entries.reduce((sum, entry) => {
-      return sum + parseFloat(entry.amount);
-    }, 0);
+    const creditLimitRecord = await prisma.wholesalerCreditLimit.findUnique({
+      where: {
+        wholesalerId_buyerId: { wholesalerId, buyerId: userId },
+      },
+    });
+    const balance = creditLimitRecord ? Number(creditLimitRecord.balance) : 0.00;
 
     res.status(200).json({
       userId,
-      balance: computedBalance.toFixed(2),
+      balance: balance.toFixed(2),
       entriesCount: entries.length,
       entries,
     });
@@ -83,20 +86,23 @@ export const getMyLedger = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const entries = await prisma.ledgerEntry.findMany({
-      where: { userId },
-      include: {
-        wholesaler: { select: { businessName: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [entries, creditLimits] = await Promise.all([
+      prisma.ledgerEntry.findMany({
+        where: { userId },
+        include: {
+          wholesaler: { select: { businessName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.wholesalerCreditLimit.findMany({
+        where: { buyerId: userId },
+      }),
+    ]);
 
-    const computedBalance = entries.reduce((sum, entry) => {
-      return sum + parseFloat(entry.amount);
-    }, 0);
+    const balance = creditLimits.reduce((sum, limit) => sum + Number(limit.balance), 0);
 
     res.status(200).json({
-      balance: computedBalance.toFixed(2),
+      balance: balance.toFixed(2),
       entriesCount: entries.length,
       entries,
     });

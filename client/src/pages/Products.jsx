@@ -1,16 +1,168 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, PackageSearch, Package, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProducts, useCreateProduct } from '../api/queries';
 import { ProductForm } from '../components/ProductForm';
+import DataTable from '../components/DataTable';
+import { cn } from '../utils/cn';
 
 export default function Products() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Controlled states for table
+  const [columnVisibility, setColumnVisibility] = useState({});
+  const [rowSelection, setRowSelection] = useState({});
 
   const { data: products = [], isLoading, isError, error, isFetching, refetch } = useProducts();
   const createProductMutation = useCreateProduct();
+
+  // Derive controlled table state from URL query parameters
+  const page = Number(searchParams.get('page')) || 1;
+  const pageSize = Number(searchParams.get('pageSize')) || 10;
+
+  const pagination = useMemo(
+    () => ({
+      pageIndex: page - 1,
+      pageSize,
+    }),
+    [page, pageSize]
+  );
+
+  const sortParam = searchParams.get('sort') || 'name:asc';
+  const sorting = useMemo(() => {
+    const [id, order] = sortParam.split(':');
+    if (!id) return [];
+    return [{ id, desc: order === 'desc' }];
+  }, [sortParam]);
+
+  const globalFilter = searchParams.get('q') || '';
+
+  // Synchronizers
+  const setPagination = (updater) => {
+    const next = typeof updater === 'function' ? updater(pagination) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('page', String(next.pageIndex + 1));
+    nextParams.set('pageSize', String(next.pageSize));
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setSorting = (updater) => {
+    const next = typeof updater === 'function' ? updater(sorting) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next && next.length > 0) {
+      nextParams.set('sort', `${next[0].id}:${next[0].desc ? 'desc' : 'asc'}`);
+    } else {
+      nextParams.delete('sort');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setGlobalFilter = (updater) => {
+    const next = typeof updater === 'function' ? updater(globalFilter) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next) {
+      nextParams.set('q', next);
+      nextParams.set('page', '1'); // Reset to page 1 on search
+    } else {
+      nextParams.delete('q');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  // Define table columns
+  const columns = useMemo(
+    () => [
+      {
+        id: 'product',
+        accessorFn: (row) => row.name,
+        header: 'Product',
+        cell: ({ row }) => {
+          const product = row.original;
+          return (
+            <div className="flex items-start min-w-0">
+              <div className="flex-shrink-0 h-12 w-12 bg-[#F5F5F0] rounded-md overflow-hidden flex items-center justify-center border border-zinc-700 group-hover:border-amber-500/30 transition-colors">
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt=""
+                    className="h-full w-full object-contain mix-blend-multiply p-1"
+                  />
+                ) : (
+                  <span className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">
+                    No Img
+                  </span>
+                )}
+              </div>
+              <div className="ml-4 min-w-0">
+                <div className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors break-words leading-5">
+                  {product.name}
+                </div>
+                <div className="mt-0.5 max-w-[280px] text-xs leading-5 text-zinc-500 break-words line-clamp-2">
+                  {product.description || 'No description'}
+                </div>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'sku',
+        header: 'SKU',
+        cell: ({ getValue }) => (
+          <span className="font-mono text-zinc-400 break-all">{getValue()}</span>
+        ),
+      },
+      {
+        accessorKey: 'category',
+        header: 'Category',
+        cell: ({ getValue }) => {
+          const category = getValue();
+          return category ? (
+            <span className="inline-flex max-w-[180px] break-words bg-zinc-800 px-2 py-1 rounded text-xs text-zinc-300 border border-zinc-700">
+              {category}
+            </span>
+          ) : (
+            <span className="text-zinc-600 text-xs italic">Uncategorized</span>
+          );
+        },
+      },
+      {
+        accessorKey: 'price',
+        header: 'Price (₹)',
+        cell: ({ getValue }) => {
+          const val = parseFloat(getValue());
+          return <span className="font-bold text-amber-500">₹{val.toFixed(2)}</span>;
+        },
+      },
+      {
+        accessorKey: 'currentStock',
+        header: 'Stock',
+        cell: ({ row }) => {
+          const product = row.original;
+          const isLow = product.currentStock <= (product.minStock || 10);
+          const isOut = product.currentStock <= 0;
+          return (
+            <span
+              className={cn(
+                'px-2.5 py-1 inline-flex text-[11px] leading-5 font-bold uppercase tracking-wide rounded-sm border',
+                !isLow
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : !isOut
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+              )}
+            >
+              {product.currentStock} in stock
+            </span>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   const handleCreateProduct = async (values) => {
     createProductMutation.mutate(
@@ -86,98 +238,24 @@ export default function Products() {
           </p>
         </div>
       ) : (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
-          <div className="w-full overflow-x-auto">
-            <table className="min-w-[820px] w-full divide-y divide-zinc-800">
-              <thead className="bg-[#0a0a0a]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Product
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    SKU
-                  </th>
-                  {/* 3. UPDATED: Added Category Table Header */}
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Category
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Price (₹)
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Stock
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
-                {products.map((product) => (
-                  <tr
-                    key={product.id}
-                    onClick={() => navigate(`/wholesaler/products/${product.id}`)}
-                    className="cursor-pointer hover:bg-zinc-800/40 transition-colors group"
-                  >
-                    <td className="px-4 py-4 sm:px-6 align-top">
-                      <div className="flex items-start min-w-0">
-                        <div className="flex-shrink-0 h-12 w-12 bg-[#F5F5F0] rounded-md overflow-hidden flex items-center justify-center border border-zinc-700 group-hover:border-amber-500/30 transition-colors">
-                          {product.imageUrl ? (
-                            <img
-                              src={product.imageUrl}
-                              alt=""
-                              className="h-full w-full object-contain mix-blend-multiply p-1"
-                            />
-                          ) : (
-                            <span className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">
-                              No Img
-                            </span>
-                          )}
-                        </div>
-                        <div className="ml-4 min-w-0">
-                          <div className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors break-words leading-5">
-                            {product.name}
-                          </div>
-                          <div className="mt-0.5 max-w-[280px] text-xs leading-5 text-zinc-500 break-words line-clamp-2">
-                            {product.description || 'No description'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 sm:px-6 text-sm text-zinc-400 font-mono break-all align-top">
-                      {product.sku}
-                    </td>
-
-                    {/* 4. UPDATED: Display Category in Table */}
-                    <td className="px-4 py-4 sm:px-6 align-top">
-                      {product.category ? (
-                        <span className="inline-flex max-w-[180px] break-words bg-zinc-800 px-2 py-1 rounded text-xs text-zinc-300 border border-zinc-700">
-                          {product.category}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-600 text-xs italic">Uncategorized</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-4 sm:px-6 whitespace-nowrap text-sm font-bold text-amber-500 align-top">
-                      ₹{parseFloat(product.price).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-4 sm:px-6 whitespace-nowrap align-top">
-                      <span
-                        className={`px-2.5 py-1 inline-flex text-[11px] leading-5 font-bold uppercase tracking-wide rounded-sm border ${
-                          product.currentStock > (product.minStock || 10)
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : product.currentStock > 0
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                              : 'bg-red-500/10 text-red-400 border-red-500/20'
-                        }`}
-                      >
-                        {product.currentStock} in stock
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={products}
+          isLoading={isLoading}
+          sorting={sorting}
+          setSorting={setSorting}
+          pagination={pagination}
+          setPagination={setPagination}
+          globalFilter={globalFilter}
+          setGlobalFilter={setGlobalFilter}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          onRowClick={(row) => navigate(`/wholesaler/products/${row.id}`)}
+          searchPlaceholder="Search product name or SKU..."
+          emptyStateMessage="No matching products found."
+        />
       )}
 
       {/* Add Product Modal */}

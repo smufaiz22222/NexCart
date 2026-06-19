@@ -405,11 +405,7 @@ export const getWholesalerBuyers = async (req, res) => {
           },
         });
 
-        const ledgerEntries = await prisma.ledgerEntry.findMany({
-          where: { wholesalerId, userId: buyer.userId },
-        });
-
-        const computedBalance = ledgerEntries.reduce((sum, entry) => sum + Number(entry.amount), 0);
+        const balance = creditRecord ? Number(creditRecord.balance) : 0.00;
 
         return {
           id: buyer.id,
@@ -421,8 +417,8 @@ export const getWholesalerBuyers = async (req, res) => {
           name: buyer.user?.name,
           creditLimit: creditRecord ? Number(creditRecord.creditLimit) : 50000.00,
           hasCustomLimit: !!creditRecord,
-          balance: computedBalance.toFixed(2),
-          outstandingDebt: computedBalance < 0 ? Math.abs(computedBalance).toFixed(2) : '0.00',
+          balance: balance.toFixed(2),
+          outstandingDebt: balance < 0 ? Math.abs(balance).toFixed(2) : '0.00',
         };
       })
     );

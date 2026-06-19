@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.services.document_utils import normalize_chunk_metadata
+from app.services.retrieval_service import invalidate_bm25_cache
 from app.vectorstore.chroma_store import add_documents, get_vectorstore
 
 router = APIRouter()
@@ -71,6 +72,9 @@ async def ingest_documents():
 
         # ── Store in ChromaDB ──────────────────────────────────────────────
         add_documents(chunks)
+
+        # ── Invalidate BM25 cache so next query uses fresh index ───────────
+        invalidate_bm25_cache()
 
         return {
             "status": "success",

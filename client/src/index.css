@@ -34,3 +34,64 @@
 body {
   @apply bg-bg-main text-text-body font-sans;
 }
+
+/* Premium Dashboard Animations & Utility Classes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.08);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(221, 215, 204, 0.6);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-card-hover:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(22, 20, 18, 0.15);
+  box-shadow: 0 20px 40px rgba(22, 20, 18, 0.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(22, 20, 18, 0.03);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(22, 20, 18, 0.15);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(22, 20, 18, 0.3);
+}

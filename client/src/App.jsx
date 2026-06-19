@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const Login = lazy(() => import('./pages/login'));
+const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Products = lazy(() => import('./pages/Products'));
 const WholesalerLayout = lazy(() => import('./layouts/WholesalerLayout'));
@@ -29,7 +29,6 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
 const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'));
-const Store = lazy(() => import('./pages/Store'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Ledger = lazy(() => import('./pages/Ledger'));
 const AiKhatta = lazy(() => import('./pages/AiKhatta'));

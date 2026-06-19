@@ -123,6 +123,7 @@ test('POST /api/orders/checkout creates snapshot-based orders from backend cart 
       },
       inventoryLog: {
         create: async () => ({}),
+        createMany: async ({ data }) => ({ count: data ? data.length : 0 }),
       },
       cartItem: {
         deleteMany: async (payload) => {

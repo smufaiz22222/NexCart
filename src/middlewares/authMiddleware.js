@@ -13,6 +13,13 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ error: 'Authentication token required' });
     }
 
+    const blacklisted = await prisma.blacklistedToken.findUnique({
+      where: { token },
+    });
+    if (blacklisted) {
+      return res.status(401).json({ error: 'Token has been revoked. Please log in again.' });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -126,6 +133,13 @@ export const optionalAuthenticate = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      return next();
+    }
+
+    const blacklisted = await prisma.blacklistedToken.findUnique({
+      where: { token },
+    });
+    if (blacklisted) {
       return next();
     }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowLeft,
   BadgeIndianRupee,
@@ -27,24 +27,34 @@ export default function SellerProductDetails() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchProduct = useCallback(async () => {
+  const fetchProduct = useCallback(async (active) => {
     try {
       setIsLoading(true);
       const response = await apiClient.get(`/products/${id}`);
-      setProduct(response.data);
-      setError('');
+      if (active.current) {
+        setProduct(response.data);
+        setError('');
+      }
     } catch (fetchError) {
-      setError(fetchError.response?.data?.error || 'Failed to load product details.');
+      if (active.current) {
+        setError(fetchError.response?.data?.error || 'Failed to load product details.');
+      }
     } finally {
-      setIsLoading(false);
+      if (active.current) {
+        setIsLoading(false);
+      }
     }
   }, [id]);
 
   useEffect(() => {
-    fetchProduct();
+    const active = { current: true };
+    fetchProduct(active);
+    return () => {
+      active.current = false;
+    };
   }, [fetchProduct]);
 
-  const stockStatus = useMemo(() => {
+  const stockStatus = (() => {
     if (!product)
       return { label: 'Unknown', className: 'bg-zinc-800/60 text-zinc-300 border-zinc-700' };
     if (product.currentStock === 0)
@@ -58,7 +68,7 @@ export default function SellerProductDetails() {
       label: 'Healthy Stock',
       className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     };
-  }, [product]);
+  })();
 
   const margin = Number(product?.price || 0) - Number(product?.costPrice || 0);
 
@@ -281,9 +291,9 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const startEditing = () => {
-    const current = (product.priceTiers || []).map(t => ({
+    const current = (product.priceTiers || []).map((t) => ({
       minQuantity: t.minQuantity,
-      unitPrice: t.unitPrice
+      unitPrice: t.unitPrice,
     }));
     setEditedTiers(current.length > 0 ? current : [{ minQuantity: '', unitPrice: '' }]);
     setIsEditing(true);
@@ -333,7 +343,9 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
       }
 
       if (minQs.has(q)) {
-        toast.error(`Duplicate minimum quantity: ${q}. Each tier must have a unique minimum quantity.`);
+        toast.error(
+          `Duplicate minimum quantity: ${q}. Each tier must have a unique minimum quantity.`
+        );
         return;
       }
 
@@ -356,7 +368,9 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
     <div className="rounded-[28px] border border-zinc-800 bg-[#141414] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
       <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
         <div>
-          <h2 className="text-lg font-bold tracking-wide text-white">Wholesale Volume Pricing Tiers</h2>
+          <h2 className="text-lg font-bold tracking-wide text-white">
+            Wholesale Volume Pricing Tiers
+          </h2>
           <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wider">
             Configure tiered pricing options for B2B bulk purchases
           </p>
@@ -383,7 +397,10 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
 
           <div className="space-y-3">
             {editedTiers.map((tier, index) => (
-              <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-4 items-center animate-in fade-in slide-in-from-top-1 duration-200">
+              <div
+                key={index}
+                className="grid grid-cols-[1fr_1fr_auto] gap-4 items-center animate-in fade-in slide-in-from-top-1 duration-200"
+              >
                 <input
                   type="number"
                   value={tier.minQuantity}
@@ -456,10 +473,11 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
         </div>
       ) : (
         <div>
-          {(!product.priceTiers || product.priceTiers.length === 0) ? (
+          {!product.priceTiers || product.priceTiers.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/10 p-8 text-center flex flex-col items-center justify-center">
               <p className="text-sm text-zinc-400 max-w-md">
-                No volume discount tiers set up yet. Incentivize wholesale buyers to place bulk orders by offering discounts for higher quantities.
+                No volume discount tiers set up yet. Incentivize wholesale buyers to place bulk
+                orders by offering discounts for higher quantities.
               </p>
               <button
                 type="button"
@@ -473,9 +491,15 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               {product.priceTiers.map((tier, idx) => {
-                const savings = product.price > 0 ? Math.round(((product.price - tier.unitPrice) / product.price) * 100) : 0;
+                const savings =
+                  product.price > 0
+                    ? Math.round(((product.price - tier.unitPrice) / product.price) * 100)
+                    : 0;
                 return (
-                  <div key={tier.id || idx} className="rounded-2xl border border-zinc-800/80 bg-zinc-900/20 p-5 flex flex-col justify-between hover:border-zinc-700 transition duration-300">
+                  <div
+                    key={tier.id || idx}
+                    className="rounded-2xl border border-zinc-800/80 bg-zinc-900/20 p-5 flex flex-col justify-between hover:border-zinc-700 transition duration-300"
+                  >
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center rounded-full bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
@@ -488,7 +512,11 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
                         )}
                       </div>
                       <p className="mt-4 text-2xl font-black text-white tracking-tight">
-                        ₹{tier.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹
+                        {tier.unitPrice.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </p>
                       <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wide">
                         Unit price
@@ -496,7 +524,14 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
                     </div>
                     {savings > 0 && (
                       <div className="mt-4 pt-3 border-t border-zinc-800/50 text-xs text-zinc-400">
-                        Saves <span className="font-semibold text-emerald-400">₹{(product.price - tier.unitPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span> per unit
+                        Saves{' '}
+                        <span className="font-semibold text-emerald-400">
+                          ₹
+                          {(product.price - tier.unitPrice).toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>{' '}
+                        per unit
                       </div>
                     )}
                   </div>

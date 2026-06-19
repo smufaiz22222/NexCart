@@ -117,7 +117,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
             name="costPrice"
             validators={{
               onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0) ? 'Enter a valid cost price' : undefined,
+                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
+                  ? 'Enter a valid cost price'
+                  : undefined,
             }}
           >
             {(field) => (
@@ -129,7 +131,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
             name="currentStock"
             validators={{
               onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0) ? 'Enter a valid stock number' : undefined,
+                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0)
+                  ? 'Enter a valid stock number'
+                  : undefined,
             }}
           >
             {(field) => (
@@ -141,7 +145,9 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
             name="minStock"
             validators={{
               onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0) ? 'Enter a valid min stock alert' : undefined,
+                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0)
+                  ? 'Enter a valid min stock alert'
+                  : undefined,
             }}
           >
             {(field) => (

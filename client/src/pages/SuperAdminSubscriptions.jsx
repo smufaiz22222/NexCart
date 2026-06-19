@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import DataTable from '../components/DataTable';
 import {
   Activity,
   BadgeIndianRupee,
@@ -38,7 +40,7 @@ const formatDate = (value) => {
   }).format(new Date(value));
 };
 
-const createDefaultStartDateTime = () => {
+const _createDefaultStartDateTime = () => {
   const date = new Date();
   const timezoneOffset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - timezoneOffset * 60 * 1000);
@@ -71,6 +73,149 @@ export default function SuperAdminSubscriptions() {
   const [isCreatingCoupon, setIsCreatingCoupon] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTenantLoading, setIsTenantLoading] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Controlled states for Coupons DataTable
+  const [couponColumnVisibility, setCouponColumnVisibility] = useState({});
+  const [couponRowSelection, setCouponRowSelection] = useState({});
+
+  // Coupon table state derivation
+  const couponPage = Number(searchParams.get('coupon_page')) || 1;
+  const couponPageSize = Number(searchParams.get('coupon_pageSize')) || 10;
+  const couponPagination = useMemo(
+    () => ({
+      pageIndex: couponPage - 1,
+      pageSize: couponPageSize,
+    }),
+    [couponPage, couponPageSize]
+  );
+
+  const couponSortParam = searchParams.get('coupon_sort') || 'code:asc';
+  const couponSorting = useMemo(() => {
+    const [id, order] = couponSortParam.split(':');
+    if (!id) return [];
+    return [{ id, desc: order === 'desc' }];
+  }, [couponSortParam]);
+
+  const couponGlobalFilter = searchParams.get('coupon_q') || '';
+
+  const setCouponPagination = (updater) => {
+    const next = typeof updater === 'function' ? updater(couponPagination) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('coupon_page', String(next.pageIndex + 1));
+    nextParams.set('coupon_pageSize', String(next.pageSize));
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setCouponSorting = (updater) => {
+    const next = typeof updater === 'function' ? updater(couponSorting) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next && next.length > 0) {
+      nextParams.set('coupon_sort', `${next[0].id}:${next[0].desc ? 'desc' : 'asc'}`);
+    } else {
+      nextParams.delete('coupon_sort');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setCouponGlobalFilter = (updater) => {
+    const next = typeof updater === 'function' ? updater(couponGlobalFilter) : updater;
+    const nextParams = new URLSearchParams(searchParams);
+    if (next) {
+      nextParams.set('coupon_q', next);
+      nextParams.set('coupon_page', '1');
+    } else {
+      nextParams.delete('coupon_q');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const couponColumns = useMemo(
+    () => [
+      {
+        accessorKey: 'code',
+        header: 'Code',
+        cell: ({ getValue }) => (
+          <span className="font-bold font-mono text-zinc-800">{getValue()}</span>
+        ),
+      },
+      {
+        id: 'plan',
+        accessorFn: (row) => row.plan?.name,
+        header: 'Plan',
+        cell: ({ row }) => <span>{row.original.plan?.name}</span>,
+      },
+      {
+        accessorKey: 'durationDays',
+        header: 'Duration',
+        cell: ({ getValue }) => <span>{getValue()} days</span>,
+      },
+      {
+        accessorKey: 'expiryDate',
+        header: 'Expiry',
+        cell: ({ getValue }) => <span>{new Date(getValue()).toLocaleDateString()}</span>,
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => (row.isUsed ? 'used' : 'unused'),
+        header: 'Status',
+        cell: ({ row }) => {
+          const coupon = row.original;
+          const isExpired = new Date(coupon.expiryDate) < new Date();
+          if (coupon.isUsed) {
+            return (
+              <div className="space-y-1">
+                <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
+                  Used
+                </span>
+                <span className="block text-[10px] text-zinc-500">
+                  By: {coupon.usedBy?.businessName || 'Merchant'} (
+                  {new Date(coupon.usedAt).toLocaleDateString()})
+                </span>
+              </div>
+            );
+          }
+          if (isExpired) {
+            return (
+              <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 border border-rose-200">
+                Expired
+              </span>
+            );
+          }
+          return (
+            <span className="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800 border border-sky-200">
+              Unused
+            </span>
+          );
+        },
+      },
+      {
+        id: 'action',
+        header: '',
+        cell: ({ row }) => {
+          const coupon = row.original;
+          if (!coupon.isUsed) {
+            return (
+              <button
+                type="button"
+                onClick={() => handleDeleteCoupon(coupon.id)}
+                className="rounded p-1 text-zinc-400 hover:bg-[#efe4d3] hover:text-rose-600 transition cursor-pointer"
+                title="Delete Coupon"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            );
+          }
+          return <span className="text-xs text-zinc-400">-</span>;
+        },
+        meta: {
+          className: 'text-right pr-2',
+        },
+      },
+    ],
+    [coupons]
+  );
   const [error, setError] = useState('');
 
   const refreshWorkspace = async () => {
@@ -640,7 +785,8 @@ export default function SuperAdminSubscriptions() {
                             Create Subscription Coupon
                           </h3>
                           <p className="text-xs text-[#6b6155] mt-1">
-                            Generate unique coupon codes that wholesalers can redeem directly on their billing page to activate subscriptions.
+                            Generate unique coupon codes that wholesalers can redeem directly on
+                            their billing page to activate subscriptions.
                           </p>
                         </div>
 
@@ -649,14 +795,21 @@ export default function SuperAdminSubscriptions() {
                             <AdminField label="Coupon Code" className="flex-1">
                               <input
                                 value={couponForm.code}
-                                onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
+                                onChange={(e) =>
+                                  setCouponForm({
+                                    ...couponForm,
+                                    code: e.target.value.toUpperCase(),
+                                  })
+                                }
                                 placeholder="e.g. NEX-PREMIUM30"
                                 className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
                               />
                             </AdminField>
                             <button
                               type="button"
-                              onClick={() => setCouponForm({ ...couponForm, code: generateRandomCouponCode() })}
+                              onClick={() =>
+                                setCouponForm({ ...couponForm, code: generateRandomCouponCode() })
+                              }
                               className="h-11 px-4 rounded-xl border border-[#d8ccb9] bg-white text-xs font-bold uppercase tracking-wider text-[#5d5247] hover:bg-zinc-50 transition"
                             >
                               Generate
@@ -667,10 +820,14 @@ export default function SuperAdminSubscriptions() {
                             <AdminField label="Select Plan">
                               <select
                                 value={couponForm.planId}
-                                onChange={(e) => setCouponForm({ ...couponForm, planId: e.target.value })}
+                                onChange={(e) =>
+                                  setCouponForm({ ...couponForm, planId: e.target.value })
+                                }
                                 className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
                               >
-                                <option value="" disabled>Select a plan</option>
+                                <option value="" disabled>
+                                  Select a plan
+                                </option>
                                 {plans.map((plan) => (
                                   <option key={plan.id} value={plan.id}>
                                     {plan.name} ({plan.code})
@@ -684,7 +841,12 @@ export default function SuperAdminSubscriptions() {
                                 type="number"
                                 min="1"
                                 value={couponForm.durationDays}
-                                onChange={(e) => setCouponForm({ ...couponForm, durationDays: Number(e.target.value) })}
+                                onChange={(e) =>
+                                  setCouponForm({
+                                    ...couponForm,
+                                    durationDays: Number(e.target.value),
+                                  })
+                                }
                                 className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
                               />
                             </AdminField>
@@ -694,7 +856,9 @@ export default function SuperAdminSubscriptions() {
                             <input
                               type="date"
                               value={couponForm.expiryDate}
-                              onChange={(e) => setCouponForm({ ...couponForm, expiryDate: e.target.value })}
+                              onChange={(e) =>
+                                setCouponForm({ ...couponForm, expiryDate: e.target.value })
+                              }
                               className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
                             />
                           </AdminField>
@@ -702,7 +866,13 @@ export default function SuperAdminSubscriptions() {
                           <button
                             type="button"
                             onClick={handleCreateCoupon}
-                            disabled={!couponForm.code || !couponForm.planId || !couponForm.durationDays || !couponForm.expiryDate || isCreatingCoupon}
+                            disabled={
+                              !couponForm.code ||
+                              !couponForm.planId ||
+                              !couponForm.durationDays ||
+                              !couponForm.expiryDate ||
+                              isCreatingCoupon
+                            }
                             className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#bc6c25] py-3.5 px-4 text-sm font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 hover:bg-[#a05a1d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {isCreatingCoupon ? (
@@ -735,7 +905,9 @@ export default function SuperAdminSubscriptions() {
                           </div>
 
                           <p className="text-sm leading-6 text-zinc-300">
-                            Instead of overriding seller accounts manually, coupons put the activation power in the user's hands. Create a coupon, share the code with the wholesaler, and they can activate it themselves.
+                            Instead of overriding seller accounts manually, coupons put the
+                            activation power in the user's hands. Create a coupon, share the code
+                            with the wholesaler, and they can activate it themselves.
                           </p>
 
                           <div className="mt-5 space-y-3">
@@ -745,11 +917,15 @@ export default function SuperAdminSubscriptions() {
                             </div>
                             <div className="flex justify-between items-center text-xs text-[#8b7e70] border-b border-white/5 pb-2">
                               <span>Used Coupons</span>
-                              <span className="font-bold text-[#dda15e]">{coupons.filter(c => c.isUsed).length}</span>
+                              <span className="font-bold text-[#dda15e]">
+                                {coupons.filter((c) => c.isUsed).length}
+                              </span>
                             </div>
                             <div className="flex justify-between items-center text-xs text-[#8b7e70]">
                               <span>Unused Coupons</span>
-                              <span className="font-bold text-[#a7c957]">{coupons.filter(c => !c.isUsed).length}</span>
+                              <span className="font-bold text-[#a7c957]">
+                                {coupons.filter((c) => !c.isUsed).length}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -762,76 +938,25 @@ export default function SuperAdminSubscriptions() {
 
                     {/* Coupons List */}
                     <div className="rounded-[24px] border border-[#eadfce] bg-[#fcf7f0] p-5 shadow-sm">
-                      <h3 className="text-lg font-black text-[#221c16] mb-4">
-                        Coupon Registry
-                      </h3>
+                      <h3 className="text-lg font-black text-[#221c16] mb-4">Coupon Registry</h3>
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-[#221c16]">
-                          <thead>
-                            <tr className="border-b border-[#eadfce] text-[#8b7e70] text-xs font-bold uppercase tracking-wider">
-                              <th className="pb-3 pl-2">Code</th>
-                              <th className="pb-3">Plan</th>
-                              <th className="pb-3">Duration</th>
-                              <th className="pb-3">Expiry</th>
-                              <th className="pb-3">Status</th>
-                              <th className="pb-3 text-right pr-2">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#efe4d3]">
-                            {coupons.length > 0 ? (
-                              coupons.map((coupon) => (
-                                <tr key={coupon.id} className="hover:bg-white/40 transition">
-                                  <td className="py-3.5 pl-2 font-bold font-mono text-zinc-800">{coupon.code}</td>
-                                  <td className="py-3.5">{coupon.plan?.name}</td>
-                                  <td className="py-3.5">{coupon.durationDays} days</td>
-                                  <td className="py-3.5">{new Date(coupon.expiryDate).toLocaleDateString()}</td>
-                                  <td className="py-3.5">
-                                    {coupon.isUsed ? (
-                                      <div className="space-y-1">
-                                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
-                                          Used
-                                        </span>
-                                        <span className="block text-[10px] text-zinc-500">
-                                          By: {coupon.usedBy?.businessName || 'Merchant'} ({new Date(coupon.usedAt).toLocaleDateString()})
-                                        </span>
-                                      </div>
-                                    ) : new Date(coupon.expiryDate) < new Date() ? (
-                                      <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 border border-rose-200">
-                                        Expired
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800 border border-sky-200">
-                                        Unused
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-3.5 text-right pr-2">
-                                    {!coupon.isUsed ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteCoupon(coupon.id)}
-                                        className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-rose-600 transition"
-                                        title="Delete Coupon"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    ) : (
-                                      <span className="text-xs text-zinc-400">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan="6" className="py-8 text-center text-zinc-500">
-                                  No coupons created yet. Use the form above to generate one.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                      <DataTable
+                        columns={couponColumns}
+                        data={coupons}
+                        isLoading={false}
+                        sorting={couponSorting}
+                        setSorting={setCouponSorting}
+                        pagination={couponPagination}
+                        setPagination={setCouponPagination}
+                        globalFilter={couponGlobalFilter}
+                        setGlobalFilter={setCouponGlobalFilter}
+                        columnVisibility={couponColumnVisibility}
+                        setColumnVisibility={setCouponColumnVisibility}
+                        rowSelection={couponRowSelection}
+                        setRowSelection={setCouponRowSelection}
+                        searchPlaceholder="Search coupon code..."
+                        emptyStateMessage="No coupons found."
+                      />
                     </div>
                   </div>
                 )}

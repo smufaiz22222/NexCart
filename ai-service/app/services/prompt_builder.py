@@ -1,4 +1,5 @@
 import json
+import os
 
 from langchain_core.prompts import PromptTemplate
 
@@ -95,7 +96,7 @@ def build_rag_context_text(documents: list) -> str:
 
     chunks: list[str] = []
     for document in documents:
-        source = document.metadata.get("source", "unknown.pdf")
+        source = os.path.basename(document.metadata.get("source", "unknown.pdf"))
         page = document.metadata.get("page", "?")
         chunks.append(f"[Source: {source}, Page {page}]\n{document.page_content}")
     return "\n\n---\n\n".join(chunks)

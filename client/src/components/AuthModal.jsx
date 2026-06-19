@@ -125,7 +125,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
 
         {/* Logo and Tabs Header */}
         <div className="text-center mt-2">
-          <span className="text-xl font-black tracking-tight text-[#161412]">SHOP.CO</span>
+          <span className="text-xl font-black tracking-tight text-[#161412]">NEXCART</span>
           <p className="mt-2 text-sm text-[#6b665f]">
             Access the wholesale-to-consumer marketplace
           </p>

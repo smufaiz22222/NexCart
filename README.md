@@ -126,7 +126,7 @@ If you have Docker and Docker Compose installed, you can launch the entire stack
    ```properties
    LLM_PROVIDER=gemini
    GEMINI_API_KEY="your_gemini_api_key"
-   GEMINI_MODEL=gemini-3.5-flash
+   GEMINI_MODEL=gemini-2.5-flash
    DOCS_PATH=./app/docs
    CHROMA_PATH=./chroma_db
    INGEST_MODE=replace
