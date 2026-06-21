@@ -4,6 +4,7 @@ import {
   buildWholesalerAccessSummary,
   assertFeatureAccess,
   assertOperationalWholesaler,
+  checkAndExpireSubscription,
 } from '../services/subscriptionService.js';
 
 export const authenticate = async (req, res, next) => {
@@ -39,6 +40,12 @@ export const authenticate = async (req, res, next) => {
       return res
         .status(401)
         .json({ error: 'User for this token no longer exists. Please log in again.' });
+    }
+
+    let wholesalerProfile = user.wholesalerProfile;
+    if (user.role === 'WHOLESALER' && wholesalerProfile) {
+      wholesalerProfile = await checkAndExpireSubscription(prisma, wholesalerProfile);
+      user.wholesalerProfile = wholesalerProfile;
     }
 
     const wholesalerSummary =

@@ -11,12 +11,13 @@ export const toNumber = (value) => Number(Number(value || 0).toFixed(2));
 export const toPaise = (value) => Math.round(toNumber(value) * 100);
 
 export const getOrderPaymentMetadata = (order) => {
-  const reference = String(order?.paymentReference || '');
+  const reference = String(order?.paymentReference || '').trim();
   const [refOrderId, refPaymentId] = reference.includes(':') ? reference.split(':') : [null, null];
+  const fallbackPaymentId = reference && !refPaymentId ? reference : null;
 
   return {
     razorpayOrderId: order?.razorpayOrderId || refOrderId || null,
-    razorpayPaymentId: order?.razorpayPaymentId || refPaymentId || null,
+    razorpayPaymentId: order?.razorpayPaymentId || refPaymentId || fallbackPaymentId || null,
   };
 };
 

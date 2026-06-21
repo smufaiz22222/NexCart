@@ -1,23 +1,17 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import useAuthStore from './store/authStore';
+import useNotificationStore from './store/notificationStore';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from 'sonner';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import queryClient from './api/queryClient';
 import {
   OperationalAccessNotice,
   PremiumFeatureNotice,
 } from './components/wholesaler/WholesalerAccessPanel';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: true,
-    },
-  },
-});
+import apiClient from './api/axios';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -28,7 +22,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
-const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'));
+const RetailDashboard = lazy(() => import('./pages/RetailDashboard'));
+const BusinessDashboard = lazy(() => import('./pages/BusinessDashboard'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Ledger = lazy(() => import('./pages/Ledger'));
 const AiKhatta = lazy(() => import('./pages/AiKhatta'));
@@ -40,6 +35,7 @@ const ProductDetails = lazy(() => import('./pages/ProductDetails'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const SuperAdminSubscriptions = lazy(() => import('./pages/SuperAdminSubscriptions'));
 const WholesalerBilling = lazy(() => import('./pages/WholesalerBilling'));
+const EcommerceAccounting = lazy(() => import('./pages/EcommerceAccounting'));
 const AboutUs = lazy(() => import('./pages/AboutUs'));
 const Faq = lazy(() => import('./pages/Faq'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
@@ -47,6 +43,11 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const B2BOnboarding = lazy(() => import('./pages/B2BOnboarding'));
 const RfqManager = lazy(() => import('./pages/RfqManager'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const BuyAgain = lazy(() => import('./pages/BuyAgain'));
+const Wishlist = lazy(() => import('./pages/Wishlist'));
+const B2BCart = lazy(() => import('./pages/B2BCart'));
+const B2BOrders = lazy(() => import('./pages/B2BOrders'));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -92,8 +93,43 @@ const PremiumRoute = ({ feature, title, children }) => {
   return children;
 };
 
+const ApprovedB2BCustomerRoute = ({ children }) => {
+  const { user } = useAuthStore();
+  const hasApprovedB2BAccess =
+    user?.role === 'CUSTOMER' &&
+    user?.businessProfile?.verification === 'APPROVED' &&
+    user?.businessProfile?.status === 'ACTIVE';
+
+  if (!hasApprovedB2BAccess) {
+    return <Navigate to="/store/dashboard/b2b-onboarding" replace />;
+  }
+
+  return children;
+};
+
 function App() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, setUser } = useAuthStore();
+  const startPolling = useNotificationStore((state) => state.startPolling);
+  const stopPolling = useNotificationStore((state) => state.stopPolling);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      startPolling();
+      apiClient
+        .get('/auth/profile')
+        .then((response) => {
+          if (response.data?.user) {
+            setUser(response.data.user);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to sync user profile on mount:', error);
+        });
+    } else {
+      stopPolling();
+    }
+    return () => stopPolling();
+  }, [isAuthenticated, startPolling, stopPolling, setUser]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -126,37 +162,61 @@ function App() {
                 <Route path="cart" element={<Cart />} />
                 <Route path="product/:id" element={<ProductDetails />} />
                 <Route
+                  path="profile"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <UserProfile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="buy-again"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <BuyAgain />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="wishlist"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                      <Wishlist />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="dashboard"
                   element={
                     <ProtectedRoute allowedRoles={['CUSTOMER']}>
-                      <CustomerDashboard />
+                      <Outlet />
                     </ProtectedRoute>
                   }
-                />
-                <Route
-                  path="orders"
-                  element={
-                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
-                      <Orders />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="b2b-onboarding"
-                  element={
-                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
-                      <B2BOnboarding />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="rfqs"
-                  element={
-                    <ProtectedRoute allowedRoles={['CUSTOMER']}>
-                      <RfqManager />
-                    </ProtectedRoute>
-                  }
-                />
+                >
+                  <Route index element={<RetailDashboard />} />
+                  <Route path="orders" element={<Orders />} />
+                  <Route path="b2b-onboarding" element={<B2BOnboarding />} />
+                  <Route
+                    path="rfqs"
+                    element={
+                      <ApprovedB2BCustomerRoute>
+                        <RfqManager />
+                      </ApprovedB2BCustomerRoute>
+                    }
+                  />
+                  <Route
+                    path="b2b"
+                    element={
+                      <ApprovedB2BCustomerRoute>
+                        <Outlet />
+                      </ApprovedB2BCustomerRoute>
+                    }
+                  >
+                    <Route index element={<BusinessDashboard />} />
+                    <Route path="cart" element={<B2BCart />} />
+                    <Route path="orders" element={<B2BOrders />} />
+                  </Route>
+                </Route>
                 <Route path="about" element={<AboutUs />} />
                 <Route path="faq" element={<Faq />} />
                 <Route path="contact" element={<ContactUs />} />
@@ -225,6 +285,14 @@ function App() {
                   element={
                     <OperationalRoute>
                       <Ledger />
+                    </OperationalRoute>
+                  }
+                />
+                <Route
+                  path="ecommerce-accounting"
+                  element={
+                    <OperationalRoute>
+                      <EcommerceAccounting />
                     </OperationalRoute>
                   }
                 />

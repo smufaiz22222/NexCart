@@ -111,6 +111,57 @@ test('POST /api/orders/checkout creates snapshot-based orders from backend cart 
           return { count: data.length };
         },
       },
+      user: {
+        findUnique: async () => ({
+          id: 'user-1',
+          name: 'Asha Patel',
+          email: 'buyer@example.com',
+        }),
+      },
+      accountingAccount: {
+        findMany: async () => [
+          { id: 'acc-sales', code: 'SALES', name: 'Offline Sales', category: 'INCOME' },
+          {
+            id: 'acc-receivable',
+            code: 'RECEIVABLE',
+            name: 'Accounts Receivable',
+            category: 'ASSET',
+          },
+          { id: 'acc-bank', code: 'BANK', name: 'Bank Account', category: 'ASSET' },
+          { id: 'acc-cash', code: 'CASH', name: 'Cash in Hand', category: 'ASSET' },
+          { id: 'acc-upi', code: 'UPI', name: 'UPI Wallet', category: 'ASSET' },
+          { id: 'acc-card', code: 'CARD', name: 'Card Settlements', category: 'ASSET' },
+          { id: 'acc-payable', code: 'PAYABLE', name: 'Accounts Payable', category: 'LIABILITY' },
+          {
+            id: 'acc-unrec-dep',
+            code: 'UNRECONCILED_DEPOSITS',
+            name: 'Unreconciled Deposits',
+            category: 'ASSET',
+          },
+          {
+            id: 'acc-unrec-out',
+            code: 'UNRECONCILED_OUTFLOWS',
+            name: 'Unreconciled Outflows',
+            category: 'LIABILITY',
+          },
+          {
+            id: 'acc-purchases',
+            code: 'PURCHASES',
+            name: 'Offline Purchases',
+            category: 'EXPENSE',
+          },
+        ],
+        createMany: async () => ({ count: 1 }),
+      },
+      businessParty: {
+        findFirst: async () => null,
+        findUnique: async () => null,
+        create: async () => ({ id: 'party-1', name: 'Asha Patel' }),
+        update: async () => ({ id: 'party-1', name: 'Asha Patel' }),
+      },
+      accountingEntry: {
+        createMany: async () => ({ count: 1 }),
+      },
       invoice: {
         create: async () => ({ id: 'invoice-1' }),
       },

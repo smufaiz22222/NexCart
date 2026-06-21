@@ -15,7 +15,7 @@ const getReturnedAmount = (adjustments = []) =>
     return sum + formatCurrencyValue(adjustment.amount);
   }, 0);
 
-const buildOrderStatusSummary = (orders) => {
+const _buildOrderStatusSummary = (orders) => {
   const summary = {
     PENDING: 0,
     PROCESSING: 0,
@@ -35,7 +35,7 @@ const buildOrderStatusSummary = (orders) => {
   }));
 };
 
-const buildPaymentSummary = (orders) => {
+const _buildPaymentSummary = (orders) => {
   const summary = {
     PENDING: 0,
     PAID: 0,
@@ -54,7 +54,7 @@ const buildPaymentSummary = (orders) => {
   }));
 };
 
-const buildMonthlyRevenue = (orders) => {
+const _buildMonthlyRevenue = (orders) => {
   const buckets = new Map();
 
   for (const order of orders) {
@@ -101,96 +101,150 @@ const buildAdminPlanCatalog = (plans = []) =>
       }),
     }));
 
+let cachedOverview = null;
+let cacheExpiry = 0;
+
+export const invalidateOverviewCache = () => {
+  cachedOverview = null;
+  cacheExpiry = 0;
+};
+
+export const fetchFormattedWholesalersByIds = async (wholesalerIds) => {
+  if (!wholesalerIds || wholesalerIds.length === 0) return [];
+
+  const wholesalers = await prisma.wholesaler.findMany({
+    where: { id: { in: wholesalerIds } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+        },
+      },
+      subscriptions: {
+        include: { plan: true },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      },
+    },
+  });
+
+  const orderMap = {};
+  wholesalerIds.forEach((id, index) => {
+    orderMap[id] = index;
+  });
+  wholesalers.sort((a, b) => orderMap[a.id] - orderMap[b.id]);
+
+  const productStatsMap = new Map();
+  const orderStatsMap = new Map();
+
+  const [pStats, oStats] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT
+        "wholesalerId",
+        COUNT("id")::int AS "productCount",
+        COALESCE(SUM("currentStock"), 0)::int AS "inventoryUnits",
+        COALESCE(SUM(CAST("currentStock" AS DECIMAL) * CAST("price" AS DECIMAL)), 0)::double precision AS "inventoryValue",
+        SUM(CASE WHEN "currentStock" > 0 AND "currentStock" <= GREATEST(COALESCE("minStock", 0), 10) THEN 1 ELSE 0 END)::int AS "lowStockCount"
+      FROM "Product"
+      WHERE "wholesalerId" = ANY(${wholesalerIds})
+      GROUP BY "wholesalerId"
+    `,
+    prisma.$queryRaw`
+      SELECT
+        o."sellerId" AS "wholesalerId",
+        COUNT(o."id")::int AS "orderCount",
+        COALESCE(SUM(
+          GREATEST(0, CAST(o."totalAmount" AS DECIMAL) - COALESCE(adj."returnedAmount", 0))
+        ), 0)::double precision AS "revenue"
+      FROM "Order" o
+      LEFT JOIN (
+        SELECT "orderId", SUM(CAST("amount" AS DECIMAL)) AS "returnedAmount"
+        FROM "OrderAdjustment"
+        WHERE "type" = 'RETURN'
+        GROUP BY "orderId"
+      ) adj ON o."id" = adj."orderId"
+      WHERE o."sellerId" = ANY(${wholesalerIds})
+      GROUP BY o."sellerId"
+    `,
+  ]);
+
+  for (const row of pStats) {
+    productStatsMap.set(row.wholesalerId, row);
+  }
+  for (const row of oStats) {
+    orderStatsMap.set(row.wholesalerId, row);
+  }
+
+  return wholesalers.map((wholesaler) => {
+    const pRow = productStatsMap.get(wholesaler.id) || {
+      productCount: 0,
+      inventoryUnits: 0,
+      inventoryValue: 0.0,
+      lowStockCount: 0,
+    };
+    const oRow = orderStatsMap.get(wholesaler.id) || {
+      orderCount: 0,
+      revenue: 0.0,
+    };
+
+    return {
+      id: wholesaler.id,
+      businessName: wholesaler.businessName,
+      ownerName: wholesaler.user.name,
+      ownerEmail: wholesaler.user.email,
+      joinedAt: wholesaler.user.createdAt,
+      onboardingStatus: wholesaler.onboardingStatus,
+      businessPhone: wholesaler.businessPhone,
+      businessAddress: wholesaler.businessAddress,
+      currentSubscription: serializeSubscription(getCurrentSubscription(wholesaler)),
+      trialState: getTrialState(wholesaler),
+      productCount: pRow.productCount,
+      orderCount: oRow.orderCount,
+      inventoryUnits: pRow.inventoryUnits,
+      inventoryValue: Number(pRow.inventoryValue.toFixed(2)),
+      revenue: Number(oRow.revenue.toFixed(2)),
+      lowStockCount: pRow.lowStockCount,
+    };
+  });
+};
+
 const buildAdminOverview = async () => {
+  const now = Date.now();
+  if (cachedOverview && now < cacheExpiry) {
+    return cachedOverview;
+  }
+
   await ensureDefaultSubscriptionPlans(prisma);
 
   const [
-    users,
-    wholesalers,
-    products,
-    orders,
+    userGroups,
+    totalWholesalers,
+    totalProducts,
+    totalOrders,
     lowStockProducts,
     outOfStockProducts,
     openIssues,
     pendingApplications,
     subscriptionPlans,
+    activePaidSubscriptions,
+    activeTrials,
+    ordersSummaryData,
+    totalInventoryValueResult,
+    topWholesalersRows,
+    overviewWholesalerIdsQuery,
   ] = await Promise.all([
-    prisma.user.findMany({
-      select: {
-        id: true,
-        role: true,
-        createdAt: true,
-      },
+    prisma.user.groupBy({
+      by: ['role'],
+      _count: { _all: true },
     }),
-    prisma.wholesaler.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            createdAt: true,
-          },
-        },
-        products: {
-          select: {
-            id: true,
-            currentStock: true,
-            minStock: true,
-            price: true,
-          },
-        },
-        orders: {
-          select: {
-            id: true,
-            totalAmount: true,
-            status: true,
-            createdAt: true,
-            adjustments: {
-              select: {
-                amount: true,
-                type: true,
-              },
-            },
-          },
-        },
-        subscriptions: {
-          include: { plan: true },
-          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.product.findMany({
-      select: {
-        id: true,
-        currentStock: true,
-        minStock: true,
-        price: true,
-        createdAt: true,
-      },
-    }),
-    prisma.order.findMany({
-      select: {
-        id: true,
-        status: true,
-        paymentStatus: true,
-        totalAmount: true,
-        createdAt: true,
-        adjustments: {
-          select: {
-            amount: true,
-            type: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
+    prisma.wholesaler.count(),
+    prisma.product.count(),
+    prisma.order.count(),
     prisma.product.count({
       where: {
-        currentStock: {
-          gt: 0,
-        },
+        currentStock: { gt: 0 },
         OR: [
           { minStock: { gt: 0 }, currentStock: { lte: 10 } },
           { minStock: { lte: 10 }, currentStock: { lte: 10 } },
@@ -202,9 +256,7 @@ const buildAdminOverview = async () => {
     }),
     prisma.orderIssue.count({
       where: {
-        status: {
-          in: ['OPEN', 'IN_REVIEW'],
-        },
+        status: { in: ['OPEN', 'IN_REVIEW'] },
       },
     }),
     prisma.wholesaler.findMany({
@@ -224,102 +276,170 @@ const buildAdminOverview = async () => {
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
+    prisma.wholesalerSubscription.count({
+      where: {
+        status: 'ACTIVE',
+        plan: { code: { not: 'TRIAL' } },
+      },
+    }),
+    prisma.wholesalerSubscription.count({
+      where: {
+        status: 'ACTIVE',
+        plan: { code: 'TRIAL' },
+      },
+    }),
+    prisma.order.findMany({
+      select: {
+        status: true,
+        paymentStatus: true,
+        totalAmount: true,
+        createdAt: true,
+        adjustments: {
+          where: { type: 'RETURN' },
+          select: { amount: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM("currentStock" * "price"), 0) AS "totalValue" FROM "Product"
+    `,
+    prisma.$queryRaw`
+      SELECT
+        w."id" AS "wholesalerId",
+        COALESCE(SUM(
+          GREATEST(0, CAST(o."totalAmount" AS DECIMAL) - COALESCE(adj."returnedAmount", 0))
+        ), 0)::double precision AS "revenue"
+      FROM "Wholesaler" w
+      LEFT JOIN "Order" o ON w."id" = o."sellerId"
+      LEFT JOIN (
+        SELECT "orderId", SUM(CAST("amount" AS DECIMAL)) AS "returnedAmount"
+        FROM "OrderAdjustment"
+        WHERE "type" = 'RETURN'
+        GROUP BY "orderId"
+      ) adj ON o."id" = adj."orderId"
+      GROUP BY w."id"
+      ORDER BY "revenue" DESC
+      LIMIT 5
+    `,
+    prisma.wholesaler.findMany({
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }),
   ]);
 
-  const totalCustomers = users.filter((user) => user.role === 'CUSTOMER').length;
-  const totalSuperAdmins = users.filter((user) => user.role === 'SUPER_ADMIN').length;
-  const totalRevenue = orders.reduce(
-    (sum, order) =>
-      sum +
-      Math.max(0, formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)),
-    0
-  );
-  const totalInventoryValue = products.reduce(
-    (sum, product) => sum + product.currentStock * Number(product.price || 0),
-    0
-  );
+  let totalCustomers = 0;
+  let totalSuperAdmins = 0;
+  for (const group of userGroups) {
+    if (group.role === 'CUSTOMER') totalCustomers = group._count._all;
+    if (group.role === 'SUPER_ADMIN') totalSuperAdmins = group._count._all;
+  }
 
-  const wholesalerDirectory = wholesalers.map((wholesaler) => {
-    const revenue = wholesaler.orders.reduce(
-      (sum, order) =>
-        sum +
-        Math.max(0, formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)),
+  let totalRevenue = 0;
+  const orderStatusCounts = {
+    PENDING: 0,
+    PROCESSING: 0,
+    SHIPPED: 0,
+    DELIVERED: 0,
+    CANCELLED: 0,
+    RETURN_COMPLETED: 0,
+  };
+  const paymentStatusCounts = {
+    PENDING: 0,
+    PAID: 0,
+    FAILED: 0,
+    REFUND_PENDING: 0,
+    REFUNDED: 0,
+  };
+  const monthlyBuckets = new Map();
+
+  for (const order of ordersSummaryData) {
+    const orderTotal = formatCurrencyValue(order.totalAmount);
+    const orderReturnAmount = order.adjustments.reduce(
+      (sum, adj) => sum + formatCurrencyValue(adj.amount),
       0
     );
-    const inventoryUnits = wholesaler.products.reduce(
-      (sum, product) => sum + product.currentStock,
-      0
-    );
-    const inventoryValue = wholesaler.products.reduce(
-      (sum, product) => sum + product.currentStock * Number(product.price || 0),
-      0
-    );
-    const lowStockCount = wholesaler.products.filter(
-      (product) =>
-        product.currentStock > 0 && product.currentStock <= Math.max(product.minStock || 0, 10)
-    ).length;
+    const netAmount = Math.max(0, orderTotal - orderReturnAmount);
 
-    return {
-      id: wholesaler.id,
-      businessName: wholesaler.businessName,
-      ownerName: wholesaler.user.name,
-      ownerEmail: wholesaler.user.email,
-      joinedAt: wholesaler.user.createdAt,
-      onboardingStatus: wholesaler.onboardingStatus,
-      businessPhone: wholesaler.businessPhone,
-      businessAddress: wholesaler.businessAddress,
-      currentSubscription: serializeSubscription(getCurrentSubscription(wholesaler)),
-      trialState: getTrialState(wholesaler),
-      productCount: wholesaler.products.length,
-      orderCount: wholesaler.orders.length,
-      inventoryUnits,
-      inventoryValue: Number(inventoryValue.toFixed(2)),
-      revenue: Number(revenue.toFixed(2)),
-      lowStockCount,
-    };
-  });
+    totalRevenue += netAmount;
 
-  const topWholesalers = [...wholesalerDirectory]
-    .sort((left, right) => right.revenue - left.revenue)
-    .slice(0, 5);
+    if (orderStatusCounts[order.status] !== undefined) {
+      orderStatusCounts[order.status]++;
+    }
+    if (paymentStatusCounts[order.paymentStatus] !== undefined) {
+      paymentStatusCounts[order.paymentStatus]++;
+    }
 
-  return {
+    const date = new Date(order.createdAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const current = monthlyBuckets.get(key) || { revenue: 0, orders: 0 };
+    current.revenue += netAmount;
+    current.orders += 1;
+    monthlyBuckets.set(key, current);
+  }
+
+  const orderStatusSummary = Object.entries(orderStatusCounts).map(([status, count]) => ({
+    status,
+    count,
+  }));
+  const paymentSummary = Object.entries(paymentStatusCounts).map(([status, count]) => ({
+    status,
+    count,
+  }));
+  const monthlyRevenueSummary = [...monthlyBuckets.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .slice(-6)
+    .map(([month, value]) => ({
+      month,
+      revenue: Number(value.revenue.toFixed(2)),
+      orders: value.orders,
+    }));
+
+  const totalInventoryValue = Number(totalInventoryValueResult[0]?.totalValue || 0);
+
+  const topWholesalerIds = topWholesalersRows.map((row) => row.wholesalerId);
+  const overviewWholesalerIds = overviewWholesalerIdsQuery.map((w) => w.id);
+
+  const [topWholesalers, wholesalersList] = await Promise.all([
+    fetchFormattedWholesalersByIds(topWholesalerIds),
+    fetchFormattedWholesalersByIds(overviewWholesalerIds),
+  ]);
+
+  const payload = {
     totals: {
-      totalWholesalers: wholesalers.length,
+      totalWholesalers,
       totalCustomers,
       totalSuperAdmins,
-      totalProducts: products.length,
-      totalOrders: orders.length,
+      totalProducts,
+      totalOrders,
       totalRevenue: Number(totalRevenue.toFixed(2)),
       totalInventoryValue: Number(totalInventoryValue.toFixed(2)),
       lowStockProducts,
       outOfStockProducts,
       openIssues,
       pendingApplications: pendingApplications.length,
-      activePaidSubscriptions: wholesalerDirectory.filter(
-        (item) =>
-          item.currentSubscription?.status === 'ACTIVE' &&
-          item.currentSubscription?.plan?.code !== 'TRIAL'
-      ).length,
-      activeTrials: wholesalerDirectory.filter(
-        (item) =>
-          item.currentSubscription?.status === 'ACTIVE' &&
-          item.currentSubscription?.plan?.code === 'TRIAL'
-      ).length,
+      activePaidSubscriptions,
+      activeTrials,
     },
     charts: {
-      orderStatus: buildOrderStatusSummary(orders),
-      paymentStatus: buildPaymentSummary(orders),
-      monthlyRevenue: buildMonthlyRevenue(orders),
+      orderStatus: orderStatusSummary,
+      paymentStatus: paymentSummary,
+      monthlyRevenue: monthlyRevenueSummary,
     },
     topWholesalers,
-    wholesalers: wholesalerDirectory,
+    wholesalers: wholesalersList,
     pendingApplications,
     subscriptionPlans: buildAdminPlanCatalog(subscriptionPlans),
   };
+
+  cachedOverview = payload;
+  cacheExpiry = Date.now() + 60000; // 60 seconds
+
+  return payload;
 };
 
-export const getGlobalStats = async (_req, res) => {
+export const getGlobalStats = async (req, res) => {
   try {
     const payload = await buildAdminOverview();
     res.status(200).json(payload);
@@ -329,14 +449,42 @@ export const getGlobalStats = async (_req, res) => {
   }
 };
 
-export const getAllWholesalers = async (_req, res) => {
+export const getAllWholesalers = async (req, res) => {
   try {
-    const payload = await buildAdminOverview();
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+    const search = req.query.search ? String(req.query.search).trim() : '';
+
+    const where = {};
+    if (search) {
+      where.OR = [
+        { businessName: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [wholesalersQuery, totalCount] = await Promise.all([
+      prisma.wholesaler.findMany({
+        where,
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.wholesaler.count({ where }),
+    ]);
+
+    const wholesalerIds = wholesalersQuery.map((w) => w.id);
+    const formattedWholesalers = await fetchFormattedWholesalersByIds(wholesalerIds);
 
     res.status(200).json({
-      count: payload.wholesalers.length,
-      wholesalers: payload.wholesalers,
-      topWholesalers: payload.topWholesalers,
+      count: totalCount,
+      wholesalers: formattedWholesalers,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
     console.error('Get All Wholesalers Error:', error);
@@ -535,6 +683,7 @@ export const approveWholesalerApplication = async (req, res) => {
       },
     });
 
+    invalidateOverviewCache();
     res.status(200).json({ wholesaler });
   } catch (error) {
     console.error('Approve Wholesaler Application Error:', error);
@@ -559,6 +708,7 @@ export const rejectWholesalerApplication = async (req, res) => {
       },
     });
 
+    invalidateOverviewCache();
     res.status(200).json({ wholesaler });
   } catch (error) {
     console.error('Reject Wholesaler Application Error:', error);
@@ -593,6 +743,7 @@ export const updateWholesalerLifecycle = async (req, res) => {
       },
     });
 
+    invalidateOverviewCache();
     res.status(200).json({ wholesaler: updated });
   } catch (error) {
     console.error('Update Wholesaler Lifecycle Error:', error);
@@ -654,7 +805,9 @@ export const createCoupon = async (req, res) => {
     const { code, planId, durationDays, expiryDate } = req.body || {};
 
     if (!code || !planId || !durationDays || !expiryDate) {
-      return res.status(400).json({ error: 'All fields (code, planId, durationDays, expiryDate) are required.' });
+      return res
+        .status(400)
+        .json({ error: 'All fields (code, planId, durationDays, expiryDate) are required.' });
     }
 
     const existing = await prisma.coupon.findUnique({

@@ -46,15 +46,42 @@ const getRazorpayApiPrototype = () =>
 const withMockedRazorpayPost = async (mockHandler, run) => {
   const apiPrototype = getRazorpayApiPrototype();
   const originalPost = apiPrototype.post;
+  const originalGet = apiPrototype.get;
 
   apiPrototype.post = function mockedPost(params, callback) {
     return mockHandler.call(this, params, callback, originalPost.bind(this));
+  };
+
+  apiPrototype.get = function mockedGet(params, callback) {
+    const url = params.url || '';
+    let responsePromise;
+    if (url.includes('/payments/')) {
+      const paymentId = url.split('/').pop();
+      responsePromise = Promise.resolve({
+        id: paymentId,
+        status: 'captured',
+        refund_status: null,
+      });
+    } else {
+      responsePromise = Promise.resolve({
+        items: [],
+      });
+    }
+
+    if (typeof callback === 'function') {
+      responsePromise.then(
+        (res) => callback(null, res),
+        (err) => callback(err)
+      );
+    }
+    return responsePromise;
   };
 
   try {
     return await run();
   } finally {
     apiPrototype.post = originalPost;
+    apiPrototype.get = originalGet;
   }
 };
 
@@ -332,26 +359,6 @@ const createPrepaidOrderFixture = async (
     },
   });
 
-  await prisma.ledgerEntry.create({
-    data: {
-      wholesalerId: wholesaler.id,
-      userId: buyer.id,
-      amount: -totalAmount,
-      description: `Marketplace Order ${order.id}`,
-      referenceId: invoice.id,
-    },
-  });
-
-  await prisma.ledgerEntry.create({
-    data: {
-      wholesalerId: wholesaler.id,
-      userId: buyer.id,
-      amount: totalAmount,
-      description: `Marketplace Prepaid Payment ${order.id}`,
-      referenceId: invoice.id,
-    },
-  });
-
   await prisma.inventoryLog.createMany({
     data: items.map((item, index) => ({
       wholesalerId: wholesaler.id,
@@ -515,25 +522,7 @@ test('prepaid checkout to item cancellation updates database, seller stats, and 
           where: { wholesalerId: fixture.wholesalerId },
           orderBy: { createdAt: 'asc' },
         });
-        assert.equal(ledgerEntries.length, 3);
-        assert.equal(
-          ledgerEntries.filter((entry) =>
-            entry.description.includes(
-              `Marketplace Order Item Cancellation ${createdOrder.id}:${itemToCancel.id}`
-            )
-          ).length,
-          1
-        );
-        assert.equal(
-          toNumber(
-            ledgerEntries.find((entry) =>
-              entry.description.includes(
-                `Marketplace Order Item Cancellation ${createdOrder.id}:${itemToCancel.id}`
-              )
-            ).amount
-          ),
-          300
-        );
+        assert.equal(ledgerEntries.length, 0);
 
         const afterStatsResponse = await request(app)
           .get('/api/stats/advanced-summary?timeframe=monthly')
@@ -626,14 +615,7 @@ test('concurrent cancellation requests restore stock and ledger exactly once', a
         assert.equal(order.items[0].refundReference, `rfnd_${tag}`);
         assert.equal(product.currentStock, 5);
         assert.equal(cancellationLogs.length, 1);
-        assert.equal(
-          reversalEntries.filter((entry) =>
-            entry.description.includes(
-              `Marketplace Order Item Cancellation ${fixture.orderId}:${fixture.itemIds[0]}`
-            )
-          ).length,
-          1
-        );
+        assert.equal(reversalEntries.length, 0);
       } finally {
         await cleanupFixture(fixture);
       }
@@ -730,6 +712,61 @@ test('retrying a failed refund only changes refund metadata', async () => {
     assert.equal(itemAfterRetry.refundStatus, 'REFUNDED');
     assert.equal(itemAfterRetry.refundReference, `rfnd_${tag}`);
     assert.equal(toNumber(itemAfterRetry.refundedAmount), 300);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+test('auto refund still works for prepaid orders with legacy bare paymentReference values', async () => {
+  const tag = createTag('legacy-ref');
+  const fixture = await createPrepaidOrderFixture(tag, {
+    items: [
+      {
+        name: `Legacy ${tag}`,
+        unitPrice: 300,
+        quantity: 1,
+        currentStockAfterSale: 4,
+      },
+    ],
+  });
+
+  try {
+    await prisma.order.update({
+      where: { id: fixture.orderId },
+      data: {
+        razorpayPaymentId: null,
+        paymentReference: `pay_${tag}`,
+      },
+    });
+
+    await withMockedRazorpayPost(
+      async ({ url, data }) => {
+        if (url === `/payments/pay_${tag}/refund`) {
+          return {
+            id: `rfnd_${tag}`,
+            amount: data.amount,
+            status: 'processed',
+            created_at: 1718500000,
+            processed_at: 1718500100,
+          };
+        }
+
+        throw new Error(`Unexpected Razorpay POST: ${url}`);
+      },
+      async () => {
+        const result = await cancelOrderItemForCustomer({
+          buyerId: fixture.buyerId,
+          orderId: fixture.orderId,
+          itemId: fixture.itemIds[0],
+          reason: 'Legacy payment reference regression',
+          client: prisma,
+        });
+
+        assert.equal(result.item.status, 'CANCELLED');
+        assert.equal(result.item.refundStatus, 'REFUNDED');
+        assert.equal(result.item.refundReference, `rfnd_${tag}`);
+      }
+    );
   } finally {
     await cleanupFixture(fixture);
   }

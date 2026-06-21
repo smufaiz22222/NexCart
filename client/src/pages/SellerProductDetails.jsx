@@ -27,24 +27,27 @@ export default function SellerProductDetails() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchProduct = useCallback(async (active) => {
-    try {
-      setIsLoading(true);
-      const response = await apiClient.get(`/products/${id}`);
-      if (active.current) {
-        setProduct(response.data);
-        setError('');
+  const fetchProduct = useCallback(
+    async (active) => {
+      try {
+        setIsLoading(true);
+        const response = await apiClient.get(`/products/${id}`);
+        if (active.current) {
+          setProduct(response.data);
+          setError('');
+        }
+      } catch (fetchError) {
+        if (active.current) {
+          setError(fetchError.response?.data?.error || 'Failed to load product details.');
+        }
+      } finally {
+        if (active.current) {
+          setIsLoading(false);
+        }
       }
-    } catch (fetchError) {
-      if (active.current) {
-        setError(fetchError.response?.data?.error || 'Failed to load product details.');
-      }
-    } finally {
-      if (active.current) {
-        setIsLoading(false);
-      }
-    }
-  }, [id]);
+    },
+    [id]
+  );
 
   useEffect(() => {
     const active = { current: true };
@@ -200,6 +203,14 @@ export default function SellerProductDetails() {
                 <DetailCard
                   label="Last Updated"
                   value={new Date(product.updatedAt).toLocaleString()}
+                />
+                <DetailCard
+                  label="Delivery Fee Override"
+                  value={
+                    product.deliveryFee !== null && product.deliveryFee !== undefined
+                      ? `₹${Number(product.deliveryFee).toFixed(2)} / item`
+                      : 'Default (Profile Config)'
+                  }
                 />
               </div>
             </div>

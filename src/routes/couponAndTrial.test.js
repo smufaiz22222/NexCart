@@ -22,12 +22,14 @@ const createTag = (label) =>
 const cleanupFixture = async (fixture) => {
   if (!fixture) return;
   const userIds = [fixture.wholesalerUserId, fixture.adminUserId].filter(Boolean);
-  
+
   if (fixture.couponId) {
     await prisma.coupon.deleteMany({ where: { id: fixture.couponId } });
   }
   if (fixture.wholesalerId) {
-    await prisma.wholesalerSubscription.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
+    await prisma.wholesalerSubscription.deleteMany({
+      where: { wholesalerId: fixture.wholesalerId },
+    });
     await prisma.subscriptionPayment.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
     await prisma.wholesaler.deleteMany({ where: { id: fixture.wholesalerId } });
   }
@@ -36,9 +38,9 @@ const cleanupFixture = async (fixture) => {
   }
 };
 
-test('Coupon and Trial Activation Integration Test Flow', async (t) => {
+test('Coupon and Trial Activation Integration Test Flow', async () => {
   const tag = createTag('sub');
-  
+
   // 1. Create a wholesaler user in APPLIED state (not operational yet)
   const wholesalerUser = await prisma.user.create({
     data: {
@@ -80,16 +82,24 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
     const statsResponseBefore = await request(app)
       .get('/api/inventory')
       .set('Authorization', `Bearer ${merchantToken}`);
-    assert.equal(statsResponseBefore.status, 403, 'Inventory should be locked for APPLIED wholesaler');
+    assert.equal(
+      statsResponseBefore.status,
+      403,
+      'Inventory should be locked for APPLIED wholesaler'
+    );
     assert.match(statsResponseBefore.body.error, /not operational/i);
 
     // 3. Start Free Trial
     const trialResponse = await request(app)
       .post('/api/subscriptions/trial/start')
       .set('Authorization', `Bearer ${merchantToken}`);
-    
+
     assert.equal(trialResponse.status, 200);
-    assert.equal(trialResponse.body.onboardingStatus, 'ACTIVE', 'Onboarding status should update to ACTIVE on trial start');
+    assert.equal(
+      trialResponse.body.onboardingStatus,
+      'ACTIVE',
+      'Onboarding status should update to ACTIVE on trial start'
+    );
     assert.equal(trialResponse.body.subscription.purchaseMethod, 'TRIAL');
 
     // 4. Verify that inventory is now unlocked
@@ -102,9 +112,9 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
     const plansResponse = await request(app)
       .get('/api/admin/subscriptions/plans')
       .set('Authorization', `Bearer ${adminToken}`);
-    
+
     assert.equal(plansResponse.status, 200);
-    const standardPlan = plansResponse.body.plans.find(p => p.code === 'STANDARD');
+    const standardPlan = plansResponse.body.plans.find((p) => p.code === 'STANDARD');
     assert.ok(standardPlan, 'Standard plan should exist');
 
     // 6. Admin creates a Coupon for Standard plan for 30 days
@@ -118,7 +128,7 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
         durationDays: 30,
         expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
       });
-    
+
     assert.equal(createCouponResponse.status, 201);
     assert.equal(createCouponResponse.body.coupon.code, couponCode);
     fixture.couponId = createCouponResponse.body.coupon.id;
@@ -128,7 +138,7 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
       .post('/api/subscriptions/coupons/validate')
       .set('Authorization', `Bearer ${merchantToken}`)
       .send({ code: couponCode });
-    
+
     assert.equal(validateResponse.status, 200);
     assert.equal(validateResponse.body.code, couponCode);
     assert.equal(validateResponse.body.durationDays, 30);
@@ -139,7 +149,7 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
       .post('/api/subscriptions/coupons/activate')
       .set('Authorization', `Bearer ${merchantToken}`)
       .send({ code: couponCode });
-    
+
     assert.equal(activateResponse.status, 200);
     assert.equal(activateResponse.body.onboardingStatus, 'ACTIVE');
     assert.equal(activateResponse.body.subscription.plan.code, 'STANDARD');
@@ -150,7 +160,7 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
       .post('/api/subscriptions/coupons/validate')
       .set('Authorization', `Bearer ${merchantToken}`)
       .send({ code: couponCode });
-    
+
     assert.equal(validateAgainResponse.status, 400);
     assert.match(validateAgainResponse.body.error, /already been used/i);
 
@@ -158,13 +168,99 @@ test('Coupon and Trial Activation Integration Test Flow', async (t) => {
     const getCouponsResponse = await request(app)
       .get('/api/admin/coupons')
       .set('Authorization', `Bearer ${adminToken}`);
-    
+
     assert.equal(getCouponsResponse.status, 200);
-    const dbCoupon = getCouponsResponse.body.coupons.find(c => c.code === couponCode);
+    const dbCoupon = getCouponsResponse.body.coupons.find((c) => c.code === couponCode);
     assert.ok(dbCoupon);
     assert.equal(dbCoupon.isUsed, true);
     assert.equal(dbCoupon.usedBy.id, wholesalerId);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
 
+test('Trial Auto-Expiration and Lockout Integration Test Flow', async () => {
+  const tag = createTag('expire');
+
+  const wholesalerUser = await prisma.user.create({
+    data: {
+      email: `${tag}-merchant@example.com`,
+      password: 'password',
+      name: `Merchant ${tag}`,
+      role: 'WHOLESALER',
+      wholesalerProfile: {
+        create: {
+          businessName: `Merchant Store ${tag}`,
+          onboardingStatus: 'APPLIED',
+        },
+      },
+    },
+    include: { wholesalerProfile: true },
+  });
+
+  const wholesalerId = wholesalerUser.wholesalerProfile.id;
+  const merchantToken = makeToken(wholesalerUser.id, 'WHOLESALER');
+
+  const fixture = {
+    wholesalerUserId: wholesalerUser.id,
+    wholesalerId,
+  };
+
+  try {
+    // 1. Start Trial
+    const startResponse = await request(app)
+      .post('/api/subscriptions/trial/start')
+      .set('Authorization', `Bearer ${merchantToken}`);
+    assert.equal(startResponse.status, 200);
+    assert.equal(startResponse.body.onboardingStatus, 'ACTIVE');
+    assert.equal(startResponse.body.subscription.status, 'ACTIVE');
+
+    // 2. Manually adjust end dates to the past in database
+    await prisma.wholesalerSubscription.updateMany({
+      where: { wholesalerId },
+      data: {
+        currentPeriodEnd: new Date(Date.now() - 1000), // 1 second ago
+      },
+    });
+
+    await prisma.wholesaler.update({
+      where: { id: wholesalerId },
+      data: {
+        trialEndsAt: new Date(Date.now() - 1000),
+      },
+    });
+
+    // 3. Fetch summary (this triggers database expiration sync)
+    const summaryResponse = await request(app)
+      .get('/api/subscriptions/me')
+      .set('Authorization', `Bearer ${merchantToken}`);
+
+    assert.equal(summaryResponse.status, 200);
+    assert.equal(summaryResponse.body.subscription.status, 'EXPIRED');
+    assert.equal(summaryResponse.body.onboardingStatus, 'PAST_DUE');
+    assert.equal(summaryResponse.body.featureAccess.khatta, false);
+    assert.equal(summaryResponse.body.featureAccess.advisor, false);
+
+    // 4. Verify database values have updated
+    const dbSub = await prisma.wholesalerSubscription.findFirst({
+      where: { wholesalerId },
+    });
+    assert.equal(dbSub.status, 'EXPIRED');
+
+    const dbWholesaler = await prisma.wholesaler.findUnique({
+      where: { id: wholesalerId },
+    });
+    assert.equal(dbWholesaler.onboardingStatus, 'PAST_DUE');
+
+    // 5. Try accessing a premium endpoint (should return 403 with status/featureAccess payloads)
+    const premiumResponse = await request(app)
+      .post('/api/khatta/save')
+      .set('Authorization', `Bearer ${merchantToken}`)
+      .send({ entries: [] });
+
+    assert.equal(premiumResponse.status, 403);
+    assert.equal(premiumResponse.body.onboardingStatus, 'PAST_DUE');
+    assert.equal(premiumResponse.body.featureAccess.khatta, false);
   } finally {
     await cleanupFixture(fixture);
   }

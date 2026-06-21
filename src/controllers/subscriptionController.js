@@ -8,6 +8,7 @@ import {
   verifyCheckoutPayment,
   validateCouponCode,
   activateCouponSubscription,
+  checkAndExpireSubscription,
 } from '../services/subscriptionService.js';
 
 export const getSubscriptionPlans = async (req, res) => {
@@ -39,7 +40,9 @@ export const getSubscriptionSummary = async (req, res) => {
       return res.status(404).json({ error: 'Wholesaler not found' });
     }
 
-    res.status(200).json(buildWholesalerAccessSummary(wholesaler));
+    const syncedWholesaler = await checkAndExpireSubscription(prisma, wholesaler);
+
+    res.status(200).json(buildWholesalerAccessSummary(syncedWholesaler));
   } catch (error) {
     console.error('Get Subscription Summary Error:', error);
     res.status(500).json({ error: 'Failed to load subscription summary.' });

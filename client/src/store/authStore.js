@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import apiClient from '../api/axios.js';
 import useCartStore from './cartStore.js';
+import queryClient from '../api/queryClient.js';
 
 const useAuthStore = create(
   persist(
@@ -20,6 +21,9 @@ const useAuthStore = create(
 
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(user));
+
+          // Clear query client cache to prevent session data leaks
+          queryClient.clear();
 
           set({ user, token, isAuthenticated: true, isLoading: false, error: null });
 
@@ -68,6 +72,8 @@ const useAuthStore = create(
         } finally {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          // Clear query client cache to prevent session data leaks
+          queryClient.clear();
           set({ user: null, token: null, isAuthenticated: false });
         }
       },

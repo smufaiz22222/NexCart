@@ -5,11 +5,11 @@ import RetailDashboard from './RetailDashboard';
 export default function CustomerDashboard() {
   const { user } = useAuthStore();
 
-  const isB2BApproved =
+  const hasApprovedB2BAccess =
     user?.businessProfile?.verification === 'APPROVED' &&
     user?.businessProfile?.status === 'ACTIVE';
 
-  if (isB2BApproved) {
+  if (hasApprovedB2BAccess) {
     return <BusinessDashboard />;
   }
 

@@ -144,3 +144,45 @@ test('retryOrderItemRefundForCustomer rejects unauthorized access', async () => 
     /Not authorized/
   );
 });
+
+test('retryOrderItemRefundForCustomer does not resend refunds that are still pending', async () => {
+  let attemptedRetry = false;
+  const fakeClient = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-1',
+        buyerId: 'buyer-1',
+        paymentMethod: 'PREPAID',
+        items: [
+          {
+            id: 'item-1',
+            status: 'CANCELLED',
+            refundStatus: 'PENDING',
+          },
+        ],
+        invoice: null,
+        issues: [],
+      }),
+    },
+  };
+
+  const result = await retryOrderItemRefundForCustomer({
+    buyerId: 'buyer-1',
+    orderId: 'order-1',
+    itemId: 'item-1',
+    client: new Proxy(fakeClient, {
+      get(target, prop, receiver) {
+        if (prop === 'orderItem') {
+          attemptedRetry = true;
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    }),
+  });
+
+  assert.equal(attemptedRetry, false);
+  assert.equal(
+    result.message,
+    'Refund is already pending. Please wait for it to settle before retrying.'
+  );
+});

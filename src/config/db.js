@@ -15,7 +15,7 @@ async function updateCachedBalance(client, wholesalerId, userId) {
     where: { wholesalerId, userId },
     _sum: { amount: true },
   });
-  const balance = aggregation._sum.amount ? aggregation._sum.amount : 0.00;
+  const balance = aggregation._sum.amount ? aggregation._sum.amount : 0.0;
   await client.wholesalerCreditLimit.upsert({
     where: {
       wholesalerId_buyerId: { wholesalerId, buyerId: userId },
@@ -27,7 +27,7 @@ async function updateCachedBalance(client, wholesalerId, userId) {
       wholesalerId,
       buyerId: userId,
       balance,
-      creditLimit: 50000.00,
+      creditLimit: 50000.0,
     },
   });
 }
@@ -37,7 +37,7 @@ let prismaClient = basePrismaClient.$extends(
     return client.$extends({
       query: {
         ledgerEntry: {
-          async create({ model, operation, args, query }) {
+          async create({ model: _model, operation: _operation, args, query }) {
             const result = await query(args);
             try {
               if (result && result.wholesalerId && result.userId) {
@@ -48,7 +48,7 @@ let prismaClient = basePrismaClient.$extends(
             }
             return result;
           },
-          async createMany({ model, operation, args, query }) {
+          async createMany({ model: _model, operation: _operation, args, query }) {
             const result = await query(args);
             try {
               if (args && Array.isArray(args.data)) {
@@ -68,7 +68,7 @@ let prismaClient = basePrismaClient.$extends(
             }
             return result;
           },
-          async update({ model, operation, args, query }) {
+          async update({ model: _model, operation: _operation, args, query }) {
             const result = await query(args);
             try {
               if (result && result.wholesalerId && result.userId) {
@@ -79,7 +79,7 @@ let prismaClient = basePrismaClient.$extends(
             }
             return result;
           },
-          async updateMany({ model, operation, args, query }) {
+          async updateMany({ model: _model, operation: _operation, args, query }) {
             let entries = [];
             try {
               entries = await client.ledgerEntry.findMany({
@@ -106,7 +106,7 @@ let prismaClient = basePrismaClient.$extends(
             }
             return result;
           },
-          async upsert({ model, operation, args, query }) {
+          async upsert({ model: _model, operation: _operation, args, query }) {
             const result = await query(args);
             try {
               if (result && result.wholesalerId && result.userId) {
@@ -117,7 +117,7 @@ let prismaClient = basePrismaClient.$extends(
             }
             return result;
           },
-          async delete({ model, operation, args, query }) {
+          async delete({ model: _model, operation: _operation, args, query }) {
             const result = await query(args);
             try {
               if (result && result.wholesalerId && result.userId) {
@@ -128,7 +128,7 @@ let prismaClient = basePrismaClient.$extends(
             }
             return result;
           },
-          async deleteMany({ model, operation, args, query }) {
+          async deleteMany({ model: _model, operation: _operation, args, query }) {
             let entries = [];
             try {
               entries = await client.ledgerEntry.findMany({

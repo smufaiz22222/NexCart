@@ -5,6 +5,7 @@ import request from 'supertest';
 import Razorpay from 'razorpay';
 import { app } from '../app.js';
 import { prisma } from '../config/db.js';
+import { recordMarketplaceOrderCharge } from '../services/accountingService.js';
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
@@ -29,15 +30,42 @@ const getRazorpayApiPrototype = () =>
 const withMockedRazorpayPost = async (mockHandler, run) => {
   const apiPrototype = getRazorpayApiPrototype();
   const originalPost = apiPrototype.post;
+  const originalGet = apiPrototype.get;
 
   apiPrototype.post = function mockedPost(params, callback) {
     return mockHandler.call(this, params, callback, originalPost.bind(this));
+  };
+
+  apiPrototype.get = function mockedGet(params, callback) {
+    const url = params.url || '';
+    let responsePromise;
+    if (url.includes('/payments/')) {
+      const paymentId = url.split('/').pop();
+      responsePromise = Promise.resolve({
+        id: paymentId,
+        status: 'captured',
+        refund_status: null,
+      });
+    } else {
+      responsePromise = Promise.resolve({
+        items: [],
+      });
+    }
+
+    if (typeof callback === 'function') {
+      responsePromise.then(
+        (res) => callback(null, res),
+        (err) => callback(err)
+      );
+    }
+    return responsePromise;
   };
 
   try {
     return await run();
   } finally {
     apiPrototype.post = originalPost;
+    apiPrototype.get = originalGet;
   }
 };
 
@@ -58,6 +86,10 @@ const cleanupFixture = async (fixture) => {
   }
 
   if (fixture.wholesalerId) {
+    await prisma.accountingEntry.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
+    await prisma.accountingAccount.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
+    await prisma.businessParty.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
+
     await prisma.inventoryLog.deleteMany({ where: { wholesalerId: fixture.wholesalerId } });
     await prisma.product.deleteMany({ where: { id: { in: productIds } } });
     await prisma.wholesaler.deleteMany({ where: { id: fixture.wholesalerId } });
@@ -161,31 +193,15 @@ const createOrderFixture = async ({
     },
   });
 
-  await prisma.ledgerEntry.create({
-    data: {
-      wholesalerId: wholesaler.id,
-      userId: buyer.id,
-      orderId: order.id,
-      amount: -totalAmount,
-      description: `Marketplace Order ${order.id}`,
-      referenceId: invoice.id,
-      source: 'ORDER_CHARGE',
-    },
+  // Create accounting records for test order creation
+  await recordMarketplaceOrderCharge(prisma, {
+    orderId: order.id,
+    sellerId: wholesaler.id,
+    buyerId: buyer.id,
+    totalAmount,
+    paymentMethod,
+    paymentStatus: order.paymentStatus,
   });
-
-  if (paymentMethod === 'PREPAID') {
-    await prisma.ledgerEntry.create({
-      data: {
-        wholesalerId: wholesaler.id,
-        userId: buyer.id,
-        orderId: order.id,
-        amount: totalAmount,
-        description: `Marketplace Prepaid Payment ${order.id}`,
-        referenceId: invoice.id,
-        source: 'ORDER_PREPAID_PAYMENT',
-      },
-    });
-  }
 
   await prisma.inventoryLog.create({
     data: {
@@ -225,6 +241,18 @@ test('COD delivery auto-settles once and return receipt reverses stock and ledge
     const buyerToken = makeToken(fixture.buyerId);
     const sellerToken = makeToken(fixture.sellerUserId);
 
+    // Verify initial accounting records: charge recorded (Receivable = 250, Sales = 250)
+    const initialEntries = await prisma.accountingEntry.findMany({
+      where: { wholesalerId: fixture.wholesalerId },
+      include: { account: true },
+    });
+    const salesCharge = initialEntries.find((e) => e.account.code === 'SALES');
+    const receivableCharge = initialEntries.find((e) => e.account.code === 'UNRECONCILED_DEPOSITS');
+    assert.ok(salesCharge);
+    assert.ok(receivableCharge);
+    assert.equal(toNumber(salesCharge.amount), 250);
+    assert.equal(toNumber(receivableCharge.amount), 250);
+
     const deliveredResponse = await request(app)
       .put(`/api/orders/${fixture.orderId}/status`)
       .set('Authorization', `Bearer ${sellerToken}`)
@@ -233,18 +261,26 @@ test('COD delivery auto-settles once and return receipt reverses stock and ledge
     assert.equal(deliveredResponse.status, 200);
     assert.equal(deliveredResponse.body.order.paymentStatus, 'PAID');
 
+    // Verify delivery accounting records: cash received, receivable cleared
+    const afterDeliveryEntries = await prisma.accountingEntry.findMany({
+      where: { wholesalerId: fixture.wholesalerId },
+      include: { account: true },
+    });
+    const cashPayments = afterDeliveryEntries.filter((e) => e.account.code === 'CASH');
+    const receivablePayments = afterDeliveryEntries.filter(
+      (e) => e.account.code === 'UNRECONCILED_DEPOSITS' && toNumber(e.amount) < 0
+    );
+
+    assert.equal(cashPayments.length, 1);
+    assert.equal(receivablePayments.length, 1);
+    assert.equal(toNumber(cashPayments[0].amount), 250);
+    assert.equal(toNumber(receivablePayments[0].amount), -250);
+
     const afterDeliveryLedger = await prisma.ledgerEntry.findMany({
       where: { orderId: fixture.orderId },
       orderBy: { createdAt: 'asc' },
     });
-    assert.equal(
-      afterDeliveryLedger.filter((entry) => entry.source === 'ORDER_AUTO_PAYMENT').length,
-      1
-    );
-    assert.equal(
-      toNumber(afterDeliveryLedger.find((entry) => entry.source === 'ORDER_AUTO_PAYMENT')?.amount),
-      250
-    );
+    assert.equal(afterDeliveryLedger.length, 0);
 
     const requestReturnResponse = await request(app)
       .post(`/api/orders/${fixture.orderId}/items/${fixture.orderItemId}/request-return`)
@@ -296,16 +332,7 @@ test('COD delivery auto-settles once and return receipt reverses stock and ledge
       where: { orderId: fixture.orderId },
       orderBy: { createdAt: 'asc' },
     });
-    assert.equal(ledgerEntries.filter((entry) => entry.source === 'CUSTOMER_RETURN').length, 1);
-    assert.equal(ledgerEntries.filter((entry) => entry.source === 'RETURN_ADJUSTMENT').length, 1);
-    assert.equal(
-      toNumber(ledgerEntries.find((entry) => entry.source === 'CUSTOMER_RETURN')?.amount),
-      250
-    );
-    assert.equal(
-      toNumber(ledgerEntries.find((entry) => entry.source === 'RETURN_ADJUSTMENT')?.amount),
-      -250
-    );
+    assert.equal(ledgerEntries.length, 0);
 
     const order = await prisma.order.findUnique({
       where: { id: fixture.orderId },
@@ -433,8 +460,7 @@ test('prepaid return refund retry does not duplicate inventory or accounting sid
       where: { orderId: fixture.orderId },
       orderBy: { createdAt: 'asc' },
     });
-    assert.equal(ledgerEntries.filter((entry) => entry.source === 'CUSTOMER_RETURN').length, 1);
-    assert.equal(ledgerEntries.filter((entry) => entry.source === 'RETURN_REFUND').length, 1);
+    assert.equal(ledgerEntries.length, 0);
   } finally {
     await cleanupFixture(fixture);
   }

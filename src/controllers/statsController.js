@@ -180,8 +180,8 @@ export const getAdvancedSummary = async (req, res) => {
     const orders = await prisma.order.findMany({
       where: { sellerId: wholesalerId },
       include: {
-          items: { include: { product: true } },
-          adjustments: true,
+        items: { include: { product: true } },
+        adjustments: true,
       },
       orderBy: { createdAt: 'asc' },
     });

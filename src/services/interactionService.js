@@ -356,3 +356,59 @@ export const createPurchaseInteractions = async ({
     });
   }
 };
+
+export const getUserWishlist = async (userId) => {
+  return prisma.recommendationInteraction.findMany({
+    where: {
+      userId,
+      action: 'wishlist',
+    },
+    include: {
+      product: {
+        include: {
+          wholesaler: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+};
+
+export const toggleUserWishlist = async ({ userId, productId }) => {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+  if (!product) {
+    const error = new Error('Product not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const existing = await prisma.recommendationInteraction.findFirst({
+    where: {
+      userId,
+      productId,
+      action: 'wishlist',
+    },
+  });
+
+  if (existing) {
+    await prisma.recommendationInteraction.delete({
+      where: { id: existing.id },
+    });
+    return { wishlisted: false };
+  } else {
+    await prisma.recommendationInteraction.create({
+      data: {
+        userId,
+        productId,
+        action: 'wishlist',
+        quantity: 1,
+        source: 'user_toggle',
+      },
+    });
+    return { wishlisted: true };
+  }
+};

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   UploadCloud,
   FileText,
@@ -21,9 +21,23 @@ export default function AiKhatta() {
   const [parsedData, setParsedData] = useState(null);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size exceeds the limit of 10MB.');
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        return;
+      }
       setError('');
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));

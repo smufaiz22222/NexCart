@@ -47,11 +47,6 @@ const getOrCreateCart = async (userId) =>
   });
 
 const getHydratedCart = async (userId) => {
-  const businessProfile = await prisma.businessProfile.findUnique({
-    where: { userId },
-  });
-  const isApprovedB2B = businessProfile && businessProfile.verification === 'APPROVED';
-
   const cart = await prisma.cart.findUnique({
     where: { userId },
     include: {
@@ -60,9 +55,12 @@ const getHydratedCart = async (userId) => {
           product: {
             include: {
               wholesaler: {
-                select: { businessName: true },
+                select: {
+                  businessName: true,
+                  deliveryFee: true,
+                  freeDeliveryThreshold: true,
+                },
               },
-              priceTiers: true,
             },
           },
         },
@@ -71,37 +69,8 @@ const getHydratedCart = async (userId) => {
     },
   });
 
-  const rfqs = isApprovedB2B
-    ? await prisma.rfq.findMany({
-        where: { buyerId: userId, status: 'ACCEPTED' },
-      })
-    : [];
-
   const items = (cart?.items || []).map((item) => {
-    let price = Number(item.product.price);
-
-    if (isApprovedB2B) {
-      // 1. Check for active accepted RFQ first
-      const activeRfq = rfqs.find(
-        (r) => r.productId === item.productId && item.quantity >= r.quantity
-      );
-      if (activeRfq) {
-        price = activeRfq.counterPrice || activeRfq.targetPrice;
-      } else {
-        // 2. Check tiers
-        const tiers = item.product.priceTiers || [];
-        const sortedTiers = [...tiers].sort((a, b) => a.minQuantity - b.minQuantity);
-        let applicableTier = null;
-        for (const tier of sortedTiers) {
-          if (item.quantity >= tier.minQuantity) {
-            applicableTier = tier;
-          }
-        }
-        if (applicableTier) {
-          price = applicableTier.unitPrice;
-        }
-      }
-    }
+    const price = Number(item.product.price);
 
     return {
       id: item.id,

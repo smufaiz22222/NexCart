@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowRight, Search, Star, Store, Sparkles } from 'lucide-react';
+import { ArrowRight, Search, Star, Store, Sparkles, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
-import { useMarketplaceProducts, useTrendingProducts } from '../api/queries';
+import {
+  useMarketplaceProducts,
+  useMarketplaceProductsInfinite,
+  useTrendingProducts,
+  useWishlist,
+  useToggleWishlist,
+} from '../api/queries';
 import useAuthStore from '../store/authStore';
 import { trackRecommendationClick } from '../utils/recommendation';
+import { toast } from 'sonner';
 
 const testimonialCards = [
   {
@@ -22,14 +29,37 @@ const testimonialCards = [
 ];
 
 export default function Storefront() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCollection, setSelectedCollection] = useState('Trending');
+
+  const isSearchOrFilterActive = debouncedSearch.trim() !== '' || selectedCategory !== 'All';
+
+  // Map collection to sortBy parameter
+  const sortBy = useMemo(() => {
+    if (selectedCollection === 'Top Rated') return 'topRated';
+    if (selectedCollection === 'New Arrivals') return 'newArrivals';
+    if (selectedCollection === 'Trending') return 'topSelling';
+    return '';
+  }, [selectedCollection]);
+
+  // Fetch marketplace products with pagination, search, and category parameters
   const {
-    data: marketplaceProducts = [],
+    data: infiniteData,
     isLoading: isLoadingMarketplace,
     isError: isErrorMarketplace,
     error: errorMarketplace,
     isFetching: isFetchingMarketplace,
     refetch: refetchMarketplace,
-  } = useMarketplaceProducts();
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMarketplaceProductsInfinite({
+    search: debouncedSearch,
+    category: selectedCategory,
+    sortBy: isSearchOrFilterActive ? '' : sortBy,
+  });
 
   const {
     data: trendingData,
@@ -37,6 +67,26 @@ export default function Storefront() {
     isError: isErrorTrending,
     isFetching: isFetchingTrending,
   } = useTrendingProducts();
+
+  // Fetch top selling products separately for the side/bottom section
+  const { data: topSellingData } = useMarketplaceProducts({
+    page: 1,
+    pageSize: 8,
+    sortBy: 'topSelling',
+  });
+
+  const bestsellers = useMemo(() => {
+    const products = topSellingData?.products || [];
+    return products.slice(0, 2);
+  }, [topSellingData]);
+
+  const marketplaceProducts = useMemo(() => {
+    return infiniteData?.pages?.flatMap((page) => page.products) || [];
+  }, [infiniteData]);
+
+  const categories = useMemo(() => {
+    return infiniteData?.pages?.[0]?.categories || ['All'];
+  }, [infiniteData]);
 
   const trendingProducts = useMemo(() => {
     const recommendations = trendingData?.recommendations || [];
@@ -58,17 +108,39 @@ export default function Storefront() {
   const isError = isErrorMarketplace || isErrorTrending;
   const isFetching = isFetchingMarketplace || isFetchingTrending;
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedCollection, setSelectedCollection] = useState('Trending');
-  const [visibleCount, setVisibleCount] = useState(12);
   const navigate = useNavigate();
   const loggedImpressionRecommendationIds = useRef(new Set());
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
+  const { data: wishlist = [] } = useWishlist({ enabled: isAuthenticated });
+  const toggleWishlistMutation = useToggleWishlist();
+
+  const handleWishlistToggle = (e, productId, name) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.error('Please log in to wishlist products');
+      return;
+    }
+    toggleWishlistMutation.mutate(productId, {
+      onSuccess: (data) => {
+        if (data.wishlisted) {
+          toast.success(`${name} added to wishlist`);
+        } else {
+          toast.success(`${name} removed from wishlist`);
+        }
+      },
+      onError: (err) => {
+        toast.error(err.message || 'Failed to update wishlist');
+      },
+    });
+  };
+
   useEffect(() => {
-    setVisibleCount(12);
-  }, [searchTerm, selectedCategory, selectedCollection]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -99,59 +171,17 @@ export default function Storefront() {
     });
   };
 
-  const categories = [
-    'All',
-    ...new Set(marketplaceProducts.map((product) => product.category || 'General')),
-  ];
   const collections = ['Trending', 'New Arrivals', 'Top Rated'];
-  const featuredProducts = useMemo(() => {
-    if (selectedCollection === 'Top Rated') {
-      return [...marketplaceProducts].sort(
-        (left, right) => (right.ratingAverage || 0) - (left.ratingAverage || 0)
-      );
-    }
-    if (selectedCollection === 'New Arrivals') {
-      return [...marketplaceProducts];
-    }
-    return trendingProducts.length ? trendingProducts : marketplaceProducts;
-  }, [selectedCollection, marketplaceProducts, trendingProducts]);
-
-  const searchedAndCategorizedProducts = useMemo(() => {
-    return marketplaceProducts.filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.wholesaler?.businessName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory =
-        selectedCategory === 'All' || (product.category || 'General') === selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    });
-  }, [marketplaceProducts, searchTerm, selectedCategory]);
-
-  const isSearchOrFilterActive = searchTerm.trim() !== '' || selectedCategory !== 'All';
-
-  const filteredProducts = useMemo(() => {
-    if (isSearchOrFilterActive) {
-      return searchedAndCategorizedProducts;
-    }
-    return featuredProducts;
-  }, [isSearchOrFilterActive, searchedAndCategorizedProducts, featuredProducts]);
 
   const displayedProducts = useMemo(() => {
-    return filteredProducts.slice(0, visibleCount);
-  }, [filteredProducts, visibleCount]);
-
-  console.log('Storefront State Debug:', {
-    marketplaceProductsCount: marketplaceProducts.length,
-    trendingProductsCount: trendingProducts.length,
-    filteredProductsCount: filteredProducts.length,
-    displayedProductsCount: displayedProducts.length,
-    visibleCount,
-    isSearchOrFilterActive,
-    selectedCategory,
-    selectedCollection,
-  });
+    if (isSearchOrFilterActive) {
+      return marketplaceProducts;
+    }
+    if (selectedCollection === 'Trending') {
+      return trendingProducts.length ? trendingProducts : marketplaceProducts;
+    }
+    return marketplaceProducts;
+  }, [isSearchOrFilterActive, selectedCollection, marketplaceProducts, trendingProducts]);
 
   const categoryHighlights = categories.filter((category) => category !== 'All').slice(0, 4);
   const topSelling = [...marketplaceProducts]
@@ -214,7 +244,7 @@ export default function Storefront() {
               </p>
             </div>
             <div className="absolute bottom-6 left-6 right-6 grid gap-4 sm:grid-cols-2">
-              {(marketplaceProducts.slice(0, 2) || []).map((product) => (
+              {(bestsellers || []).map((product) => (
                 <button
                   key={product.id}
                   onClick={() => handleProductClick(product, 'hero_feature')}
@@ -251,6 +281,7 @@ export default function Storefront() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search products, shops, categories"
+              aria-label="Search products, shops, categories"
               className="w-full bg-transparent text-sm outline-none placeholder:text-[#8b857c]"
             />
           </div>
@@ -260,6 +291,7 @@ export default function Storefront() {
               <button
                 key={collection}
                 onClick={() => setSelectedCollection(collection)}
+                aria-pressed={selectedCollection === collection}
                 className={`rounded-full px-4 py-3 text-sm font-bold transition ${
                   selectedCollection === collection
                     ? 'bg-[#161412] text-white'
@@ -284,7 +316,7 @@ export default function Storefront() {
           }
           description={
             isSearchOrFilterActive
-              ? `Showing up to 100 products matching your criteria from a total of ${searchedAndCategorizedProducts.length} results.`
+              ? `Showing up to 100 products matching your criteria from a total of ${infiniteData?.pages?.[0]?.totalCount || 0} results.`
               : selectedCollection === 'Top Rated'
                 ? 'Highest rated products from our wholesale partners.'
                 : selectedCollection === 'New Arrivals'
@@ -298,6 +330,7 @@ export default function Storefront() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
+              aria-pressed={selectedCategory === category}
               className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
                 selectedCategory === category
                   ? 'bg-[#161412] text-white'
@@ -326,30 +359,34 @@ export default function Storefront() {
           </div>
         ) : isLoading ? (
           <ProductGridSkeleton />
-        ) : filteredProducts.length === 0 ? (
+        ) : displayedProducts.length === 0 ? (
           <EmptyState
             title="No products match this filter"
             description="Try another collection or clear your search to see more products."
           />
         ) : (
           <>
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-4" aria-live="polite">
               {displayedProducts.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   onClick={() => handleProductClick(product, 'storefront_collection')}
+                  isWishlisted={wishlist.some((item) => item.id === product.id)}
+                  onWishlistToggle={(e) => handleWishlistToggle(e, product.id, product.name)}
                 />
               ))}
             </div>
-            {filteredProducts.length > visibleCount && (
+            {hasNextPage && (
               <div className="mt-12 flex justify-center">
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((prev) => prev + 24)}
-                  className="rounded-full border border-[#ddd7cc] bg-white px-8 py-4 text-sm font-bold text-[#161412] hover:bg-[#161412] hover:text-white transition-all shadow-[0_12px_30px_rgba(22,20,18,0.04)] active:scale-95"
+                  disabled={isFetchingNextPage}
+                  onClick={() => fetchNextPage()}
+                  aria-live="polite"
+                  className="rounded-full border border-[#ddd7cc] bg-white px-8 py-4 text-sm font-bold text-[#161412] hover:bg-[#161412] hover:text-white transition-all shadow-[0_12px_30px_rgba(22,20,18,0.04)] active:scale-95 disabled:opacity-50"
                 >
-                  Load More Products
+                  {isFetchingNextPage ? 'Loading...' : 'Load More Products'}
                 </button>
               </div>
             )}
@@ -368,6 +405,8 @@ export default function Storefront() {
               key={product.id}
               product={product}
               onClick={() => handleProductClick(product, 'storefront_top_selling')}
+              isWishlisted={wishlist.some((item) => item.id === product.id)}
+              onWishlistToggle={(e) => handleWishlistToggle(e, product.id, product.name)}
             />
           ))}
         </div>
@@ -451,18 +490,35 @@ export default function Storefront() {
   );
 }
 
-function ProductCard({ product, onClick }) {
+function ProductCard({ product, onClick, isWishlisted, onWishlistToggle }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-[30px] bg-white p-4 text-left shadow-[0_18px_45px_rgba(22,20,18,0.05)] transition hover:-translate-y-1"
+      aria-label={`View details for ${product.name}`}
+      className="group rounded-[30px] bg-white p-4 text-left shadow-[0_18px_45px_rgba(22,20,18,0.05)] transition hover:-translate-y-1 relative"
     >
       <div className="relative flex aspect-[0.95] items-center justify-center overflow-hidden rounded-[24px] bg-[#f0eeea] p-4">
         {product.discountPercent > 0 && (
-          <span className="absolute right-3 top-3 rounded-full bg-[#161412] px-3 py-1 text-[11px] font-bold text-white">
+          <span className="absolute left-3 top-3 rounded-full bg-[#161412] px-3 py-1 text-[11px] font-bold text-white z-10">
             -{product.discountPercent}%
           </span>
+        )}
+        {onWishlistToggle && (
+          <button
+            type="button"
+            onClick={onWishlistToggle}
+            aria-label={
+              isWishlisted
+                ? `Remove ${product.name} from wishlist`
+                : `Add ${product.name} to wishlist`
+            }
+            className={`absolute right-3 top-3 z-10 p-2 rounded-full backdrop-blur-md bg-white/70 hover:bg-white border border-[#ddd7cc]/40 hover:scale-110 shadow-sm transition-all duration-200 ${
+              isWishlisted ? 'text-red-500' : 'text-[#8b857c] hover:text-red-500'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+          </button>
         )}
         {product.imageUrl ? (
           <img

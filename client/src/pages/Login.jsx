@@ -63,6 +63,14 @@ export default function Login() {
               the admin panel if you have platform access.
             </p>
 
+            <div className="mt-4 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-800 text-[11px] leading-relaxed">
+              <span className="font-bold uppercase tracking-wider block text-amber-900 mb-0.5">
+                B2B Deal Safety Disclaimer
+              </span>
+              NexCart is a technology platform. We are not responsible for any fraud, defaults, or
+              disputes in direct B2B credit or bank transfer deals.
+            </div>
+
             {error && (
               <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
                 {error}

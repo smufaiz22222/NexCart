@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { decorateOrderWithReturnFinancials } from './orderReturnService.js';
 import { createRazorpayRefund, toNumber } from './paymentRefundService.js';
+import { createNotification, createWholesalerNotification } from './notificationService.js';
 
 const DISPUTE_STATUSES = {
   OPEN: 'OPEN',
@@ -602,6 +603,13 @@ export const createDispute = async ({
     };
   });
 
+  createWholesalerNotification(created.order.sellerId, {
+    title: 'New Dispute Opened',
+    message: `A dispute has been opened by customer for order #${created.order.id}.`,
+    type: 'DISPUTE',
+    link: '/wholesaler/orders',
+  }).catch((err) => console.error('Failed to notify wholesaler of dispute:', err));
+
   return buildDisputeResponse({
     order: created.order,
     dispute: created.dispute,
@@ -793,6 +801,15 @@ export const resolveDispute = async ({
 
   const refreshedOrder = await getOrderWithDetails(client, orderId);
   const refreshedDispute = refreshedOrder?.disputes?.find((entry) => entry.id === disputeId);
+
+  if (refreshedOrder) {
+    createNotification(refreshedOrder.buyerId, {
+      title: 'Dispute Resolved',
+      message: `Your dispute for order #${refreshedOrder.id} has been resolved as: ${resolutionType}.`,
+      type: 'DISPUTE',
+      link: '/store/dashboard/orders',
+    }).catch((err) => console.error('Failed to notify customer of dispute resolution:', err));
+  }
 
   return buildDisputeResponse({
     order: refreshedOrder,

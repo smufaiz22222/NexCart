@@ -10,11 +10,13 @@ import {
   acceptQuote,
   buyerRespondToRfq,
   getWholesalerBuyers,
-  updateWholesalerCreditLimit,
+  updateWholesalerBankDetails,
+  getWholesalerProfile,
   getBuyerCreditStatus,
 } from '../controllers/b2bController.js';
 import {
   authenticate,
+  requireRoles,
   requireSuperAdmin,
   requireWholesaler,
 } from '../middlewares/authMiddleware.js';
@@ -30,20 +32,23 @@ router.get('/applications', requireSuperAdmin, getBusinessApplications);
 router.post('/admin/approve/:id', requireSuperAdmin, adminApproveB2B);
 
 // 2. RFQ Negotiation Routes
-router.post('/rfq', createRfq);
+router.post('/rfq', requireRoles('CUSTOMER'), createRfq);
 router.get('/rfq', getRfqs);
 router.patch('/rfq/:id', requireWholesaler, respondToRfq);
-router.post('/rfq/:id/accept', acceptQuote);
-router.post('/rfq/:id/buyer-respond', buyerRespondToRfq);
+router.post('/rfq/:id/accept', requireRoles('CUSTOMER'), acceptQuote);
+router.post('/rfq/:id/buyer-respond', requireRoles('CUSTOMER'), buyerRespondToRfq);
 
 // 3. Product Wholesale Settings
 router.post('/products/:id/tiers', requireWholesaler, addProductPriceTiers);
 
-// 4. Wholesaler Credit Limits Management
+// 4. Wholesaler Buyers List
 router.get('/wholesaler/buyers', requireWholesaler, getWholesalerBuyers);
-router.post('/wholesaler/buyers/:buyerId/credit-limit', requireWholesaler, updateWholesalerCreditLimit);
 
-// 5. Buyer Credit Limits Query
-router.get('/buyer/credit-limits', getBuyerCreditStatus);
+// 5. Wholesaler Profile and Bank Details
+router.get('/wholesaler/profile', requireWholesaler, getWholesalerProfile);
+router.put('/wholesaler/bank-details', requireWholesaler, updateWholesalerBankDetails);
+
+// 6. Buyer Credit Status
+router.get('/buyer/credit-limits', requireRoles('CUSTOMER'), getBuyerCreditStatus);
 
 export default router;

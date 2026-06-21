@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DataTable from '../components/DataTable';
 import {
@@ -131,6 +131,62 @@ export default function SuperAdminSubscriptions() {
     setSearchParams(nextParams, { replace: true });
   };
 
+  const [error, setError] = useState('');
+
+  const refreshWorkspace = useCallback(async () => {
+    const [wholesalersResponse, plansResponse, couponsResponse] = await Promise.all([
+      apiClient.get('/admin/wholesalers'),
+      apiClient.get('/admin/subscriptions/plans'),
+      apiClient.get('/admin/coupons'),
+    ]);
+
+    const loadedWholesalers = wholesalersResponse.data.wholesalers || [];
+    const loadedPlans = plansResponse.data.plans || [];
+    setWholesalers(loadedWholesalers);
+    setPlans(loadedPlans);
+    setCoupons(couponsResponse.data.coupons || []);
+
+    if (loadedPlans.length > 0) {
+      setCouponForm((prev) => ({
+        ...prev,
+        planId: prev.planId || loadedPlans[0].id,
+      }));
+    }
+  }, []);
+
+  const handleDeleteCoupon = useCallback(
+    async (id) => {
+      if (!window.confirm('Are you sure you want to delete this coupon?')) return;
+      try {
+        setError('');
+        await apiClient.delete(`/admin/coupons/${id}`);
+        toast.success('Coupon deleted successfully!');
+        await refreshWorkspace();
+      } catch (err) {
+        const errMsg = err.response?.data?.error || 'Failed to delete coupon.';
+        setError(errMsg);
+        toast.error(errMsg);
+      }
+    },
+    [refreshWorkspace]
+  );
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        setError('');
+        await refreshWorkspace();
+      } catch (fetchError) {
+        setError(fetchError.response?.data?.error || 'Failed to load subscriptions page.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    load();
+  }, [refreshWorkspace]);
+
   const couponColumns = useMemo(
     () => [
       {
@@ -214,46 +270,8 @@ export default function SuperAdminSubscriptions() {
         },
       },
     ],
-    [coupons]
+    [handleDeleteCoupon]
   );
-  const [error, setError] = useState('');
-
-  const refreshWorkspace = async () => {
-    const [wholesalersResponse, plansResponse, couponsResponse] = await Promise.all([
-      apiClient.get('/admin/wholesalers'),
-      apiClient.get('/admin/subscriptions/plans'),
-      apiClient.get('/admin/coupons'),
-    ]);
-
-    const loadedWholesalers = wholesalersResponse.data.wholesalers || [];
-    const loadedPlans = plansResponse.data.plans || [];
-    setWholesalers(loadedWholesalers);
-    setPlans(loadedPlans);
-    setCoupons(couponsResponse.data.coupons || []);
-
-    if (loadedPlans.length > 0) {
-      setCouponForm((prev) => ({
-        ...prev,
-        planId: prev.planId || loadedPlans[0].id,
-      }));
-    }
-  };
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true);
-        setError('');
-        await refreshWorkspace();
-      } catch (fetchError) {
-        setError(fetchError.response?.data?.error || 'Failed to load subscriptions page.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    load();
-  }, []);
 
   const filteredWholesalers = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
@@ -363,20 +381,6 @@ export default function SuperAdminSubscriptions() {
       toast.error(errMsg);
     } finally {
       setIsCreatingCoupon(false);
-    }
-  };
-
-  const handleDeleteCoupon = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this coupon?')) return;
-    try {
-      setError('');
-      await apiClient.delete(`/admin/coupons/${id}`);
-      toast.success('Coupon deleted successfully!');
-      await refreshWorkspace();
-    } catch (err) {
-      const errMsg = err.response?.data?.error || 'Failed to delete coupon.';
-      setError(errMsg);
-      toast.error(errMsg);
     }
   };
 

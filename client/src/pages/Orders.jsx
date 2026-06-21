@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ArrowLeft, Package } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
@@ -14,12 +14,66 @@ export default function Orders() {
 
   const backPath = user?.role === 'WHOLESALER' ? '/wholesaler' : '/store';
 
+  const [selectedType, setSelectedType] = useState('ALL');
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
+
   const { data: orders = [], isLoading, isError, error, isFetching, refetch } = useOrders();
 
-  const sortedOrders = useMemo(
-    () => [...orders].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)),
-    [orders]
-  );
+  const handleTypeChange = (type) => {
+    setSelectedType(type);
+    setSelectedStatus('ALL');
+  };
+
+  const counts = useMemo(() => {
+    return {
+      ALL: orders.length,
+      B2C: orders.filter((o) => o.paymentMethod !== 'BANK_TRANSFER').length,
+      B2B: orders.filter((o) => o.paymentMethod === 'BANK_TRANSFER').length,
+    };
+  }, [orders]);
+
+  const typeFilteredOrders = useMemo(() => {
+    if (selectedType === 'B2B') {
+      return orders.filter((o) => o.paymentMethod === 'BANK_TRANSFER');
+    }
+    if (selectedType === 'B2C') {
+      return orders.filter((o) => o.paymentMethod !== 'BANK_TRANSFER');
+    }
+    return orders;
+  }, [orders, selectedType]);
+
+  const statusCounts = useMemo(() => {
+    return {
+      ALL: typeFilteredOrders.length,
+      PENDING: typeFilteredOrders.filter((o) => o.status === 'PENDING').length,
+      PROCESSING: typeFilteredOrders.filter((o) => o.status === 'PROCESSING').length,
+      SHIPPED: typeFilteredOrders.filter((o) => o.status === 'SHIPPED').length,
+      DELIVERED: typeFilteredOrders.filter((o) => o.status === 'DELIVERED').length,
+      CANCELLED_RETURNED: typeFilteredOrders.filter((o) =>
+        ['CANCELLED', 'RETURN_COMPLETED'].includes(o.status)
+      ).length,
+    };
+  }, [typeFilteredOrders]);
+
+  const filteredOrders = useMemo(() => {
+    let result = [...orders];
+
+    if (selectedType === 'B2B') {
+      result = result.filter((o) => o.paymentMethod === 'BANK_TRANSFER');
+    } else if (selectedType === 'B2C') {
+      result = result.filter((o) => o.paymentMethod !== 'BANK_TRANSFER');
+    }
+
+    if (selectedStatus !== 'ALL') {
+      if (selectedStatus === 'CANCELLED_RETURNED') {
+        result = result.filter((o) => ['CANCELLED', 'RETURN_COMPLETED'].includes(o.status));
+      } else {
+        result = result.filter((o) => o.status === selectedStatus);
+      }
+    }
+
+    return result.sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+  }, [orders, selectedType, selectedStatus]);
 
   if (isLoading) {
     return (
@@ -112,6 +166,97 @@ export default function Orders() {
         </div>
       </div>
 
+      {/* Order Type Filter Tabs */}
+      <div className="flex flex-wrap gap-2 p-1.5 rounded-xl border border-zinc-800/10 bg-zinc-950/5 max-w-max mb-8">
+        {[
+          { id: 'ALL', label: 'All Orders' },
+          { id: 'B2C', label: 'Retail (B2C)' },
+          { id: 'B2B', label: 'Wholesale (B2B)' },
+        ].map((tab) => {
+          const count = counts[tab.id];
+          const isActive = selectedType === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTypeChange(tab.id)}
+              className={cn(
+                'px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 border',
+                isActive
+                  ? isWholesalerPath
+                    ? 'bg-amber-500/25 border-amber-500/35 text-amber-400 font-extrabold shadow-[0_2px_10px_rgba(245,158,11,0.1)]'
+                    : 'bg-[#0047AB] border-[#0047AB] text-white font-extrabold'
+                  : isWholesalerPath
+                    ? 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                    : 'bg-transparent border-transparent text-zinc-600 hover:text-[#16171a] hover:bg-[#EFEFEF]'
+              )}
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  'px-1.5 py-0.5 rounded text-[10px] font-mono leading-none border',
+                  isActive
+                    ? isWholesalerPath
+                      ? 'bg-amber-500/30 border-amber-500/20 text-amber-300'
+                      : 'bg-white/20 border-white/10 text-white'
+                    : isWholesalerPath
+                      ? 'bg-zinc-900/80 border-zinc-800 text-zinc-500'
+                      : 'bg-[#EFEFEF] border-[#C0C0C0] text-zinc-500'
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Order Status Filter Pills */}
+      <div className="flex flex-wrap gap-2.5 mb-8">
+        {[
+          { id: 'ALL', label: 'All Statuses' },
+          { id: 'PENDING', label: 'Pending' },
+          { id: 'PROCESSING', label: 'Processing' },
+          { id: 'SHIPPED', label: 'Shipped' },
+          { id: 'DELIVERED', label: 'Delivered' },
+          { id: 'CANCELLED_RETURNED', label: 'Cancelled / Returned' },
+        ].map((tab) => {
+          const count = statusCounts[tab.id];
+          const isActive = selectedStatus === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedStatus(tab.id)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all border flex items-center gap-1.5',
+                isActive
+                  ? isWholesalerPath
+                    ? 'bg-amber-500 text-black border-amber-500 font-bold shadow-md shadow-amber-500/10'
+                    : 'bg-[#0047AB] text-white border-[#0047AB] font-bold shadow-md shadow-blue-500/10'
+                  : isWholesalerPath
+                    ? 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    : 'bg-white border-[#C0C0C0] text-zinc-600 hover:text-[#16171a] hover:bg-[#EFEFEF]'
+              )}
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  'text-[10px] font-mono leading-none rounded-full px-1.5 py-0.5',
+                  isActive
+                    ? isWholesalerPath
+                      ? 'bg-amber-600 text-black'
+                      : 'bg-white/20 text-white'
+                    : isWholesalerPath
+                      ? 'bg-zinc-950 text-zinc-500'
+                      : 'bg-[#EFEFEF] text-zinc-500'
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {isError ? (
         <div
           className={cn(
@@ -137,7 +282,7 @@ export default function Orders() {
             Retry Loading
           </button>
         </div>
-      ) : sortedOrders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <div
           className={cn(
             'border-dashed p-16 text-center flex flex-col items-center rounded-2xl border',
@@ -168,7 +313,7 @@ export default function Orders() {
         </div>
       ) : (
         <div className="space-y-8">
-          {sortedOrders.map((order) => (
+          {filteredOrders.map((order) => (
             <OrderCard
               key={order.id}
               order={order}

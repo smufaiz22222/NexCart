@@ -11,6 +11,8 @@ import {
   Truck,
   Wallet,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useDashboardData } from '../api/queries';
 import apiClient from '../api/axios';
 import StatCard from '../components/dashboard/StatCard';
 import QuickStrip from '../components/dashboard/QuickStrip';
@@ -21,36 +23,77 @@ import WatchRow from '../components/dashboard/WatchRow';
 import StockPressureChart from '../components/dashboard/StockPressureChart';
 
 export default function Dashboard() {
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [ledgerStats, setLedgerStats] = useState({ totalDebt: 0, totalCollection: 0 });
-  const [advisorContext, setAdvisorContext] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError, error } = useDashboardData();
+
+  const [bankDetails, setBankDetails] = useState({
+    bankName: '',
+    bankAccountNo: '',
+    bankIfsc: '',
+    upiId: '',
+    deliveryFee: '0',
+    freeDeliveryThreshold: '',
+  });
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [isSavingDelivery, setIsSavingDelivery] = useState(false);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        const [productsRes, ledgerRes, advisorRes, ordersRes] = await Promise.all([
-          apiClient.get('/products'),
-          apiClient.get('/stats/wholesaler-summary'),
-          apiClient.get('/stats/advisor-context'),
-          apiClient.get('/orders'),
-        ]);
+    if (data?.wholesalerProfile) {
+      const w = data.wholesalerProfile;
+      setBankDetails({
+        bankName: w.bankName || '',
+        bankAccountNo: w.bankAccountNo || '',
+        bankIfsc: w.bankIfsc || '',
+        upiId: w.upiId || '',
+        deliveryFee:
+          w.deliveryFee !== undefined && w.deliveryFee !== null ? String(w.deliveryFee) : '0',
+        freeDeliveryThreshold:
+          w.freeDeliveryThreshold !== undefined && w.freeDeliveryThreshold !== null
+            ? String(w.freeDeliveryThreshold)
+            : '',
+      });
+    }
+  }, [data?.wholesalerProfile]);
 
-        setProducts(productsRes.data.products || []);
-        setLedgerStats(ledgerRes.data || { totalDebt: 0, totalCollection: 0 });
-        setAdvisorContext(advisorRes.data || null);
-        setOrders(ordersRes.data.orders || []);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const handleSaveBankDetails = async (e) => {
+    e.preventDefault();
+    try {
+      setIsSavingBank(true);
+      await apiClient.put('/b2b/wholesaler/bank-details', {
+        bankName: bankDetails.bankName,
+        bankAccountNo: bankDetails.bankAccountNo,
+        bankIfsc: bankDetails.bankIfsc,
+        upiId: bankDetails.upiId,
+      });
+      alert('Bank & UPI details updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'data'] });
+    } catch (err) {
+      console.error('Failed to update bank details:', err);
+      alert(err.response?.data?.error || 'Failed to update details');
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
 
-    fetchDashboardData();
-  }, []);
+  const handleSaveDeliveryDetails = async (e) => {
+    e.preventDefault();
+    try {
+      setIsSavingDelivery(true);
+      await apiClient.put('/b2b/wholesaler/bank-details', bankDetails);
+      alert('Delivery & shipping settings updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'data'] });
+    } catch (err) {
+      console.error('Failed to update delivery settings:', err);
+      alert(err.response?.data?.error || 'Failed to update delivery settings');
+    } finally {
+      setIsSavingDelivery(false);
+    }
+  };
+
+  const products = data?.products || [];
+  const orders = data?.orders || [];
+  const ledgerStats = data?.ledgerStats || { totalDebt: 0, totalCollection: 0 };
+  const advisorContext = data?.advisorContext || null;
 
   const totalProducts = products.length;
   const totalUnitsInStock = products.reduce(
@@ -96,8 +139,38 @@ export default function Dashboard() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-rose-400">
+        <AlertCircle className="h-8 w-8 text-rose-500 animate-bounce" />
+        <p className="text-sm font-bold uppercase tracking-[0.24em]">
+          Failed to load operations desk
+        </p>
+        <p className="text-xs text-zinc-500">{error?.message || 'Unknown network error'}</p>
+        <button
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['dashboard', 'data'] })}
+          className="mt-2 rounded-full border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 text-white">
+      {/* Platform Disclaimer Warning Banner */}
+      <div className="rounded-[18px] border border-amber-500/20 bg-amber-500/10 p-4 flex gap-3 text-amber-200">
+        <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="text-xs">
+          <span className="font-black uppercase tracking-wider text-amber-400 mr-2">
+            Platform Disclaimer:
+          </span>
+          NexCart is a technology marketplace. The platform is not responsible for any default,
+          fraud, or disputes in B2B credit or bank transfer deals.
+        </div>
+      </div>
+
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[28px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.35)]">
           <p className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-500/80">
@@ -355,6 +428,137 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+      </section>
+
+      {/* B2B GST Bank & UPI Settings Card */}
+      <section className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+        <div className="mb-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-500">
+            B2B GST Bank & UPI Settings
+          </p>
+          <h2 className="mt-2 text-lg font-black text-white">
+            Configure your direct settlement credentials
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1">
+            These details are shown to verified B2B buyers when they pay via Bank Transfer / UPI.
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveBankDetails} className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              Bank Name
+            </label>
+            <input
+              type="text"
+              value={bankDetails.bankName}
+              onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+              placeholder="e.g. State Bank of India"
+              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              Account Number
+            </label>
+            <input
+              type="text"
+              value={bankDetails.bankAccountNo}
+              onChange={(e) => setBankDetails({ ...bankDetails, bankAccountNo: e.target.value })}
+              placeholder="e.g. 123456789012"
+              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              IFSC Code
+            </label>
+            <input
+              type="text"
+              value={bankDetails.bankIfsc}
+              onChange={(e) => setBankDetails({ ...bankDetails, bankIfsc: e.target.value })}
+              placeholder="e.g. SBIN0001234"
+              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              UPI ID
+            </label>
+            <input
+              type="text"
+              value={bankDetails.upiId}
+              onChange={(e) => setBankDetails({ ...bankDetails, upiId: e.target.value })}
+              placeholder="e.g. company@ybl"
+              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+            />
+          </div>
+          <div className="sm:col-span-2 flex justify-end mt-2">
+            <button
+              type="submit"
+              disabled={isSavingBank}
+              className="rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 px-6 py-2.5 text-xs font-bold text-[#0a0a0a] transition"
+            >
+              {isSavingBank ? 'Saving settings...' : 'Save Bank Credentials'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* Delivery & Shipping Settings Card */}
+      <section className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)] mt-6">
+        <div className="mb-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-500">
+            Delivery & Shipping Settings
+          </p>
+          <h2 className="mt-2 text-lg font-black text-white">Configure your delivery charges</h2>
+          <p className="text-xs text-zinc-500 mt-1">
+            These rules apply to retail (B2C) customer orders placed from your store catalog.
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveDeliveryDetails} className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              Flat Delivery Fee (₹)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={bankDetails.deliveryFee}
+              onChange={(e) => setBankDetails({ ...bankDetails, deliveryFee: e.target.value })}
+              placeholder="e.g. 50.00"
+              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              Free Delivery Threshold (₹)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={bankDetails.freeDeliveryThreshold}
+              onChange={(e) =>
+                setBankDetails({ ...bankDetails, freeDeliveryThreshold: e.target.value })
+              }
+              placeholder="e.g. 1000.00 (leave empty for flat rate always)"
+              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+            />
+          </div>
+          <div className="sm:col-span-2 flex justify-end mt-2">
+            <button
+              type="submit"
+              disabled={isSavingDelivery}
+              className="rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 px-6 py-2.5 text-xs font-bold text-[#0a0a0a] transition"
+            >
+              {isSavingDelivery ? 'Saving settings...' : 'Save Delivery Settings'}
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   );

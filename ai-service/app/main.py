@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 from dotenv import load_dotenv
 
 load_dotenv()  # must be first line before any other imports

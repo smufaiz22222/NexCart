@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { checkAndNotifyLowStock } from '../services/notificationService.js';
 
 export const adjustStock = async (req, res) => {
   try {
@@ -17,12 +18,21 @@ export const adjustStock = async (req, res) => {
       return res.status(404).json({ error: 'Product not found or unauthorized' });
     }
 
+    const parsedAmount = parseInt(changeAmount, 10);
+    if (isNaN(parsedAmount)) {
+      return res.status(400).json({ error: 'Invalid changeAmount value' });
+    }
+
+    if (product.currentStock + parsedAmount < 0) {
+      return res.status(400).json({ error: 'Adjustment would result in negative stock' });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const log = await tx.inventoryLog.create({
         data: {
           wholesalerId,
           productId,
-          changeAmount: parseInt(changeAmount, 10),
+          changeAmount: parsedAmount,
           reason,
         },
       });
@@ -30,12 +40,16 @@ export const adjustStock = async (req, res) => {
       const updatedProduct = await tx.product.update({
         where: { id: productId },
         data: {
-          currentStock: { increment: parseInt(changeAmount, 10) },
+          currentStock: { increment: parsedAmount },
         },
       });
 
       return { log, updatedProduct };
     });
+
+    checkAndNotifyLowStock(productId).catch((err) =>
+      console.error('Failed to check low stock after adjustment:', err)
+    );
 
     res.status(200).json({
       message: 'Stock adjusted successfully',

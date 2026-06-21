@@ -1,5 +1,9 @@
 import express from 'express';
-import { processKhattaImage, saveKhattaEntries } from '../controllers/khattaController.js';
+import {
+  processKhattaImage,
+  saveKhattaEntries,
+  processPurchaseInvoice,
+} from '../controllers/khattaController.js';
 import {
   authenticate,
   requireWholesaler,
@@ -14,6 +18,7 @@ router.use(requireWholesaler);
 router.use(requireWholesalerFeature('khatta'));
 
 router.post('/process', scanLimiter, processKhattaImage);
+router.post('/process-purchase', scanLimiter, processPurchaseInvoice);
 router.post('/save', saveKhattaEntries);
 
 export default router;

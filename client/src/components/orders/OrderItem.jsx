@@ -416,7 +416,7 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
                   ? 'Cancelled'
                   : 'Cancel Item'}
             </button>
-            {item.status === 'CANCELLED' && ['FAILED', 'PENDING'].includes(item.refundStatus) && (
+            {item.status === 'CANCELLED' && item.refundStatus === 'FAILED' && (
               <button
                 onClick={handleRetryRefund}
                 disabled={isPendingAction}

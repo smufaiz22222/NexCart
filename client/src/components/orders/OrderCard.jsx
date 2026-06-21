@@ -7,7 +7,7 @@ import OrderItem from './OrderItem';
 import IssueSubmitForm from './IssueSubmitForm';
 import DisputeCard from './DisputeCard';
 import IssueCard from './IssueCard';
-import { useUpdateOrderStatus } from '../../api/queries';
+import { useUpdateOrderStatus, useVerifyBankPayment } from '../../api/queries';
 
 const canCustomerOpenIssue = (orderStatus) =>
   ['SHIPPED', 'DELIVERED', 'PROCESSING'].includes(orderStatus);
@@ -15,6 +15,35 @@ const canCustomerOpenIssue = (orderStatus) =>
 export default function OrderCard({ order, user, isWholesalerPath }) {
   const [showIssueForm, setShowIssueForm] = useState(false);
   const updateOrderStatusMutation = useUpdateOrderStatus();
+  const verifyBankPaymentMutation = useVerifyBankPayment();
+
+  const isUpiPayment = order.paymentReferenceNo?.startsWith('UPI:');
+  const cleanReferenceNo =
+    order.paymentReferenceNo?.replace(/^(UPI|BANK):/, '')?.split('|')[0] ||
+    order.paymentReferenceNo;
+
+  const handleVerifyBankPayment = () => {
+    verifyBankPaymentMutation.mutate(
+      { orderId: order.id },
+      {
+        onSuccess: () => {
+          toast.success('Direct bank payment verified successfully! Order moved to processing.');
+        },
+        onError: (err) => {
+          console.error('Failed to verify payment:', err);
+          toast.error(err.response?.data?.error || 'Failed to verify payment');
+        },
+      }
+    );
+  };
+
+  const originalTotal =
+    order.items?.reduce(
+      (sum, item) => sum + parseFloat(item.subtotalAtPurchase || item.price * item.quantity || 0),
+      0
+    ) || 0;
+  const deliveryFee = Number(order.deliveryFee || 0);
+  const isDifferent = Math.abs(originalTotal + deliveryFee - Number(order.totalAmount)) > 0.01;
 
   const handleUpdateStatus = (newStatus) => {
     updateOrderStatusMutation.mutate(
@@ -81,12 +110,32 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
             </p>
             <p
               className={cn(
-                'text-sm font-bold font-mono',
+                'text-sm font-bold font-mono flex items-center gap-1.5',
                 isWholesalerPath ? 'text-amber-400' : 'text-[#0047AB]'
               )}
             >
-              ₹{Number(order.totalAmount).toFixed(2)}
+              <span>₹{Number(order.totalAmount).toFixed(2)}</span>
+              {isDifferent && (
+                <span
+                  className={cn(
+                    'line-through text-xs font-medium',
+                    isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+                  )}
+                >
+                  ₹{originalTotal.toFixed(2)}
+                </span>
+              )}
             </p>
+            {deliveryFee > 0 && (
+              <p
+                className={cn(
+                  'text-[9px] font-semibold mt-0.5 tracking-tight',
+                  isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+                )}
+              >
+                (includes ₹{deliveryFee.toFixed(2)} delivery)
+              </p>
+            )}
           </div>
           <div>
             <p
@@ -124,7 +173,7 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
               Payment
             </p>
             <PaymentBadge
-              method={order.paymentMethod}
+              method={isUpiPayment ? 'UPI' : order.paymentMethod}
               status={order.paymentStatus}
               isWholesalerPath={isWholesalerPath}
             />
@@ -145,6 +194,60 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
           <StatusBadge status={order.status} isWholesalerPath={isWholesalerPath} />
         </div>
       </div>
+
+      {/* Direct Payment (Bank Transfer / UPI) Receipt Info */}
+      {order.paymentMethod === 'BANK_TRANSFER' && (
+        <div
+          className={cn(
+            'mx-6 mt-4 p-4 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs',
+            isWholesalerPath
+              ? 'bg-[#1a1a1a] border-zinc-800 text-zinc-300'
+              : 'bg-[#fbfaf7] border-[#ddd7cc] text-zinc-700 font-sans'
+          )}
+        >
+          <div className="space-y-1">
+            <p className="font-bold text-[#8f5d31] uppercase tracking-wider text-[10px]">
+              {isUpiPayment ? 'UPI Verification Details' : 'Bank Transfer Verification Details'}
+            </p>
+            <p>
+              <span className="font-medium text-zinc-500">
+                {isUpiPayment ? 'UPI Transaction ID / Ref:' : 'UTR / Reference ID:'}
+              </span>{' '}
+              <strong className={isWholesalerPath ? 'text-white' : 'text-zinc-900 font-mono'}>
+                {cleanReferenceNo || 'N/A'}
+              </strong>
+            </p>
+            <p>
+              <span className="font-medium text-zinc-500">Verification Status:</span>{' '}
+              <span
+                className={cn(
+                  'font-bold px-2 py-0.5 rounded-full text-[10px]',
+                  order.paymentStatus === 'PAID'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                )}
+              >
+                {order.paymentStatus === 'PAID' ? '✓ Verified (PAID)' : '⏳ Awaiting Verification'}
+              </span>
+            </p>
+          </div>
+          {order.paymentReceiptUrl && (
+            <a
+              href={order.paymentReceiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'px-4 py-2 rounded-full font-bold text-[11px] uppercase tracking-wider transition-colors border flex items-center gap-1.5',
+                isWholesalerPath
+                  ? 'bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-750'
+                  : 'bg-white hover:bg-zinc-50 text-[#0047AB] border-[#C0C0C0]'
+              )}
+            >
+              👁 View Receipt Screenshot
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Items List */}
       <div className="p-6">
@@ -270,19 +373,37 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
         </div>
 
         <div className="flex flex-wrap gap-3 w-full md:w-auto">
-          {user?.role === 'WHOLESALER' && order.status === 'PENDING' && (
-            <button
-              onClick={() => handleUpdateStatus('PROCESSING')}
-              className={cn(
-                'w-full md:w-auto text-xs font-semibold uppercase tracking-wider border px-5 py-2.5 rounded-md transition-all',
-                isWholesalerPath
-                  ? 'bg-zinc-800 border-zinc-750 hover:bg-zinc-700 text-amber-400'
-                  : 'bg-white border-[#C0C0C0] hover:bg-[#EFEFEF] text-[#0047AB]'
-              )}
-            >
-              Mark as Processing
-            </button>
-          )}
+          {user?.role === 'WHOLESALER' &&
+            order.paymentMethod === 'BANK_TRANSFER' &&
+            order.paymentStatus === 'PENDING' && (
+              <button
+                disabled={verifyBankPaymentMutation.isPending}
+                onClick={() => handleVerifyBankPayment()}
+                className={cn(
+                  'w-full md:w-auto text-xs font-semibold uppercase tracking-wider px-5 py-2.5 rounded-md transition-all',
+                  isWholesalerPath
+                    ? 'bg-amber-600 hover:bg-amber-500 text-black font-bold'
+                    : 'bg-[#0047AB] hover:bg-[#003B91] text-white'
+                )}
+              >
+                {verifyBankPaymentMutation.isPending ? 'Verifying...' : 'Verify Bank Payment'}
+              </button>
+            )}
+          {user?.role === 'WHOLESALER' &&
+            order.status === 'PENDING' &&
+            order.paymentMethod !== 'BANK_TRANSFER' && (
+              <button
+                onClick={() => handleUpdateStatus('PROCESSING')}
+                className={cn(
+                  'w-full md:w-auto text-xs font-semibold uppercase tracking-wider border px-5 py-2.5 rounded-md transition-all',
+                  isWholesalerPath
+                    ? 'bg-zinc-800 border-zinc-750 hover:bg-zinc-700 text-amber-400'
+                    : 'bg-white border-[#C0C0C0] hover:bg-[#EFEFEF] text-[#0047AB]'
+                )}
+              >
+                Mark as Processing
+              </button>
+            )}
           {user?.role === 'WHOLESALER' && order.status === 'PROCESSING' && (
             <button
               onClick={() => handleUpdateStatus('SHIPPED')}

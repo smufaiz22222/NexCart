@@ -1,6 +1,6 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Star, Store, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Star, Store, MessageSquare, Heart } from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
@@ -11,6 +11,8 @@ import {
   useSimilarProducts,
   useSubmitReview,
   useCreateRfq,
+  useWishlist,
+  useToggleWishlist,
 } from '../api/queries';
 
 const getAttributionStorageKey = (productId) => `nexcart:recommendationAttribution:${productId}`;
@@ -26,6 +28,29 @@ export default function ProductDetails() {
   const loggedImpressionRecommendationIds = useRef(new Set());
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
+
+  const { data: wishlist = [] } = useWishlist({ enabled: isAuthenticated });
+  const toggleWishlistMutation = useToggleWishlist();
+  const isWishlisted = useMemo(() => wishlist.some((item) => item.id === id), [wishlist, id]);
+
+  const handleWishlistToggle = () => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to wishlist products');
+      return;
+    }
+    toggleWishlistMutation.mutate(id, {
+      onSuccess: (data) => {
+        if (data.wishlisted) {
+          toast.success(`${product?.name || 'Product'} added to wishlist`);
+        } else {
+          toast.success(`${product?.name || 'Product'} removed from wishlist`);
+        }
+      },
+      onError: (err) => {
+        toast.error(err.message || 'Failed to update wishlist');
+      },
+    });
+  };
 
   const {
     data: product,
@@ -44,8 +69,10 @@ export default function ProductDetails() {
   const [comment, setComment] = useState('');
 
   // B2B & B2C parameters
-  const isB2BApproved = user?.businessProfile?.verification === 'APPROVED';
-  const minQty = isB2BApproved ? product?.minOrderQty || 1 : 1;
+  const hasApprovedB2BAccess =
+    user?.businessProfile?.verification === 'APPROVED' &&
+    user?.businessProfile?.status === 'ACTIVE';
+  const minQty = 1;
   const [quantity, setQuantity] = useState(1);
   const [targetPrice, setTargetPrice] = useState('');
   const [targetQty, setTargetQty] = useState('');
@@ -54,9 +81,9 @@ export default function ProductDetails() {
 
   useEffect(() => {
     if (product) {
-      setQuantity(isB2BApproved ? product.minOrderQty || 1 : 1);
+      setQuantity(1);
     }
-  }, [product, isB2BApproved]);
+  }, [product]);
 
   const similarProducts = useMemo(() => similarData?.recommendations || [], [similarData]);
   const similarRecommendationId = similarData?.recommendationId || null;
@@ -139,12 +166,6 @@ export default function ProductDetails() {
   const handleAddToCart = async () => {
     if (product.sizes?.length > 0 && !selectedSize) {
       return toast.warning('Please select a size first!');
-    }
-
-    if (isB2BApproved && quantity < product.minOrderQty) {
-      return toast.warning(
-        `Minimum Order Quantity (MOQ) for B2B accounts is ${product.minOrderQty} units.`
-      );
     }
 
     try {
@@ -345,7 +366,7 @@ export default function ProductDetails() {
             )}
           </div>
 
-          {isB2BApproved && product.priceTiers?.length > 0 && (
+          {hasApprovedB2BAccess && product.priceTiers?.length > 0 && (
             <div className="mt-6 p-4 rounded-2xl bg-[#f8f6f1] border border-[#ddd7cc] text-sm">
               <p className="text-xs font-bold uppercase tracking-wider text-[#8b857c] mb-3">
                 Wholesale Volume Price Tiers
@@ -407,8 +428,8 @@ export default function ProductDetails() {
           )}
 
           {/* Quantity selector and checkout */}
-          <div className="mt-8 grid grid-cols-[120px_1fr] gap-4 items-end">
-            <div>
+          <div className="mt-8 flex flex-wrap gap-4 items-end">
+            <div className="w-[120px]">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c] mb-3">
                 Quantity
               </p>
@@ -433,21 +454,34 @@ export default function ProductDetails() {
 
             <button
               onClick={handleAddToCart}
-              className="flex items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2d2a27]"
+              className="flex-1 min-w-[200px] flex items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2d2a27] h-[52px]"
             >
               <ShoppingBag className="h-5 w-5" />
               Add to cart
             </button>
+
+            <button
+              type="button"
+              onClick={handleWishlistToggle}
+              className={`p-3.5 rounded-full border transition-all duration-200 flex items-center justify-center shrink-0 h-[52px] w-[52px] ${
+                isWishlisted
+                  ? 'border-red-200 bg-red-50 text-red-500 hover:bg-red-100/50'
+                  : 'border-[#ddd7cc] bg-[#fbfaf7] hover:border-[#161412] text-[#6b665f] hover:text-[#161412]'
+              }`}
+              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+            >
+              <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
+            </button>
           </div>
 
-          {isB2BApproved && product.minOrderQty > 1 && (
+          {hasApprovedB2BAccess && product.minOrderQty > 1 && (
             <p className="mt-3 text-xs font-semibold text-amber-600">
               ⚠️ Minimum Wholesale Order Quantity (MOQ) is {product.minOrderQty} units.
             </p>
           )}
 
           {/* RFQ Quote Proposal Form */}
-          {isB2BApproved && (
+          {hasApprovedB2BAccess && (
             <div className="mt-8 pt-6 border-t border-[#f3efe8]">
               <h3 className="font-black text-lg tracking-tight flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-amber-500" /> Request Custom Quote (RFQ)

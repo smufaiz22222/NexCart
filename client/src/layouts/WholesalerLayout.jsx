@@ -16,6 +16,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import NotificationBell from '../components/NotificationBell';
 
 export default function WholesalerLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -36,7 +37,8 @@ export default function WholesalerLayout() {
     { name: 'Inventory Logs', href: '/wholesaler/inventory', icon: Archive },
     { name: 'Orders', href: '/wholesaler/orders', icon: ShoppingCart },
     { name: 'Price Quotes (RFQs)', href: '/wholesaler/rfqs', icon: MessageSquare },
-    { name: 'Financial Ledger', href: '/wholesaler/ledger', icon: BookOpen },
+    { name: 'Payment & Billing', href: '/wholesaler/ledger', icon: CreditCard },
+    { name: 'Ecommerce Accounting', href: '/wholesaler/ecommerce-accounting', icon: BookOpen },
     { name: 'Business Advisor', href: '/wholesaler/advisor', icon: BrainCircuit },
     { name: 'AI Khatta Scan', href: '/wholesaler/khatta', icon: Camera },
   ];
@@ -97,6 +99,7 @@ export default function WholesalerLayout() {
             <span className="text-xs font-bold text-zinc-500 tracking-wider hidden sm:block bg-[#0a0a0a] px-3 py-1.5 rounded-md border border-zinc-800">
               {user?.email}
             </span>
+            <NotificationBell />
             <button
               onClick={handleLogout}
               className="flex items-center text-xs font-bold uppercase tracking-wider text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 border border-red-500/20 px-3.5 py-2 rounded-md transition-all duration-300"

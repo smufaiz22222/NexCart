@@ -249,11 +249,20 @@ export const buildFeatureAccess = (wholesaler) => {
 export const buildWholesalerAccessSummary = (wholesaler) => {
   const currentSubscription = getCurrentSubscription(wholesaler);
   const trialState = getTrialState(wholesaler);
+  const subscription = serializeSubscription(currentSubscription);
+
+  let onboardingStatus = wholesaler.onboardingStatus;
+  if (
+    onboardingStatus === 'ACTIVE' &&
+    (!subscription || subscription.status === 'EXPIRED' || subscription.status === 'PAST_DUE')
+  ) {
+    onboardingStatus = 'PAST_DUE';
+  }
 
   return {
-    onboardingStatus: wholesaler.onboardingStatus,
+    onboardingStatus,
     rejectionReason: wholesaler.rejectionReason || null,
-    subscription: serializeSubscription(currentSubscription),
+    subscription,
     trialState,
     featureAccess: buildFeatureAccess(wholesaler),
     supportContact: SUPPORT_CONTACT,
@@ -811,4 +820,44 @@ export const activateCouponSubscription = async (db, wholesalerId, code) => {
   });
 
   return subscription;
+};
+
+export const checkAndExpireSubscription = async (db, wholesaler) => {
+  if (!wholesaler || !wholesaler.subscriptions) return wholesaler;
+
+  const currentSubscription = getCurrentSubscription(wholesaler);
+  if (!currentSubscription || currentSubscription.status !== 'ACTIVE') return wholesaler;
+
+  const now = new Date();
+  const endsAt = currentSubscription.currentPeriodEnd
+    ? new Date(currentSubscription.currentPeriodEnd)
+    : null;
+
+  if (endsAt && now > endsAt) {
+    const targetStatus = currentSubscription.plan?.code === 'TRIAL' ? 'EXPIRED' : 'PAST_DUE';
+
+    await db.$transaction(async (tx) => {
+      await tx.wholesalerSubscription.update({
+        where: { id: currentSubscription.id },
+        data: { status: targetStatus },
+      });
+
+      await tx.wholesaler.update({
+        where: { id: wholesaler.id },
+        data: { onboardingStatus: 'PAST_DUE' },
+      });
+    });
+
+    return db.wholesaler.findUnique({
+      where: { id: wholesaler.id },
+      include: {
+        subscriptions: {
+          include: { plan: true },
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+    });
+  }
+
+  return wholesaler;
 };

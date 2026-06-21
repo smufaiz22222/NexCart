@@ -372,5 +372,3 @@ export const queueProductRecommendationUpdate = (productId) => {
   pendingProductIds.add(productId);
   processUpdateQueue();
 };
-
-

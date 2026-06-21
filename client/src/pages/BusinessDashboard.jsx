@@ -6,8 +6,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  CreditCard,
-  DollarSign,
   Package,
   ShoppingBag,
   Sparkles,
@@ -19,28 +17,20 @@ import {
   ShieldCheck,
   Building2,
   CornerDownRight,
-  ChevronDown,
-  ChevronUp,
+  Briefcase,
 } from 'lucide-react';
-import {
-  useOrders,
-  useMyLedger,
-  useBuyerCreditStatus,
-  useUserRecommendations,
-  useRfqs,
-} from '../api/queries';
+import { useOrders, useMyLedger, useUserRecommendations, useRfqs } from '../api/queries';
 import useAuthStore from '../store/authStore';
-import useCartStore from '../store/cartStore';
+import useB2BCartStore from '../store/b2bCartStore';
 
 export default function BusinessDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const _cartTotalItems = useCartStore((state) => state.getTotalItems());
+  const b2bCartItems = useB2BCartStore((state) => state.totals.itemCount);
 
   // Fetch B2B queries
   const { data: orders = [], isLoading: ordersLoading } = useOrders();
   const { data: ledgerData, isLoading: ledgerLoading } = useMyLedger();
-  const { data: creditData, isLoading: creditLoading } = useBuyerCreditStatus();
   const { data: recommendationsData, isLoading: recsLoading } = useUserRecommendations();
   const { data: rfqs = [], isLoading: rfqsLoading } = useRfqs();
 
@@ -67,7 +57,7 @@ export default function BusinessDashboard() {
     [rfqs]
   );
 
-  const isLoading = ordersLoading || ledgerLoading || creditLoading || recsLoading || rfqsLoading;
+  const isLoading = ordersLoading || ledgerLoading || recsLoading || rfqsLoading;
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -201,10 +191,6 @@ export default function BusinessDashboard() {
     );
   }
 
-  const creditLines = creditData?.creditLines || [];
-  const totalOutstanding = creditData?.totalOutstanding || 0;
-  const totalAvailable = creditData?.totalAvailable || 0;
-
   const getStepperStatus = (status) => {
     const steps = [
       { key: 'PENDING', label: 'Order Placed', desc: 'Awaiting wholesaler acceptance' },
@@ -236,6 +222,18 @@ export default function BusinessDashboard() {
 
   return (
     <div className="space-y-8 pb-12 text-[#16171a] font-sans">
+      {/* Platform Disclaimer Warning Banner */}
+      <div className="swiss-panel p-4 bg-amber-500/10 border border-amber-500/30 rounded-md flex gap-3 text-amber-900">
+        <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="text-xs">
+          <span className="font-extrabold uppercase tracking-wider text-amber-800 mr-2">
+            Platform Disclaimer:
+          </span>
+          NexCart is a technology marketplace. The platform is not responsible for any default,
+          fraud, or disputes in B2B credit or bank transfer deals.
+        </div>
+      </div>
+
       {/* Welcome Greeting Banner */}
       <section className="swiss-panel p-8 relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -265,43 +263,7 @@ export default function BusinessDashboard() {
 
       {/* Operational Metrics Grid */}
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Metric 1: Aggregate Dues */}
-        <div className="swiss-card p-6 flex flex-col justify-between min-h-[140px]">
-          <div className="flex items-center justify-between">
-            <div className="rounded-md border border-[#C0C0C0] bg-[#EFEFEF] p-2.5 text-[#8B0000]">
-              <Wallet className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6C757D]">
-              Total Outstanding
-            </span>
-          </div>
-          <div className="mt-4">
-            <p className="text-2xl font-bold font-mono text-[#8B0000] tracking-tight">
-              {formatCurrency(totalOutstanding)}
-            </p>
-            <p className="mt-1 text-xs text-[#6C757D]">Aggregate payable balance</p>
-          </div>
-        </div>
-
-        {/* Metric 2: Available Credit */}
-        <div className="swiss-card p-6 flex flex-col justify-between min-h-[140px]">
-          <div className="flex items-center justify-between">
-            <div className="rounded-md border border-[#C0C0C0] bg-[#EFEFEF] p-2.5 text-emerald-800">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6C757D]">
-              Available Credit
-            </span>
-          </div>
-          <div className="mt-4">
-            <p className="text-2xl font-bold font-mono text-emerald-800 tracking-tight">
-              {formatCurrency(totalAvailable)}
-            </p>
-            <p className="mt-1 text-xs text-[#6C757D]">Sum of all supplier credit limits</p>
-          </div>
-        </div>
-
-        {/* Metric 3: Active RFQs */}
+        {/* Metric 1: Active RFQs */}
         <div className="swiss-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex items-center justify-between">
             <div className="rounded-md border border-[#C0C0C0] bg-[#EFEFEF] p-2.5 text-[#0047AB]">
@@ -319,21 +281,57 @@ export default function BusinessDashboard() {
           </div>
         </div>
 
-        {/* Metric 4: Wholesale Orders */}
+        {/* Metric 2: Active B2B Orders */}
         <div className="swiss-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex items-center justify-between">
             <div className="rounded-md border border-[#C0C0C0] bg-[#EFEFEF] p-2.5 text-[#16171a]">
               <Truck className="h-5 w-5" />
             </div>
             <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6C757D]">
-              Active B2B Orders
+              Active Orders
             </span>
           </div>
           <div className="mt-4">
             <p className="text-2xl font-bold font-mono text-[#16171a] tracking-tight">
               {activeOrders.length}
             </p>
-            <p className="mt-1 text-xs text-[#6C757D]">Orders currently in fulfillment</p>
+            <p className="mt-1 text-xs text-[#6C757D]">Orders in fulfillment</p>
+          </div>
+        </div>
+
+        {/* Metric 3: B2B Cart Items */}
+        <div className="swiss-card p-6 flex flex-col justify-between min-h-[140px]">
+          <div className="flex items-center justify-between">
+            <div className="rounded-md border border-[#C0C0C0] bg-[#EFEFEF] p-2.5 text-emerald-800">
+              <ShoppingBag className="h-5 w-5" />
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6C757D]">
+              B2B Cart
+            </span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl font-bold font-mono text-emerald-800 tracking-tight">
+              {b2bCartItems}
+            </p>
+            <p className="mt-1 text-xs text-[#6C757D]">Items ready for wholesale checkout</p>
+          </div>
+        </div>
+
+        {/* Metric 4: Total B2B Orders */}
+        <div className="swiss-card p-6 flex flex-col justify-between min-h-[140px]">
+          <div className="flex items-center justify-between">
+            <div className="rounded-md border border-[#C0C0C0] bg-[#EFEFEF] p-2.5 text-[#16171a]">
+              <Package className="h-5 w-5" />
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6C757D]">
+              Total Orders
+            </span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl font-bold font-mono text-[#16171a] tracking-tight">
+              {orders.length}
+            </p>
+            <p className="mt-1 text-xs text-[#6C757D]">Lifetime procurement orders</p>
           </div>
         </div>
       </section>
@@ -430,7 +428,7 @@ export default function BusinessDashboard() {
                 </div>
               </div>
               <Link
-                to="/store/orders"
+                to="/store/dashboard/orders"
                 className="text-xs font-semibold uppercase tracking-wider text-[#16171a] hover:text-[#0047AB] border border-[#C0C0C0] hover:bg-[#EFEFEF] px-4 py-2 rounded-md transition-all"
               >
                 Inspect Agreement
@@ -446,7 +444,7 @@ export default function BusinessDashboard() {
           </p>
           <div className="grid grid-cols-2 gap-3 flex-1">
             <Link
-              to="/store/rfqs"
+              to="/store/dashboard/rfqs"
               className="group p-4 rounded-md border border-[#C0C0C0] bg-[#EFEFEF]/50 hover:bg-white hover:border-[#0047AB] transition-colors flex flex-col justify-between"
             >
               <MessageSquare className="w-5 h-5 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
@@ -458,34 +456,34 @@ export default function BusinessDashboard() {
               </div>
             </Link>
 
-            <a
-              href="#credit-lines"
+            <Link
+              to="/store/dashboard/b2b/cart"
               className="group p-4 rounded-md border border-[#C0C0C0] bg-[#EFEFEF]/50 hover:bg-white hover:border-[#0047AB] transition-colors flex flex-col justify-between"
             >
-              <CreditCard className="w-5 h-5 text-[#6C757D] group-hover:text-emerald-800 transition-colors" />
+              <ShoppingBag className="w-5 h-5 text-[#6C757D] group-hover:text-emerald-800 transition-colors" />
               <div className="mt-8">
                 <p className="text-xs font-bold uppercase tracking-wider text-[#16171a]">
-                  Credit Lines
+                  B2B Cart
                 </p>
-                <p className="text-[10px] text-[#6C757D] mt-1">Check supplier limits</p>
+                <p className="text-[10px] text-[#6C757D] mt-1">Wholesale checkout items</p>
               </div>
-            </a>
-
-            <a
-              href="#ledger-history"
-              className="group p-4 rounded-md border border-[#C0C0C0] bg-[#EFEFEF]/50 hover:bg-white hover:border-[#0047AB] transition-colors flex flex-col justify-between"
-            >
-              <FileText className="w-5 h-5 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
-              <div className="mt-8">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#16171a]">
-                  Accounting Ledger
-                </p>
-                <p className="text-[10px] text-[#6C757D] mt-1">Check invoice payments</p>
-              </div>
-            </a>
+            </Link>
 
             <Link
-              to="/store/b2b-onboarding"
+              to="/store/dashboard/b2b/orders"
+              className="group p-4 rounded-md border border-[#C0C0C0] bg-[#EFEFEF]/50 hover:bg-white hover:border-[#0047AB] transition-colors flex flex-col justify-between"
+            >
+              <Package className="w-5 h-5 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
+              <div className="mt-8">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#16171a]">
+                  B2B Orders
+                </p>
+                <p className="text-[10px] text-[#6C757D] mt-1">Procurement order history</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/store/dashboard/b2b-onboarding"
               className="group p-4 rounded-md border border-[#C0C0C0] bg-[#EFEFEF]/50 hover:bg-white hover:border-[#0047AB] transition-colors flex flex-col justify-between"
             >
               <Building2 className="w-5 h-5 text-[#6C757D] group-hover:text-[#16171a] transition-colors" />
@@ -498,73 +496,6 @@ export default function BusinessDashboard() {
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* Trade Credit Desk */}
-      <section id="credit-lines" className="space-y-4 pt-4">
-        <h2 className="text-xl font-bold tracking-tight text-[#16171a]">
-          Wholesaler Trade Credit Lines
-        </h2>
-        {creditLines.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {creditLines.map((line) => (
-              <div
-                key={line.wholesalerId}
-                className="swiss-panel p-6 flex flex-col justify-between min-h-[180px]"
-              >
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#C0C0C0] pb-3 mb-4">
-                    <h3 className="font-bold text-sm text-[#16171a] line-clamp-1">
-                      {line.wholesalerName}
-                    </h3>
-                    <span className="px-2.5 py-0.5 rounded-md text-[10px] font-medium bg-[#EFEFEF] border border-[#C0C0C0] text-[#0047AB]">
-                      {line.status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <p className="text-[9px] font-semibold text-[#6C757D] uppercase tracking-wider">
-                        Credit Limit
-                      </p>
-                      <p className="font-bold font-mono text-[#16171a] mt-1">
-                        {formatCurrency(line.creditLimit)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-semibold text-[#6C757D] uppercase tracking-wider">
-                        Outstanding
-                      </p>
-                      <p className="font-bold font-mono text-[#8B0000] mt-1">
-                        {formatCurrency(line.outstanding)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-semibold text-[#6C757D] uppercase tracking-wider">
-                        Available
-                      </p>
-                      <p className="font-bold font-mono text-emerald-800 mt-1">
-                        {formatCurrency(line.available)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-[#C0C0C0] flex items-center justify-between text-[10px] text-[#6C757D]">
-                  <span>Payment terms: Net 30</span>
-                  <span className="font-mono">Currency: {line.currency}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="py-12 text-center text-[#6C757D] border border-dashed border-[#C0C0C0] rounded-md bg-white">
-            <CreditCard className="w-10 h-10 text-[#C0C0C0] mx-auto mb-2" />
-            <p className="text-sm font-semibold">No active credit relationships.</p>
-            <p className="text-xs text-[#6C757D] mt-1">
-              Wholesalers will configure your trade credit limits once you initiate purchase
-              relations.
-            </p>
-          </div>
-        )}
       </section>
 
       {/* Ledger Statement History */}

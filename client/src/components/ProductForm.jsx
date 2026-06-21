@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { TextField, TextAreaField, FormError } from './FormFields';
 import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
@@ -9,6 +10,30 @@ import apiClient from '../api/axios';
  * Demonstrates nested arrays, sync/async validation, and granular subscriptions.
  */
 export function ProductForm({ initialData, onSubmit, onCancel }) {
+  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(0);
+
+  useEffect(() => {
+    if (
+      initialData?.wholesaler?.deliveryFee !== undefined &&
+      initialData?.wholesaler?.deliveryFee !== null
+    ) {
+      setDefaultDeliveryFee(Number(initialData.wholesaler.deliveryFee));
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const response = await apiClient.get('/b2b/wholesaler/profile');
+        if (response.data?.wholesaler?.deliveryFee !== undefined) {
+          setDefaultDeliveryFee(Number(response.data.wholesaler.deliveryFee));
+        }
+      } catch (err) {
+        console.debug('Failed to fetch wholesaler profile for delivery fee placeholder:', err);
+      }
+    };
+    fetchProfile();
+  }, [initialData]);
+
   const form = useForm({
     defaultValues: {
       name: initialData?.name || '',
@@ -19,6 +44,10 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
       category: initialData?.category || '',
       currentStock: initialData?.currentStock !== undefined ? initialData.currentStock : '',
       minStock: initialData?.minStock !== undefined ? initialData.minStock : '',
+      deliveryFee:
+        initialData?.deliveryFee !== undefined && initialData.deliveryFee !== null
+          ? initialData.deliveryFee
+          : '',
       attributes: initialData?.attributes || [{ name: '', value: '' }],
     },
     onSubmit: async ({ value }) => {
@@ -109,6 +138,33 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
 
           <form.Field name="category">
             {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
+          </form.Field>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <form.Field
+            name="deliveryFee"
+            validators={{
+              onChange: ({ value }) =>
+                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
+                  ? 'Enter a valid delivery fee'
+                  : undefined,
+            }}
+          >
+            {(field) => (
+              <div className="space-y-1.5">
+                <TextField
+                  field={field}
+                  label="Delivery Fee Override (₹)"
+                  type="number"
+                  placeholder={`Default: ₹${defaultDeliveryFee.toFixed(2)}`}
+                />
+                <p className="text-[11px] text-zinc-500 font-medium leading-normal pl-1">
+                  Specify a custom per-item delivery fee for this product. Leave blank to default to
+                  your profile shipping settings.
+                </p>
+              </div>
+            )}
           </form.Field>
         </div>
 

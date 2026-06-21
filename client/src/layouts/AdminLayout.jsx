@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CreditCard, LayoutDashboard, Shield, LogOut, Menu, X } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import NotificationBell from '../components/NotificationBell';
 
 export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -118,11 +119,14 @@ export default function AdminLayout() {
                 </div>
               </div>
 
-              <div className="hidden rounded-2xl border border-[#d8ccb9] bg-white/70 px-4 py-2 text-right sm:block">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-                  Signed in as
-                </p>
-                <p className="text-sm font-semibold text-[#221c16]">{user?.email}</p>
+              <div className="flex items-center gap-4">
+                <NotificationBell />
+                <div className="hidden rounded-2xl border border-[#d8ccb9] bg-white/70 px-4 py-2 text-right sm:block">
+                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
+                    Signed in as
+                  </p>
+                  <p className="text-sm font-semibold text-[#221c16]">{user?.email}</p>
+                </div>
               </div>
             </div>
 

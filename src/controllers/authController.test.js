@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { getPrismaClient, setPrismaClient } from '../config/db.js';
-import { login, register } from './authController.js';
+import { login, register, updateProfile } from './authController.js';
 
 const createMockResponse = () => {
   const response = {
@@ -425,6 +425,180 @@ test('login allows differently cased email input after normalization', async () 
     assert.equal(typeof res.body.token, 'string');
   } finally {
     process.env.JWT_SECRET = originalSecret;
+    setPrismaClient(originalClient);
+  }
+});
+
+test('updateProfile updates name successfully', async () => {
+  const originalClient = getPrismaClient();
+  let updatedData = null;
+  const userRecord = {
+    id: 'user-123',
+    name: 'Old Name',
+    email: 'jane@example.com',
+    password: 'hashedpassword',
+    role: 'CUSTOMER',
+    wholesalerProfile: null,
+    businessProfile: null,
+  };
+
+  const client = {
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.id === 'user-123') return userRecord;
+        return null;
+      },
+      update: async ({ where, data }) => {
+        if (where.id === 'user-123') {
+          updatedData = { ...userRecord, ...data };
+          return updatedData;
+        }
+        return null;
+      },
+    },
+  };
+
+  try {
+    setPrismaClient(client);
+    const req = {
+      user: { userId: 'user-123' },
+      body: { name: 'New Name' },
+    };
+    const res = createMockResponse();
+
+    await updateProfile(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.user.name, 'New Name');
+    assert.equal(updatedData.name, 'New Name');
+  } finally {
+    setPrismaClient(originalClient);
+  }
+});
+
+test('updateProfile updates email successfully checking uniqueness', async () => {
+  const originalClient = getPrismaClient();
+  let updatedData = null;
+  const userRecord = {
+    id: 'user-123',
+    name: 'Jane',
+    email: 'jane@example.com',
+    password: 'hashedpassword',
+    role: 'CUSTOMER',
+    wholesalerProfile: null,
+    businessProfile: null,
+  };
+
+  const client = {
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.id === 'user-123') return userRecord;
+        if (where.email === 'newemail@example.com') return null; // unique check
+        if (where.email === 'taken@example.com') return { id: 'user-taken' };
+        return null;
+      },
+      update: async ({ where, data }) => {
+        if (where.id === 'user-123') {
+          updatedData = { ...userRecord, ...data };
+          return updatedData;
+        }
+        return null;
+      },
+    },
+  };
+
+  try {
+    setPrismaClient(client);
+
+    // Scenario 1: Update to unique email
+    const req1 = {
+      user: { userId: 'user-123' },
+      body: { email: 'newemail@example.com' },
+    };
+    const res1 = createMockResponse();
+    await updateProfile(req1, res1);
+
+    assert.equal(res1.statusCode, 200);
+    assert.equal(res1.body.user.email, 'newemail@example.com');
+    assert.equal(updatedData.email, 'newemail@example.com');
+
+    // Scenario 2: Update to taken email
+    const req2 = {
+      user: { userId: 'user-123' },
+      body: { email: 'taken@example.com' },
+    };
+    const res2 = createMockResponse();
+    await updateProfile(req2, res2);
+
+    assert.equal(res2.statusCode, 400);
+    assert.equal(res2.body.error, 'Email is already in use by another account');
+  } finally {
+    setPrismaClient(originalClient);
+  }
+});
+
+test('updateProfile updates password successfully with valid current password', async () => {
+  const originalClient = getPrismaClient();
+  let updatedData = null;
+  const plainPassword = 'OldPassword@123';
+  const hashedPassword = await bcrypt.hash(plainPassword, 10);
+  const userRecord = {
+    id: 'user-123',
+    name: 'Jane',
+    email: 'jane@example.com',
+    password: hashedPassword,
+    role: 'CUSTOMER',
+    wholesalerProfile: null,
+    businessProfile: null,
+  };
+
+  const client = {
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.id === 'user-123') return userRecord;
+        return null;
+      },
+      update: async ({ where, data }) => {
+        if (where.id === 'user-123') {
+          updatedData = { ...userRecord, ...data };
+          return updatedData;
+        }
+        return null;
+      },
+    },
+  };
+
+  try {
+    setPrismaClient(client);
+
+    // Scenario 1: Correct current password, valid new password
+    const req1 = {
+      user: { userId: 'user-123' },
+      body: {
+        currentPassword: 'OldPassword@123',
+        newPassword: 'NewPassword@123',
+      },
+    };
+    const res1 = createMockResponse();
+    await updateProfile(req1, res1);
+
+    assert.equal(res1.statusCode, 200);
+    assert.ok(await bcrypt.compare('NewPassword@123', updatedData.password));
+
+    // Scenario 2: Incorrect current password
+    const req2 = {
+      user: { userId: 'user-123' },
+      body: {
+        currentPassword: 'WrongPassword@123',
+        newPassword: 'NewPassword@123',
+      },
+    };
+    const res2 = createMockResponse();
+    await updateProfile(req2, res2);
+
+    assert.equal(res2.statusCode, 400);
+    assert.equal(res2.body.error, 'Incorrect current password');
+  } finally {
     setPrismaClient(originalClient);
   }
 });

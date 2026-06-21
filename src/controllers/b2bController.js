@@ -1,4 +1,27 @@
 import { prisma } from '../config/db.js';
+import {
+  createNotification,
+  createWholesalerNotification,
+} from '../services/notificationService.js';
+
+const notifyAdminsNewB2B = (companyName) => {
+  prisma.user
+    .findMany({
+      where: { role: 'SUPER_ADMIN' },
+      select: { id: true },
+    })
+    .then((admins) => {
+      for (const admin of admins) {
+        createNotification(admin.id, {
+          title: 'New B2B Application',
+          message: `A new business onboarding profile has been submitted by "${companyName}".`,
+          type: 'ONBOARDING',
+          link: '/admin/subscriptions',
+        }).catch((err) => console.error('Failed to notify admin of B2B application:', err));
+      }
+    })
+    .catch((err) => console.error('Failed to find admins for B2B onboarding notification:', err));
+};
 
 // 1. Submit B2B Business Onboarding Profile
 export const registerB2BProfile = async (req, res) => {
@@ -16,9 +39,30 @@ export const registerB2BProfile = async (req, res) => {
     });
 
     if (existingProfile) {
-      return res.status(400).json({ 
-        error: 'Business onboarding profile already exists for this account',
-        verification: existingProfile.verification 
+      if (['APPLIED', 'UNDER_REVIEW', 'APPROVED'].includes(existingProfile.verification)) {
+        return res.status(409).json({
+          error: 'A business onboarding application already exists for this account.',
+          profile: existingProfile,
+        });
+      }
+
+      const profile = await prisma.businessProfile.update({
+        where: { userId },
+        data: {
+          companyName,
+          taxId,
+          businessAddress,
+          verification: 'APPLIED',
+          status: 'APPLIED',
+          rejectionReason: null,
+        },
+      });
+
+      notifyAdminsNewB2B(companyName);
+
+      return res.status(200).json({
+        message: 'Business application resubmitted successfully',
+        profile,
       });
     }
 
@@ -29,8 +73,11 @@ export const registerB2BProfile = async (req, res) => {
         taxId,
         businessAddress,
         verification: 'APPLIED',
+        status: 'APPLIED',
       },
     });
+
+    notifyAdminsNewB2B(companyName);
 
     res.status(201).json({ message: 'Business application submitted successfully', profile });
   } catch (error) {
@@ -57,7 +104,10 @@ export const adminApproveB2B = async (req, res) => {
       return res.status(404).json({ error: 'Business profile not found' });
     }
 
-    const updatedData = { verification };
+    const updatedData = {
+      verification,
+      status: verification === 'APPROVED' ? 'ACTIVE' : 'REJECTED',
+    };
     if (verification === 'REJECTED') {
       updatedData.rejectionReason = rejectionReason || 'Failed verification criteria';
     } else {
@@ -69,7 +119,17 @@ export const adminApproveB2B = async (req, res) => {
       data: updatedData,
     });
 
-    res.status(200).json({ message: `Business profile status updated to ${verification}`, profile: updatedProfile });
+    createNotification(updatedProfile.userId, {
+      title: 'Business Onboarding Update',
+      message: `Your B2B onboarding application has been ${verification === 'APPROVED' ? 'APPROVED' : 'REJECTED'}.`,
+      type: 'ONBOARDING',
+      link: '/store/dashboard/b2b-onboarding',
+    }).catch((err) => console.error('Failed to notify user of B2B status update:', err));
+
+    res.status(200).json({
+      message: `Business profile status updated to ${verification}`,
+      profile: updatedProfile,
+    });
   } catch (error) {
     console.error('B2B Admin Approval Error:', error);
     res.status(500).json({ error: 'Failed to update business profile status' });
@@ -83,7 +143,9 @@ export const createRfq = async (req, res) => {
     const buyerId = req.user.userId;
 
     if (!productId || !quantity || !targetPrice) {
-      return res.status(400).json({ error: 'Missing required RFQ details (productId, quantity, targetPrice)' });
+      return res
+        .status(400)
+        .json({ error: 'Missing required RFQ details (productId, quantity, targetPrice)' });
     }
 
     // Verify buyer has an approved B2B profile
@@ -91,8 +153,10 @@ export const createRfq = async (req, res) => {
       where: { userId: buyerId },
     });
 
-    if (!profile || profile.verification !== 'APPROVED') {
-      return res.status(403).json({ error: 'Only approved B2B business buyers can request custom quotes' });
+    if (!profile || profile.verification !== 'APPROVED' || profile.status !== 'ACTIVE') {
+      return res.status(403).json({
+        error: 'Only approved B2B business buyers can request custom quotes',
+      });
     }
 
     const product = await prisma.product.findUnique({
@@ -105,7 +169,9 @@ export const createRfq = async (req, res) => {
 
     const qty = parseInt(quantity, 10);
     if (qty < product.minOrderQty) {
-      return res.status(400).json({ error: `Quantity must meet the product MOQ of ${product.minOrderQty} units` });
+      return res
+        .status(400)
+        .json({ error: `Quantity must meet the product MOQ of ${product.minOrderQty} units` });
     }
 
     const rfq = await prisma.rfq.create({
@@ -124,6 +190,13 @@ export const createRfq = async (req, res) => {
       },
     });
 
+    createWholesalerNotification(rfq.sellerId, {
+      title: 'New RFQ Received',
+      message: `You received a new RFQ for product "${rfq.product.name}" (Qty: ${qty}, Target: ${targetPrice} INR).`,
+      type: 'RFQ',
+      link: '/wholesaler/rfqs',
+    }).catch((err) => console.error('Failed to notify wholesaler of RFQ:', err));
+
     res.status(201).json({ message: 'RFQ submitted successfully', rfq });
   } catch (error) {
     console.error('Create RFQ Error:', error);
@@ -135,7 +208,7 @@ export const createRfq = async (req, res) => {
 export const respondToRfq = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, counterPrice, sellerNotes } = req.body;
+    const { status, counterPrice, counterQuantity, sellerNotes } = req.body;
     const wholesalerId = req.user.wholesalerId;
 
     if (!['ACCEPTED', 'REJECTED', 'COUNTER_OFFERED'].includes(status)) {
@@ -164,9 +237,41 @@ export const respondToRfq = async (req, res) => {
       if (!counterPrice) {
         return res.status(400).json({ error: 'Counter price is required for counter offers' });
       }
+      let requiredQty = rfq.quantity;
+      if (counterQuantity) {
+        const qty = parseInt(counterQuantity, 10);
+        if (isNaN(qty) || qty <= 0) {
+          return res.status(400).json({ error: 'Counter quantity must be a positive integer' });
+        }
+        requiredQty = qty;
+      }
+      const product = await prisma.product.findUnique({
+        where: { id: rfq.productId },
+      });
+      if (!product) {
+        return res.status(404).json({ error: 'Product associated with RFQ not found' });
+      }
+      if (product.currentStock < requiredQty) {
+        return res
+          .status(400)
+          .json({ error: 'Insufficient inventory stock to make this counter offer.' });
+      }
       updateData.counterPrice = parseFloat(counterPrice);
+      updateData.counterQuantity = counterQuantity ? parseInt(counterQuantity, 10) : null;
     } else if (status === 'ACCEPTED') {
+      const product = await prisma.product.findUnique({
+        where: { id: rfq.productId },
+      });
+      if (!product) {
+        return res.status(404).json({ error: 'Product associated with RFQ not found' });
+      }
+      if (product.currentStock < rfq.quantity) {
+        return res
+          .status(400)
+          .json({ error: 'Insufficient inventory stock to accept this quote.' });
+      }
       updateData.counterPrice = null;
+      updateData.counterQuantity = null;
     }
 
     const updatedRfq = await prisma.rfq.update({
@@ -176,6 +281,13 @@ export const respondToRfq = async (req, res) => {
         product: { select: { name: true, imageUrl: true } },
       },
     });
+
+    createNotification(updatedRfq.buyerId, {
+      title: 'RFQ Response Received',
+      message: `Your RFQ for "${updatedRfq.product.name}" has been ${status.toLowerCase().replace('_', ' ')} by the wholesaler.`,
+      type: 'RFQ',
+      link: '/store/dashboard/rfqs',
+    }).catch((err) => console.error('Failed to notify buyer of RFQ status:', err));
 
     res.status(200).json({ message: `RFQ status updated to ${status}`, rfq: updatedRfq });
   } catch (error) {
@@ -196,7 +308,9 @@ export const getRfqs = async (req, res) => {
         where: { sellerId: wholesalerId },
         include: {
           buyer: { select: { id: true, name: true, email: true } },
-          product: { select: { id: true, name: true, imageUrl: true, price: true } },
+          product: {
+            select: { id: true, name: true, imageUrl: true, price: true, currentStock: true },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       });
@@ -205,7 +319,9 @@ export const getRfqs = async (req, res) => {
         include: {
           buyer: { select: { id: true, name: true, email: true } },
           seller: { select: { id: true, businessName: true } },
-          product: { select: { id: true, name: true, imageUrl: true, price: true } },
+          product: {
+            select: { id: true, name: true, imageUrl: true, price: true, currentStock: true },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       });
@@ -215,13 +331,58 @@ export const getRfqs = async (req, res) => {
         where: { buyerId: userId },
         include: {
           seller: { select: { id: true, businessName: true } },
-          product: { select: { id: true, name: true, imageUrl: true, price: true } },
+          product: {
+            select: { id: true, name: true, imageUrl: true, price: true, currentStock: true },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       });
     }
 
-    res.status(200).json({ rfqs });
+    // Fetch matching B2B orders to find their status and paymentStatus
+    let ordersWhere = {
+      paymentReferenceNo: {
+        contains: 'RFQ:',
+      },
+    };
+    if (role === 'WHOLESALER' && wholesalerId) {
+      ordersWhere.sellerId = wholesalerId;
+    } else if (role === 'CUSTOMER') {
+      ordersWhere.buyerId = userId;
+    }
+
+    const orders = await prisma.order.findMany({
+      where: ordersWhere,
+      select: {
+        id: true,
+        status: true,
+        paymentStatus: true,
+        paymentReferenceNo: true,
+      },
+    });
+
+    const rfqsWithOrders = rfqs.map((rfq) => {
+      const matchedOrder = orders.find((o) => {
+        if (!o.paymentReferenceNo) return false;
+        const parts = o.paymentReferenceNo.split('|RFQ:');
+        if (parts.length < 2) return false;
+        const rfqIds = parts[1].split(',');
+        return rfqIds.includes(rfq.id);
+      });
+
+      return {
+        ...rfq,
+        order: matchedOrder
+          ? {
+              id: matchedOrder.id,
+              status: matchedOrder.status,
+              paymentStatus: matchedOrder.paymentStatus,
+            }
+          : null,
+      };
+    });
+
+    res.status(200).json({ rfqs: rfqsWithOrders });
   } catch (error) {
     console.error('Get RFQs Error:', error);
     res.status(500).json({ error: 'Failed to fetch RFQs' });
@@ -270,7 +431,9 @@ export const addProductPriceTiers = async (req, res) => {
       orderBy: { minQuantity: 'asc' },
     });
 
-    res.status(200).json({ message: 'Product price tiers updated successfully', tiers: updatedTiers });
+    res
+      .status(200)
+      .json({ message: 'Product price tiers updated successfully', tiers: updatedTiers });
   } catch (error) {
     console.error('Update Tiers Error:', error);
     res.status(500).json({ error: 'Failed to update product price tiers' });
@@ -316,12 +479,38 @@ export const acceptQuote = async (req, res) => {
       return res.status(400).json({ error: 'RFQ is not in a negotiable status' });
     }
 
+    const product = await prisma.product.findUnique({
+      where: { id: rfq.productId },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product associated with RFQ not found' });
+    }
+
+    const requiredQty =
+      rfq.counterQuantity !== null && rfq.counterQuantity !== undefined
+        ? rfq.counterQuantity
+        : rfq.quantity;
+
+    if (product.currentStock < requiredQty) {
+      return res.status(400).json({ error: 'Insufficient inventory stock to accept this quote.' });
+    }
+
     const updatedRfq = await prisma.rfq.update({
       where: { id },
       data: { status: 'ACCEPTED' },
     });
 
-    res.status(200).json({ message: 'Quote accepted successfully. You can now checkout.', rfq: updatedRfq });
+    createWholesalerNotification(updatedRfq.sellerId, {
+      title: 'RFQ Quote Accepted',
+      message: `Customer accepted your quote for RFQ #${updatedRfq.id}. Ready for B2B order checkout.`,
+      type: 'RFQ',
+      link: '/wholesaler/rfqs',
+    }).catch((err) => console.error('Failed to notify wholesaler of RFQ acceptance:', err));
+
+    res
+      .status(200)
+      .json({ message: 'Quote accepted successfully. You can now checkout.', rfq: updatedRfq });
   } catch (error) {
     console.error('Accept Quote Error:', error);
     res.status(500).json({ error: 'Failed to accept the quote' });
@@ -331,11 +520,13 @@ export const acceptQuote = async (req, res) => {
 export const buyerRespondToRfq = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, targetPrice, notes } = req.body;
+    const { status, targetPrice, quantity, notes } = req.body;
     const buyerId = req.user.userId;
 
     if (!['PENDING', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid buyer response status. Must be counter (PENDING) or decline (REJECTED).' });
+      return res.status(400).json({
+        error: 'Invalid buyer response status. Must be counter (PENDING) or decline (REJECTED).',
+      });
     }
 
     const rfq = await prisma.rfq.findUnique({
@@ -362,7 +553,24 @@ export const buyerRespondToRfq = async (req, res) => {
       }
       updateData.targetPrice = parseFloat(targetPrice);
       updateData.counterPrice = null;
+      updateData.counterQuantity = null;
       updateData.notes = notes || null;
+
+      if (quantity) {
+        const qty = parseInt(quantity, 10);
+        if (isNaN(qty) || qty <= 0) {
+          return res.status(400).json({ error: 'Quantity must be a positive integer' });
+        }
+        const product = await prisma.product.findUnique({
+          where: { id: rfq.productId },
+        });
+        if (product && qty < product.minOrderQty) {
+          return res.status(400).json({
+            error: `Quantity must meet the product MOQ of ${product.minOrderQty} units`,
+          });
+        }
+        updateData.quantity = qty;
+      }
     } else if (status === 'REJECTED') {
       updateData.notes = notes ? `Declined: ${notes}` : rfq.notes;
     }
@@ -374,6 +582,13 @@ export const buyerRespondToRfq = async (req, res) => {
         product: { select: { name: true, imageUrl: true } },
       },
     });
+
+    createWholesalerNotification(updatedRfq.sellerId, {
+      title: 'RFQ Counter/Update Received',
+      message: `Customer updated/countered RFQ #${updatedRfq.id} (Status: ${status.toLowerCase()}).`,
+      type: 'RFQ',
+      link: '/wholesaler/rfqs',
+    }).catch((err) => console.error('Failed to notify wholesaler of RFQ update:', err));
 
     res.status(200).json({ message: `RFQ updated to ${status}`, rfq: updatedRfq });
   } catch (error) {
@@ -391,7 +606,7 @@ export const getWholesalerBuyers = async (req, res) => {
     }
 
     const buyers = await prisma.businessProfile.findMany({
-      where: { verification: 'APPROVED' },
+      where: { verification: 'APPROVED', status: 'ACTIVE' },
       include: {
         user: { select: { id: true, name: true, email: true } },
       },
@@ -405,7 +620,7 @@ export const getWholesalerBuyers = async (req, res) => {
           },
         });
 
-        const balance = creditRecord ? Number(creditRecord.balance) : 0.00;
+        const balance = creditRecord ? Number(creditRecord.balance) : 0.0;
 
         return {
           id: buyer.id,
@@ -415,7 +630,7 @@ export const getWholesalerBuyers = async (req, res) => {
           businessAddress: buyer.businessAddress,
           email: buyer.user?.email,
           name: buyer.user?.name,
-          creditLimit: creditRecord ? Number(creditRecord.creditLimit) : 50000.00,
+          creditLimit: creditRecord ? Number(creditRecord.creditLimit) : 50000.0,
           hasCustomLimit: !!creditRecord,
           balance: balance.toFixed(2),
           outstandingDebt: balance < 0 ? Math.abs(balance).toFixed(2) : '0.00',
@@ -430,169 +645,127 @@ export const getWholesalerBuyers = async (req, res) => {
   }
 };
 
-// 10. Update custom credit limit for a buyer (Wholesaler only)
-export const updateWholesalerCreditLimit = async (req, res) => {
+export const updateWholesalerBankDetails = async (req, res) => {
   try {
     const wholesalerId = req.user.wholesalerId;
-    const { buyerId } = req.params;
-    const { creditLimit } = req.body;
-
     if (!wholesalerId) {
       return res.status(403).json({ error: 'Access denied. Wholesaler profile required.' });
     }
 
-    if (creditLimit === undefined || isNaN(parseFloat(creditLimit))) {
-      return res.status(400).json({ error: 'Valid credit limit value is required' });
+    const {
+      bankName,
+      bankAccountNo,
+      bankIfsc,
+      upiId,
+      qrCodeUrl,
+      deliveryFee,
+      freeDeliveryThreshold,
+    } = req.body;
+
+    const parsedDeliveryFee =
+      deliveryFee !== undefined && deliveryFee !== null && deliveryFee !== ''
+        ? parseFloat(deliveryFee)
+        : 0.0;
+
+    const parsedThreshold =
+      freeDeliveryThreshold !== undefined &&
+      freeDeliveryThreshold !== null &&
+      freeDeliveryThreshold !== ''
+        ? parseFloat(freeDeliveryThreshold)
+        : null;
+
+    if (isNaN(parsedDeliveryFee) || parsedDeliveryFee < 0) {
+      return res.status(400).json({ error: 'Delivery fee must be a non-negative number' });
+    }
+    if (parsedThreshold !== null && (isNaN(parsedThreshold) || parsedThreshold < 0)) {
+      return res
+        .status(400)
+        .json({ error: 'Free delivery threshold must be a non-negative number' });
     }
 
-    const limitValue = parseFloat(creditLimit);
-    if (limitValue < 0) {
-      return res.status(400).json({ error: 'Credit limit cannot be negative' });
-    }
-
-    const businessProfile = await prisma.businessProfile.findUnique({
-      where: { userId: buyerId },
+    const updated = await prisma.wholesaler.update({
+      where: { id: wholesalerId },
+      data: {
+        bankName: bankName?.trim() || null,
+        bankAccountNo: bankAccountNo?.trim() || null,
+        bankIfsc: bankIfsc?.trim() || null,
+        upiId: upiId?.trim() || null,
+        qrCodeUrl: qrCodeUrl?.trim() || null,
+        deliveryFee: parsedDeliveryFee,
+        freeDeliveryThreshold: parsedThreshold,
+      },
     });
 
-    if (!businessProfile || businessProfile.verification !== 'APPROVED') {
-      return res.status(400).json({ error: 'Customer must have an approved B2B profile to set a credit limit' });
-    }
-
-    const record = await prisma.wholesalerCreditLimit.upsert({
-      where: {
-        wholesalerId_buyerId: { wholesalerId, buyerId },
-      },
-      update: {
-        creditLimit: limitValue,
-      },
-      create: {
-        wholesalerId,
-        buyerId,
-        creditLimit: limitValue,
+    res.status(200).json({
+      message: 'Bank & delivery details updated successfully',
+      wholesaler: {
+        id: updated.id,
+        businessName: updated.businessName,
+        bankName: updated.bankName,
+        bankAccountNo: updated.bankAccountNo,
+        bankIfsc: updated.bankIfsc,
+        upiId: updated.upiId,
+        qrCodeUrl: updated.qrCodeUrl,
+        deliveryFee: Number(updated.deliveryFee),
+        freeDeliveryThreshold:
+          updated.freeDeliveryThreshold !== null ? Number(updated.freeDeliveryThreshold) : null,
       },
     });
-
-    res.status(200).json({ message: 'Credit limit updated successfully', record });
   } catch (error) {
-    console.error('Update Credit Limit Error:', error);
-    res.status(500).json({ error: 'Failed to update credit limit' });
+    console.error('Update Bank Details Error:', error);
+    res.status(500).json({ error: 'Failed to update wholesaler bank details' });
   }
 };
 
-// 11. Get Buyer Credit Status per Wholesaler
+export const getWholesalerProfile = async (req, res) => {
+  try {
+    const wholesalerId = req.user.wholesalerId;
+    if (!wholesalerId) {
+      return res.status(403).json({ error: 'Access denied. Wholesaler profile required.' });
+    }
+
+    const profile = await prisma.wholesaler.findUnique({
+      where: { id: wholesalerId },
+    });
+
+    res.status(200).json({ wholesaler: profile });
+  } catch (error) {
+    console.error('Get Wholesaler Profile Error:', error);
+    res.status(500).json({ error: 'Failed to fetch wholesaler profile details' });
+  }
+};
+
 export const getBuyerCreditStatus = async (req, res) => {
   try {
     const buyerId = req.user.userId;
-
-    const businessProfile = await prisma.businessProfile.findUnique({
-      where: { userId: buyerId },
-    });
-
-    if (!businessProfile || businessProfile.verification !== 'APPROVED' || businessProfile.status !== 'ACTIVE') {
-      return res.status(403).json({ error: 'Access denied. Active approved B2B business profile required.' });
-    }
-
-    // Batch query wholesaler credit limits and ledger entries for this buyer
-    const [creditLimits, ledgerEntries] = await Promise.all([
-      prisma.wholesalerCreditLimit.findMany({
-        where: { buyerId },
-        include: {
-          wholesaler: {
-            select: {
-              id: true,
-              businessName: true,
-            },
+    const creditLimits = await prisma.wholesalerCreditLimit.findMany({
+      where: { buyerId },
+      include: {
+        wholesaler: {
+          select: {
+            id: true,
+            businessName: true,
           },
         },
-      }),
-      prisma.ledgerEntry.findMany({
-        where: { userId: buyerId },
-        include: {
-          wholesaler: {
-            select: {
-              id: true,
-              businessName: true,
-            },
-          },
-        },
-      }),
-    ]);
-
-    // Group ledger entries by wholesalerId
-    const balanceMap = {};
-    const wholesalerNames = {};
-
-    for (const entry of ledgerEntries) {
-      const wId = entry.wholesalerId;
-      if (!balanceMap[wId]) {
-        balanceMap[wId] = 0;
-      }
-      balanceMap[wId] += Number(entry.amount);
-      if (entry.wholesaler) {
-        wholesalerNames[wId] = entry.wholesaler.businessName;
-      }
-    }
-
-    // Build credit lines list
-    const creditLines = [];
-    const processedWholesalerIds = new Set();
-
-    // 1. Process explicit credit limits
-    for (const limitRecord of creditLimits) {
-      const wId = limitRecord.wholesalerId;
-      processedWholesalerIds.add(wId);
-
-      const balance = balanceMap[wId] || 0;
-      const outstanding = balance < 0 ? -balance : 0;
-      const creditLimit = Number(limitRecord.creditLimit);
-      const available = Math.max(0, creditLimit - outstanding);
-
-      creditLines.push({
-        wholesalerId: wId,
-        wholesalerName: limitRecord.wholesaler?.businessName || 'Unknown Wholesaler',
-        creditEnabled: true,
-        creditLimit,
-        outstanding,
-        available,
-        currency: 'INR',
-        status: 'Active',
-      });
-    }
-
-    // 2. Process wholesalers with ledger activity but no explicit credit limit configured (use default ₹50,000)
-    for (const [wId, balance] of Object.entries(balanceMap)) {
-      if (!processedWholesalerIds.has(wId)) {
-        processedWholesalerIds.add(wId);
-
-        const outstanding = balance < 0 ? -balance : 0;
-        const creditLimit = 50000.00; // Default credit limit
-        const available = Math.max(0, creditLimit - outstanding);
-
-        creditLines.push({
-          wholesalerId: wId,
-          wholesalerName: wholesalerNames[wId] || 'Unknown Wholesaler',
-          creditEnabled: true,
-          creditLimit,
-          outstanding,
-          available,
-          currency: 'INR',
-          status: 'Active',
-        });
-      }
-    }
-
-    // Computes aggregate totals
-    const totalOutstanding = creditLines.reduce((sum, line) => sum + line.outstanding, 0);
-    const totalAvailable = creditLines.reduce((sum, line) => sum + line.available, 0);
-
-    res.status(200).json({
-      totalOutstanding,
-      totalAvailable,
-      creditLines,
+      },
+      orderBy: { createdAt: 'desc' },
     });
+
+    const formatted = creditLimits.map((record) => {
+      const balance = Number(record.balance);
+      return {
+        id: record.id,
+        wholesalerId: record.wholesalerId,
+        businessName: record.wholesaler?.businessName || 'Unknown Wholesaler',
+        creditLimit: Number(record.creditLimit),
+        balance: balance.toFixed(2),
+        outstandingDebt: balance < 0 ? Math.abs(balance).toFixed(2) : '0.00',
+      };
+    });
+
+    res.status(200).json({ creditLimits: formatted });
   } catch (error) {
     console.error('Get Buyer Credit Status Error:', error);
     res.status(500).json({ error: 'Failed to fetch buyer credit status' });
   }
 };
-

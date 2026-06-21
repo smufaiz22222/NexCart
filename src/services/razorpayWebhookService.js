@@ -6,6 +6,7 @@ import {
   REFUND_STATUSES,
   refreshOrderPaymentStatus,
 } from './orderCancellationService.js';
+import { recordMarketplaceOrderPayment } from './accountingService.js';
 
 const buildError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -76,6 +77,12 @@ const buildRefundFailureReason = (refundEntity) =>
   refundEntity?.acquirer_data?.arn ||
   refundEntity?.notes?.failureReason ||
   'Refund is pending confirmation from Razorpay.';
+
+const buildPaymentReferenceMatch = (paymentId) => [
+  { razorpayPaymentId: paymentId },
+  { paymentReference: paymentId },
+  { paymentReference: { endsWith: `:${paymentId}` } },
+];
 
 const updateRefundMetadata = async ({ client, itemId, refundEntity, refundStatus }) => {
   const data = {
@@ -149,7 +156,7 @@ const findCandidateOrderFromRefund = async ({ client, refundEntity }) => {
 
   const orders = await client.order.findMany({
     where: {
-      OR: [{ razorpayPaymentId: paymentId }, { paymentReference: { endsWith: `:${paymentId}` } }],
+      OR: buildPaymentReferenceMatch(paymentId),
       paymentMethod: 'PREPAID',
       items: {
         some: {
@@ -233,21 +240,55 @@ const syncPaymentCapturedEvent = async ({ payload, client }) => {
     return { handled: false, reason: 'Missing payment entity' };
   }
 
-  const result = await client.order.updateMany({
+  // Find prepaid orders that are not yet marked as PAID
+  const candidateOrders = await client.order.findMany({
     where: {
-      OR: [{ razorpayPaymentId: paymentId }, { paymentReference: { endsWith: `:${paymentId}` } }],
+      OR: buildPaymentReferenceMatch(paymentId),
       paymentMethod: 'PREPAID',
+      paymentStatus: { not: 'PAID' },
     },
-    data: {
-      paymentCaptureStatus: PAYMENT_CAPTURE_STATUSES.CAPTURED,
-      paymentStatus: 'PAID',
-    },
+    include: { invoice: true },
   });
 
+  if (candidateOrders.length === 0) {
+    return { handled: false, reason: 'No pending matching prepaid orders found' };
+  }
+
+  for (const order of candidateOrders) {
+    await client.$transaction(async (tx) => {
+      // Re-fetch with a lock/check to ensure idempotency
+      const lockedOrder = await tx.order.findUnique({
+        where: { id: order.id },
+        include: { invoice: true },
+      });
+
+      if (!lockedOrder || lockedOrder.paymentStatus === 'PAID') {
+        return;
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          paymentCaptureStatus: PAYMENT_CAPTURE_STATUSES.CAPTURED,
+          paymentStatus: 'PAID',
+          status: lockedOrder.status === 'PENDING' ? 'PROCESSING' : lockedOrder.status,
+        },
+      });
+
+      // Record double-entry payment
+      await recordMarketplaceOrderPayment(tx, {
+        orderId: lockedOrder.id,
+        sellerId: lockedOrder.sellerId,
+        settlementAmount: toNumber(lockedOrder.totalAmount),
+        paymentMethod: 'PREPAID',
+      });
+    });
+  }
+
   return {
-    handled: result.count > 0,
+    handled: true,
     paymentId,
-    updatedOrders: result.count,
+    updatedOrders: candidateOrders.length,
   };
 };
 

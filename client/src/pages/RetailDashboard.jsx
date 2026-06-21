@@ -168,11 +168,18 @@ export default function RetailDashboard() {
   const recentActivities = useMemo(() => {
     const activities = [];
     orders.forEach((order) => {
+      const originalAmount =
+        order.items?.reduce(
+          (sum, item) =>
+            sum + parseFloat(item.subtotalAtPurchase || item.price * item.quantity || 0),
+          0
+        ) || order.totalAmount;
+
       activities.push({
         id: `place-${order.id}`,
         timestamp: new Date(order.createdAt),
         title: 'Order Initiated',
-        description: `Placed order #${order.id.slice(0, 8).toUpperCase()} for ${formatCurrency(order.totalAmount)}`,
+        description: `Placed order #${order.id.slice(0, 8).toUpperCase()} for ${formatCurrency(originalAmount)}`,
         badgeColor: 'bg-[#EFEFEF] text-[#16171a] border border-[#C0C0C0]',
       });
       if (['SHIPPED', 'DELIVERED', 'RETURN_COMPLETED'].includes(order.status)) {
@@ -326,10 +333,42 @@ export default function RetailDashboard() {
           </div>
         </div>
         <Link
-          to="/store/b2b-onboarding"
+          to="/store/dashboard/b2b-onboarding"
           className="rounded-md border-1.5 border-[#0047AB] text-[#0047AB] hover:bg-[#EFEFEF] px-6 py-3.5 text-xs font-semibold uppercase tracking-wider transition-colors"
         >
           Join B2B Wholesale
+        </Link>
+      </section>
+
+      {/* Quick Actions */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Link
+          to="/store/dashboard/orders"
+          className="swiss-card p-4 flex flex-col items-center gap-2 text-center hover:border-[#0047AB] transition-colors group"
+        >
+          <Package className="w-6 h-6 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
+          <span className="text-xs font-bold text-[#16171a]">Order History</span>
+        </Link>
+        <Link
+          to="/store/buy-again"
+          className="swiss-card p-4 flex flex-col items-center gap-2 text-center hover:border-[#0047AB] transition-colors group"
+        >
+          <CornerDownRight className="w-6 h-6 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
+          <span className="text-xs font-bold text-[#16171a]">Buy Again</span>
+        </Link>
+        <Link
+          to="/store/profile"
+          className="swiss-card p-4 flex flex-col items-center gap-2 text-center hover:border-[#0047AB] transition-colors group"
+        >
+          <User className="w-6 h-6 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
+          <span className="text-xs font-bold text-[#16171a]">Your Profile</span>
+        </Link>
+        <Link
+          to="/store/cart"
+          className="swiss-card p-4 flex flex-col items-center gap-2 text-center hover:border-[#0047AB] transition-colors group"
+        >
+          <ShoppingBag className="w-6 h-6 text-[#6C757D] group-hover:text-[#0047AB] transition-colors" />
+          <span className="text-xs font-bold text-[#16171a]">Shopping Cart</span>
         </Link>
       </section>
 
@@ -661,7 +700,7 @@ export default function RetailDashboard() {
                 </div>
               </div>
               <Link
-                to="/store/orders"
+                to="/store/dashboard/orders"
                 className="text-xs font-semibold uppercase tracking-wider text-[#16171a] hover:text-[#0047AB] border border-[#C0C0C0] hover:bg-[#EFEFEF] px-4 py-2 rounded-md transition-all"
               >
                 Inspect Order
@@ -678,7 +717,7 @@ export default function RetailDashboard() {
             </p>
             <div className="space-y-3">
               <Link
-                to="/store/orders"
+                to="/store/dashboard/orders"
                 className="flex items-center justify-between p-3.5 rounded-md border border-[#C0C0C0] hover:border-[#0047AB] bg-[#EFEFEF]/50 hover:bg-[#EFEFEF] transition-colors"
               >
                 <span className="text-xs font-semibold flex items-center gap-2">
@@ -698,7 +737,7 @@ export default function RetailDashboard() {
                 </span>
               </Link>
               <Link
-                to="/store/b2b-onboarding"
+                to="/store/dashboard/b2b-onboarding"
                 className="flex items-center justify-between p-3.5 rounded-md border border-dashed border-[#0047AB]/40 hover:border-[#0047AB] bg-[#0047AB]/5 hover:bg-[#EFEFEF] transition-colors"
               >
                 <span className="text-xs font-semibold flex items-center gap-2 text-[#0047AB]">
@@ -794,7 +833,7 @@ export default function RetailDashboard() {
 
           <div className="mt-5 pt-4 border-t border-[#C0C0C0] flex justify-between items-center">
             <Link
-              to="/store/orders"
+              to="/store/dashboard/orders"
               className="text-[10px] font-bold uppercase tracking-wider text-[#8B0000] hover:underline flex items-center gap-1 transition-colors"
             >
               <ShieldAlert className="w-3.5 h-3.5" /> Raise Dispute ticket

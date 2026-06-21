@@ -71,6 +71,7 @@ enum OrderStatus {
 enum PaymentMethod {
   COD
   PREPAID
+  BANK_TRANSFER
 }
 
 enum PaymentStatus {
@@ -96,6 +97,50 @@ enum LedgerEntrySource {
   CUSTOMER_RETURN
   RETURN_REFUND
   RETURN_ADJUSTMENT
+  OFFLINE_SALE_CREDIT
+  OFFLINE_SALE_PAYMENT
+  PARTY_OPENING_BALANCE
+  PARTY_ADJUSTMENT
+}
+
+enum BusinessPartyType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+enum PartyBalanceKind {
+  RECEIVABLE
+  PAYABLE
+}
+
+enum OfflineSalePaymentMethod {
+  CASH
+  CREDIT
+  UPI
+  BANK_TRANSFER
+  CARD
+  CHEQUE
+  OTHER
+}
+
+enum InstrumentStatus {
+  PENDING
+  CLEARED
+  BOUNCED_FAILED
+}
+
+enum InstrumentType {
+  RECEIVABLE
+  PAYABLE
+}
+
+enum AccountingAccountCategory {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+  EQUITY
 }
 
 enum ReturnStatus {
@@ -227,6 +272,7 @@ model User {
   password                String
   role                    Role                        @default(CUSTOMER)
   cart                    Cart?
+  b2bCart                 B2BCart?
   shippingAddresses       ShippingAddress[]
   reviews                 Review[]
   interactions            RecommendationInteraction[]
@@ -246,6 +292,8 @@ model User {
   disputeEvents        DisputeEvent[]        @relation("DisputeEventPerformer")
   rfqs                 Rfq[]
   wholesalerCreditLimits WholesalerCreditLimit[]
+  linkedBusinessParties BusinessParty[]      @relation("BusinessPartyLinkedUser")
+  notifications        Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -270,6 +318,14 @@ model Wholesaler {
   trialEndsAt DateTime?
   trialUsedAt DateTime?
 
+  bankName        String?
+  bankAccountNo   String?
+  bankIfsc        String?
+  upiId           String?
+  qrCodeUrl       String?
+  deliveryFee           Decimal           @default(0.00) @db.Decimal(10, 2)
+  freeDeliveryThreshold Decimal?          @db.Decimal(10, 2)
+
   products      Product[]
   orders        Order[]        @relation("SellerOrders")
   invoices      Invoice[]
@@ -281,6 +337,12 @@ model Wholesaler {
   rfqs          Rfq[]
   creditLimits  WholesalerCreditLimit[]
   usedCoupons   Coupon[]       @relation("WholesalerCoupon")
+  businessParties BusinessParty[]
+  accountingAccounts AccountingAccount[]
+  accountingEntries AccountingEntry[]
+  offlineSales OfflineSale[]
+  offlinePurchases OfflinePurchase[]
+  paymentInstruments PaymentInstrument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -395,8 +457,10 @@ model Product {
 
   isB2BEnabled Boolean @default(true)
   minOrderQty  Int     @default(1)
+  deliveryFee  Decimal? @db.Decimal(10, 2)
 
   cartItems            CartItem[]
+  b2bCartItems         B2BCartItem[]
   inventoryLogs        InventoryLog[]
   orderItems           OrderItem[]
   interactions         RecommendationInteraction[]
@@ -406,6 +470,8 @@ model Product {
   recommendationEvents RecommendationEvent[]
   priceTiers           ProductPriceTier[]
   rfqs                 Rfq[]
+  offlineSaleItems     OfflineSaleItem[]
+  offlinePurchaseItems OfflinePurchaseItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -448,7 +514,10 @@ model Order {
   paymentReference     String?
   razorpayPaymentId    String?
   razorpayOrderId      String?
+  paymentReceiptUrl    String?
+  paymentReferenceNo   String?
   totalAmount          Decimal              @db.Decimal(10, 2)
+  deliveryFee          Decimal              @default(0.00) @db.Decimal(10, 2)
   shippingAddress      String?
   shippingStreet       String?
   shippingCity         String?
@@ -570,6 +639,36 @@ model CartItem {
   @@unique([cartId, productId, selectedSize])
   @@index([cartId])
   @@index([productId])
+}
+
+model B2BCart {
+  id        String       @id @default(uuid())
+  userId    String       @unique
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     B2BCartItem[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+model B2BCartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      B2BCart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rfqId     String?
+  rfq       Rfq?     @relation(fields: [rfqId], references: [id], onDelete: SetNull)
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId, rfqId])
+  @@index([cartId])
+  @@index([productId])
+  @@index([rfqId])
 }
 
 model ShippingAddress {
@@ -745,6 +844,180 @@ model LedgerEntry {
   @@index([userId])
 }
 
+model BusinessParty {
+  id                 String           @id @default(uuid())
+  wholesalerId       String
+  wholesaler         Wholesaler       @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  linkedUserId       String?
+  linkedUser         User?            @relation("BusinessPartyLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  name               String
+  phone              String?
+  email              String?
+  taxId              String?
+  address            String?
+  type               BusinessPartyType @default(CUSTOMER)
+  openingBalance     Decimal          @default(0.00) @db.Decimal(10, 2)
+  openingBalanceKind PartyBalanceKind @default(RECEIVABLE)
+  notes              String?
+  ledgerEntries      AccountingEntry[]
+  offlineSales       OfflineSale[]
+  offlinePurchases   OfflinePurchase[]
+  paymentInstruments PaymentInstrument[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([wholesalerId, type])
+  @@index([linkedUserId])
+  @@unique([wholesalerId, name])
+}
+
+model AccountingAccount {
+  id             String                    @id @default(uuid())
+  wholesalerId   String
+  wholesaler     Wholesaler                @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  name           String
+  code           String
+  category       AccountingAccountCategory
+  openingBalance Decimal                   @default(0.00) @db.Decimal(10, 2)
+  isSystem       Boolean                   @default(false)
+  entries        AccountingEntry[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([wholesalerId, name])
+  @@unique([wholesalerId, code])
+  @@index([wholesalerId, category])
+}
+
+model AccountingEntry {
+  id            String            @id @default(uuid())
+  wholesalerId  String
+  wholesaler    Wholesaler        @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  partyId       String?
+  party         BusinessParty?    @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  offlineSaleId String?
+  offlineSale   OfflineSale?      @relation(fields: [offlineSaleId], references: [id], onDelete: SetNull)
+  offlinePurchaseId String?
+  offlinePurchase OfflinePurchase? @relation(fields: [offlinePurchaseId], references: [id], onDelete: SetNull)
+  amount        Decimal           @db.Decimal(10, 2)
+  description   String
+  referenceId   String?
+  createdAt     DateTime          @default(now())
+
+  @@index([wholesalerId, createdAt])
+  @@index([accountId, createdAt])
+  @@index([partyId, createdAt])
+  @@index([offlineSaleId])
+  @@index([offlinePurchaseId])
+}
+
+model OfflineSale {
+  id            String                   @id @default(uuid())
+  wholesalerId  String
+  wholesaler    Wholesaler               @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  partyId       String?
+  party         BusinessParty?           @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  invoiceNumber String
+  paymentMethod OfflineSalePaymentMethod
+  totalAmount   Decimal                  @db.Decimal(10, 2)
+  amountReceived Decimal                 @db.Decimal(10, 2)
+  balanceDue    Decimal                  @db.Decimal(10, 2)
+  notes         String?
+  soldAt        DateTime                 @default(now())
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  items         OfflineSaleItem[]
+  entries       AccountingEntry[]
+  paymentInstruments PaymentInstrument[]
+
+  @@unique([wholesalerId, invoiceNumber])
+  @@index([wholesalerId, soldAt])
+  @@index([partyId, soldAt])
+}
+
+model OfflineSaleItem {
+  id         String      @id @default(uuid())
+  saleId      String
+  sale        OfflineSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity    Int
+  unitPrice   Decimal     @db.Decimal(10, 2)
+  subtotal    Decimal     @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now())
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+
+model PaymentInstrument {
+  id                String            @id @default(uuid())
+  wholesalerId      String
+  wholesaler        Wholesaler        @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  partyId           String?
+  party             BusinessParty?    @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  paymentMethod     OfflineSalePaymentMethod
+  instrumentNumber  String?
+  bankName          String?
+  drawerName        String?
+  amount            Decimal           @db.Decimal(10, 2)
+  dueDate           DateTime?
+  status            InstrumentStatus  @default(PENDING)
+  type              InstrumentType
+  offlineSaleId     String?
+  offlineSale       OfflineSale?      @relation(fields: [offlineSaleId], references: [id], onDelete: SetNull)
+  offlinePurchaseId String?
+  offlinePurchase   OfflinePurchase?  @relation(fields: [offlinePurchaseId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([wholesalerId])
+  @@index([partyId])
+  @@index([status])
+}
+
+model OfflinePurchase {
+  id            String                   @id @default(uuid())
+  wholesalerId  String
+  wholesaler    Wholesaler               @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  partyId       String?
+  party         BusinessParty?           @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  invoiceNumber String
+  paymentMethod OfflineSalePaymentMethod
+  totalAmount   Decimal                  @db.Decimal(10, 2)
+  amountPaid    Decimal                  @db.Decimal(10, 2)
+  balanceDue    Decimal                  @db.Decimal(10, 2)
+  notes         String?
+  purchasedAt   DateTime                 @default(now())
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  items         OfflinePurchaseItem[]
+  entries       AccountingEntry[]
+  paymentInstruments PaymentInstrument[]
+
+  @@unique([wholesalerId, invoiceNumber])
+  @@index([wholesalerId, purchasedAt])
+  @@index([partyId, purchasedAt])
+}
+
+model OfflinePurchaseItem {
+  id         String          @id @default(uuid())
+  purchaseId String
+  purchase   OfflinePurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity   Int
+  unitPrice  Decimal         @db.Decimal(10, 2)
+  subtotal   Decimal         @db.Decimal(10, 2)
+  createdAt  DateTime        @default(now())
+
+  @@index([purchaseId])
+  @@index([productId])
+}
+
 model OrderAdjustment {
   id           String              @id @default(uuid())
   orderId      String
@@ -773,6 +1046,8 @@ model Review {
   comment   String?
 
   createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
 }
 
 model RecommendationInteraction {
@@ -937,6 +1212,7 @@ model Rfq {
   quantity          Int
   targetPrice       Float
   counterPrice      Float?
+  counterQuantity   Int?
   status            RfqStatus        @default(PENDING)
   notes             String?
   sellerNotes       String?
@@ -944,6 +1220,7 @@ model Rfq {
   updatedAt         DateTime         @updatedAt
   BusinessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id])
   businessProfileId String?
+  b2bCartItems      B2BCartItem[]
 }
 
 model BlacklistedToken {
@@ -955,3 +1232,19 @@ model BlacklistedToken {
   @@index([token])
 }
 
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([userId, isRead])
+}
