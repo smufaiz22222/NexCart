@@ -24,9 +24,10 @@ const createMockResponse = () => {
 const createRegisterPrismaMock = ({ existingUser = null, createError = null } = {}) => {
   const createdUsers = [];
   const seededPlans = new Map();
+  const createdOtps = [];
 
   return {
-    state: { createdUsers, seededPlans },
+    state: { createdUsers, seededPlans, createdOtps },
     client: {
       subscriptionPlan: {
         upsert: async ({ where, update, create }) => {
@@ -83,6 +84,21 @@ const createRegisterPrismaMock = ({ existingUser = null, createError = null } = 
           return createdUser;
         },
       },
+      otpRateLimit: {
+        findUnique: async () => null,
+        create: async ({ data }) => ({ id: 'rate-limit-id', ...data }),
+        update: async ({ where: _where, data }) => ({ id: 'rate-limit-id', ...data }),
+      },
+      emailOTP: {
+        upsert: async ({ where: _where, update: _update, create }) => {
+          if (createError) {
+            throw createError;
+          }
+          const otp = { id: 'otp-id', ...create };
+          createdOtps.push(otp);
+          return otp;
+        },
+      },
     },
   };
 };
@@ -123,12 +139,17 @@ test('register creates a customer account with normalized email', async () => {
     await register(req, res);
 
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.message, 'Registration successful. Please log in.');
-    assert.equal(state.createdUsers.length, 1);
-    assert.equal(state.createdUsers[0].name, 'Jane Doe');
-    assert.equal(state.createdUsers[0].email, 'jane.doe@example.com');
-    assert.equal(state.createdUsers[0].role, 'CUSTOMER');
-    assert.notEqual(state.createdUsers[0].password, 'Valid@123');
+    assert.equal(
+      res.body.message,
+      'Verification code sent. Please verify your email to complete registration.'
+    );
+    assert.equal(state.createdUsers.length, 0); // User is not created until verification
+    assert.equal(state.createdOtps.length, 1);
+    const reg = JSON.parse(state.createdOtps[0].pendingData);
+    assert.equal(reg.name, 'Jane Doe');
+    assert.equal(reg.email, 'jane.doe@example.com');
+    assert.equal(reg.role, 'CUSTOMER');
+    assert.notEqual(reg.password, 'Valid@123');
   } finally {
     setPrismaClient(originalClient);
   }
@@ -158,8 +179,13 @@ test('register creates a wholesaler account when business name is provided', asy
 
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.applicationSubmitted, true);
-    assert.equal(state.createdUsers[0].role, 'WHOLESALER');
-    assert.equal(state.createdUsers[0].wholesalerProfile.businessName, 'Seller Hub');
+    assert.equal(state.createdUsers.length, 0); // Defer database creation
+    assert.equal(state.createdOtps.length, 1);
+    const reg = JSON.parse(state.createdOtps[0].pendingData);
+    assert.equal(reg.role, 'WHOLESALER');
+    assert.equal(reg.businessName, 'Seller Hub');
+    assert.equal(reg.businessPhone, '9876543210');
+    assert.equal(reg.businessAddress, '221 Market Road, Pune');
   } finally {
     setPrismaClient(originalClient);
   }
@@ -400,6 +426,7 @@ test('login allows differently cased email input after normalization', async () 
       email: 'jane.doe@example.com',
       password: hashedPassword,
       role: 'CUSTOMER',
+      emailVerified: true,
       wholesalerProfile: null,
     },
   });

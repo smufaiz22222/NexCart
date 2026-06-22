@@ -23,9 +23,6 @@ const createTag = (label) =>
 const cleanupLedgerFixture = async (fixture) => {
   if (!fixture) return;
   await prisma.ledgerEntry.deleteMany({ where: { id: { in: fixture.ledgerEntryIds || [] } } });
-  await prisma.wholesalerCreditLimit.deleteMany({
-    where: { id: { in: fixture.creditLimitIds || [] } },
-  });
   await prisma.order.deleteMany({ where: { id: { in: fixture.orderIds || [] } } });
   await prisma.wholesaler.deleteMany({ where: { id: fixture.wholesalerId } });
   await prisma.user.deleteMany({
@@ -35,7 +32,6 @@ const cleanupLedgerFixture = async (fixture) => {
           fixture.wholesalerUserId,
           fixture.buyerId,
           fixture.otherBuyerId,
-          fixture.creditBuyerId,
           fixture.ledgerBuyerId,
         ].filter(Boolean),
       },
@@ -60,15 +56,6 @@ test('POST /api/ledger/payment rejects payment for unrelated buyers and allows l
       email: `${tag}-other-buyer@example.com`,
       password: 'password',
       name: `${tag} Other Buyer`,
-      role: 'CUSTOMER',
-    },
-  });
-
-  const creditBuyer = await prisma.user.create({
-    data: {
-      email: `${tag}-credit-buyer@example.com`,
-      password: 'password',
-      name: `${tag} Credit Buyer`,
       role: 'CUSTOMER',
     },
   });
@@ -117,25 +104,14 @@ test('POST /api/ledger/payment rejects payment for unrelated buyers and allows l
     },
   });
 
-  const creditLimit = await prisma.wholesalerCreditLimit.create({
-    data: {
-      wholesalerId: wholesaler.id,
-      buyerId: creditBuyer.id,
-      creditLimit: 50000.0,
-      balance: 0.0,
-    },
-  });
-
   const fixture = {
     wholesalerId: wholesaler.id,
     wholesalerUserId: wholesalerUser.id,
     buyerId: buyer.id,
     otherBuyerId: otherBuyer.id,
-    creditBuyerId: creditBuyer.id,
     ledgerBuyerId: ledgerBuyer.id,
     orderIds: [order.id],
     ledgerEntryIds: [existingLedgerEntry.id],
-    creditLimitIds: [creditLimit.id],
   };
 
   try {
@@ -169,20 +145,6 @@ test('POST /api/ledger/payment rejects payment for unrelated buyers and allows l
     assert.equal(allowedResponse.body.entry.wholesalerId, wholesaler.id);
     assert.equal(allowedResponse.body.entry.userId, buyer.id);
     fixture.ledgerEntryIds.push(allowedResponse.body.entry.id);
-
-    const creditLimitResponse = await request(app)
-      .post('/api/ledger/payment')
-      .set('Authorization', `Bearer ${sellerToken}`)
-      .send({
-        userId: creditBuyer.id,
-        amount: 75,
-        description: 'Credit-limit allowed payment',
-      });
-
-    assert.equal(creditLimitResponse.status, 201);
-    assert.equal(creditLimitResponse.body.entry.wholesalerId, wholesaler.id);
-    assert.equal(creditLimitResponse.body.entry.userId, creditBuyer.id);
-    fixture.ledgerEntryIds.push(creditLimitResponse.body.entry.id);
 
     const ledgerRelationshipResponse = await request(app)
       .post('/api/ledger/payment')

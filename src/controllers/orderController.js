@@ -5,6 +5,11 @@ import {
   createWholesalerNotification,
   checkAndNotifyLowStock,
 } from '../services/notificationService.js';
+import {
+  sendOrderConfirmation,
+  sendOrderStatusUpdate,
+  sendSellerNewOrderNotification,
+} from '../services/emailService.js';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import {
@@ -460,6 +465,14 @@ const notifyWholesalersNewOrders = (orders) => {
       link: '/wholesaler/orders',
     }).catch((err) => console.error('Failed to notify wholesaler of new order:', err));
 
+    sendOrderConfirmation(order.id).catch((err) =>
+      console.error(`Failed to send order confirmation email for order ${order.id}:`, err)
+    );
+
+    sendSellerNewOrderNotification(order.id).catch((err) =>
+      console.error(`Failed to send seller new order notification for order ${order.id}:`, err)
+    );
+
     if (order.items) {
       for (const item of order.items) {
         checkAndNotifyLowStock(item.productId).catch((err) =>
@@ -819,6 +832,10 @@ export const updateOrderStatus = async (req, res) => {
       type: 'ORDER',
       link: '/store/dashboard/orders',
     }).catch((err) => console.error('Failed to notify customer of order status update:', err));
+
+    sendOrderStatusUpdate(updatedOrder.id, status).catch((err) =>
+      console.error(`Failed to send order status update email for order ${updatedOrder.id}:`, err)
+    );
 
     res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
   } catch (error) {

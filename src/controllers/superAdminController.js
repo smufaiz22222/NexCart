@@ -6,6 +6,12 @@ import {
   getTrialState,
   serializeSubscription,
 } from '../services/subscriptionService.js';
+import {
+  sendWholesalerApprovalEmail,
+  sendWholesalerRejectionEmail,
+  sendWholesalerSuspensionEmail,
+  sendWholesalerReactivationEmail,
+} from '../services/emailService.js';
 
 const formatCurrencyValue = (value) => Number(value || 0);
 
@@ -683,6 +689,10 @@ export const approveWholesalerApplication = async (req, res) => {
       },
     });
 
+    sendWholesalerApprovalEmail(wholesaler.user, wholesaler).catch((err) =>
+      console.error('Failed to send wholesaler approval email:', err)
+    );
+
     invalidateOverviewCache();
     res.status(200).json({ wholesaler });
   } catch (error) {
@@ -707,6 +717,10 @@ export const rejectWholesalerApplication = async (req, res) => {
         user: { select: { name: true, email: true } },
       },
     });
+
+    sendWholesalerRejectionEmail(wholesaler.user, wholesaler, wholesaler.rejectionReason).catch(
+      (err) => console.error('Failed to send wholesaler rejection email:', err)
+    );
 
     invalidateOverviewCache();
     res.status(200).json({ wholesaler });
@@ -742,6 +756,16 @@ export const updateWholesalerLifecycle = async (req, res) => {
         user: { select: { name: true, email: true } },
       },
     });
+
+    if (action === 'suspend') {
+      sendWholesalerSuspensionEmail(updated.user, updated).catch((err) =>
+        console.error('Failed to send wholesaler suspension email:', err)
+      );
+    } else {
+      sendWholesalerReactivationEmail(updated.user, updated).catch((err) =>
+        console.error('Failed to send wholesaler reactivation email:', err)
+      );
+    }
 
     invalidateOverviewCache();
     res.status(200).json({ wholesaler: updated });

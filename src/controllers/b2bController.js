@@ -3,6 +3,7 @@ import {
   createNotification,
   createWholesalerNotification,
 } from '../services/notificationService.js';
+import { sendSellerRfqNotification } from '../services/emailService.js';
 
 const notifyAdminsNewB2B = (companyName) => {
   prisma.user
@@ -196,6 +197,10 @@ export const createRfq = async (req, res) => {
       type: 'RFQ',
       link: '/wholesaler/rfqs',
     }).catch((err) => console.error('Failed to notify wholesaler of RFQ:', err));
+
+    sendSellerRfqNotification(rfq.id).catch((err) =>
+      console.error(`Failed to send seller RFQ email for RFQ ${rfq.id}:`, err)
+    );
 
     res.status(201).json({ message: 'RFQ submitted successfully', rfq });
   } catch (error) {
@@ -614,13 +619,12 @@ export const getWholesalerBuyers = async (req, res) => {
 
     const buyersWithCredit = await Promise.all(
       buyers.map(async (buyer) => {
-        const creditRecord = await prisma.wholesalerCreditLimit.findUnique({
-          where: {
-            wholesalerId_buyerId: { wholesalerId, buyerId: buyer.userId },
-          },
+        const balanceRecord = await prisma.ledgerEntry.aggregate({
+          where: { wholesalerId, userId: buyer.userId },
+          _sum: { amount: true },
         });
 
-        const balance = creditRecord ? Number(creditRecord.balance) : 0.0;
+        const balance = balanceRecord._sum.amount ? Number(balanceRecord._sum.amount) : 0.0;
 
         return {
           id: buyer.id,
@@ -630,8 +634,6 @@ export const getWholesalerBuyers = async (req, res) => {
           businessAddress: buyer.businessAddress,
           email: buyer.user?.email,
           name: buyer.user?.name,
-          creditLimit: creditRecord ? Number(creditRecord.creditLimit) : 50000.0,
-          hasCustomLimit: !!creditRecord,
           balance: balance.toFixed(2),
           outstandingDebt: balance < 0 ? Math.abs(balance).toFixed(2) : '0.00',
         };
@@ -738,30 +740,29 @@ export const getWholesalerProfile = async (req, res) => {
 export const getBuyerCreditStatus = async (req, res) => {
   try {
     const buyerId = req.user.userId;
-    const creditLimits = await prisma.wholesalerCreditLimit.findMany({
-      where: { buyerId },
-      include: {
-        wholesaler: {
-          select: {
-            id: true,
-            businessName: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
+
+    const ledgerGroups = await prisma.ledgerEntry.groupBy({
+      by: ['wholesalerId'],
+      where: { userId: buyerId },
+      _sum: { amount: true },
     });
 
-    const formatted = creditLimits.map((record) => {
-      const balance = Number(record.balance);
-      return {
-        id: record.id,
-        wholesalerId: record.wholesalerId,
-        businessName: record.wholesaler?.businessName || 'Unknown Wholesaler',
-        creditLimit: Number(record.creditLimit),
-        balance: balance.toFixed(2),
-        outstandingDebt: balance < 0 ? Math.abs(balance).toFixed(2) : '0.00',
-      };
-    });
+    const formatted = await Promise.all(
+      ledgerGroups.map(async (group) => {
+        const wholesaler = await prisma.wholesaler.findUnique({
+          where: { id: group.wholesalerId },
+          select: { businessName: true },
+        });
+        const balance = Number(group._sum.amount || 0.0);
+        return {
+          id: group.wholesalerId,
+          wholesalerId: group.wholesalerId,
+          businessName: wholesaler?.businessName || 'Unknown Wholesaler',
+          balance: balance.toFixed(2),
+          outstandingDebt: balance < 0 ? Math.abs(balance).toFixed(2) : '0.00',
+        };
+      })
+    );
 
     res.status(200).json({ creditLimits: formatted });
   } catch (error) {

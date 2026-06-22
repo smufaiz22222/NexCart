@@ -49,10 +49,10 @@ app.use(helmet());
 app.use(cors(corsOptions));
 app.use(globalLimiter);
 app.use('/api/orders/razorpay/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use('/api/khatta', express.json({ limit: '50mb' }));
 app.use('/api/khatta', express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 app.get('/api/health', async (req, res) => {
   try {

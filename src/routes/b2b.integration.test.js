@@ -329,7 +329,7 @@ test('B2B buyer routes block non-CUSTOMER roles', async () => {
   const sellerToken = makeToken(sellerUser.id, 'WHOLESALER', wholesaler.id);
   const adminToken = makeToken(superAdmin.id, 'SUPER_ADMIN');
 
-  // Create a CUSTOMER token and a credit limit record for testing successful buyer credit check
+  // Create a CUSTOMER token and a ledger entry record for testing successful buyer credit check
   const buyerUser = await prisma.user.create({
     data: {
       email: `${tag}-buyer@example.com`,
@@ -340,12 +340,12 @@ test('B2B buyer routes block non-CUSTOMER roles', async () => {
   });
   const buyerToken = makeToken(buyerUser.id, 'CUSTOMER');
 
-  const creditLimitRecord = await prisma.wholesalerCreditLimit.create({
+  const creditLimitRecord = await prisma.ledgerEntry.create({
     data: {
       wholesalerId: wholesaler.id,
-      buyerId: buyerUser.id,
-      creditLimit: 75000.0,
-      balance: 1000.0,
+      userId: buyerUser.id,
+      amount: -1000.0,
+      description: 'Initial balance',
     },
   });
 
@@ -395,15 +395,15 @@ test('B2B buyer routes block non-CUSTOMER roles', async () => {
     assert.equal(buyerResponse.status, 200);
     assert.ok(Array.isArray(buyerResponse.body.creditLimits));
     const matchedRecord = buyerResponse.body.creditLimits.find(
-      (r) => r.id === creditLimitRecord.id
+      (r) => r.wholesalerId === wholesaler.id
     );
     assert.ok(matchedRecord);
-    assert.equal(matchedRecord.creditLimit, 75000);
-    assert.equal(matchedRecord.balance, '1000.00');
+    assert.equal(matchedRecord.balance, '-1000.00');
+    assert.equal(matchedRecord.outstandingDebt, '1000.00');
     assert.equal(matchedRecord.businessName, `Wholesale Guard ${tag}`);
   } finally {
-    // Delete the credit limit record we created
-    await prisma.wholesalerCreditLimit.deleteMany({
+    // Delete the ledger entry record we created
+    await prisma.ledgerEntry.deleteMany({
       where: { id: creditLimitRecord.id },
     });
     await cleanupB2BFixture(fixture);

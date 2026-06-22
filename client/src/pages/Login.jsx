@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import apiClient from '../api/axios.js';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,8 +10,18 @@ export default function Login() {
   const navigate = useNavigate();
   const { login, isLoading, error } = useAuthStore();
 
+  const [showOtpVerify, setShowOtpVerify] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [tempVerifyData, setTempVerifyData] = useState(null); // { email, password }
+  const [otpError, setOtpError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setOtpError('');
+    setSuccessMessage('');
     try {
       const user = await login(email, password);
 
@@ -22,7 +33,78 @@ export default function Login() {
         navigate('/store');
       }
     } catch (submitError) {
-      console.error(submitError);
+      const errMsg = submitError.response?.data?.error || '';
+      if (submitError.response?.status === 403 || errMsg.includes('verify')) {
+        setTempVerifyData({ email: email.trim().toLowerCase(), password });
+        setOtpCode('');
+        setOtpError('');
+        setSuccessMessage('');
+        try {
+          await apiClient.post('/auth/send-otp', {
+            email: email.trim().toLowerCase(),
+            purpose: 'VERIFICATION',
+          });
+          setSuccessMessage('A verification code has been sent to your email.');
+          setShowOtpVerify(true);
+        } catch (sendErr) {
+          setOtpError(sendErr.response?.data?.error || 'Failed to send OTP code.');
+        }
+      } else {
+        console.error(submitError);
+      }
+    }
+  };
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+    setSuccessMessage('');
+
+    if (otpCode.length !== 6) {
+      setOtpError('Please enter a 6-digit verification code.');
+      return;
+    }
+
+    setVerifyLoading(true);
+    try {
+      await apiClient.post('/auth/verify-otp', {
+        email: tempVerifyData.email,
+        otp: otpCode,
+        purpose: 'VERIFICATION',
+      });
+
+      setSuccessMessage('Email verified successfully! Logging you in...');
+
+      const user = await login(tempVerifyData.email, tempVerifyData.password);
+
+      if (user.role === 'SUPER_ADMIN') {
+        navigate('/admin');
+      } else if (user.role === 'WHOLESALER') {
+        navigate('/wholesaler');
+      } else {
+        navigate('/store');
+      }
+    } catch (err) {
+      setOtpError(err.response?.data?.error || 'Verification failed. Please try again.');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError('');
+    setSuccessMessage('');
+    setResendLoading(true);
+    try {
+      await apiClient.post('/auth/send-otp', {
+        email: tempVerifyData.email,
+        purpose: 'VERIFICATION',
+      });
+      setSuccessMessage('Verification code resent successfully!');
+    } catch (err) {
+      setOtpError(err.response?.data?.error || 'Failed to resend verification code.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -71,62 +153,130 @@ export default function Login() {
               disputes in direct B2B credit or bank transfer deals.
             </div>
 
-            {error && (
-              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
-                {error}
+            {successMessage && (
+              <div className="mt-6 rounded-3xl border border-[#b8dec7] bg-[#eefaf1] px-4 py-4 text-sm font-medium text-[#22603a]">
+                {successMessage}
               </div>
             )}
 
-            <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-              <FormField label="Email">
-                <input
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
+            {showOtpVerify ? (
+              <div>
+                {otpError && (
+                  <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
+                    {otpError}
+                  </div>
+                )}
 
-              <FormField label="Password">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">
-                    Password
-                  </span>
-                  <Link to="/forgot-password" className="text-xs font-semibold text-[#8f5d31]">
-                    Forgot password?
-                  </Link>
+                <form className="mt-8 space-y-5" onSubmit={handleOtpSubmit}>
+                  <div className="text-sm text-[#6b665f] leading-relaxed">
+                    Enter the 6-digit verification code sent to <br />
+                    <strong className="text-[#161412]">{tempVerifyData?.email}</strong>
+                  </div>
+
+                  <FormField label="Verification Code">
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      className="w-full text-center tracking-[0.3em] font-mono rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-lg text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
+
+                  <button
+                    type="submit"
+                    disabled={verifyLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {verifyLoading ? 'Verifying...' : 'Verify & Sign In'}
+                    {!verifyLoading && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+
+                <div className="flex flex-col items-center gap-3 mt-6 text-sm font-semibold">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendLoading}
+                    className="text-[#8f5d31] hover:underline disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Resending...' : 'Resend verification code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOtpVerify(false);
+                      setSuccessMessage('');
+                      setOtpError('');
+                    }}
+                    className="text-[#8b857c] hover:text-[#161412] underline"
+                  >
+                    Back to Sign In
+                  </button>
                 </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
+              </div>
+            ) : (
+              <>
+                {error && (
+                  <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
+                    {error}
+                  </div>
+                )}
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-                {!isLoading && <ArrowRight className="h-4 w-4" />}
-              </button>
-            </form>
+                <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+                  <FormField label="Email">
+                    <input
+                      type="email"
+                      required
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
 
-            <p className="mt-8 text-sm text-[#6b665f]">
-              Don&apos;t have an account?{' '}
-              <Link
-                to="/register"
-                className="font-bold text-[#161412] underline underline-offset-4"
-              >
-                Create one here
-              </Link>
-            </p>
+                  <FormField label="Password">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">
+                        Password
+                      </span>
+                      <Link to="/forgot-password" className="text-xs font-semibold text-[#8f5d31]">
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign in'}
+                    {!isLoading && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+
+                <p className="mt-8 text-sm text-[#6b665f]">
+                  Don&apos;t have an account?{' '}
+                  <Link
+                    to="/register"
+                    className="font-bold text-[#161412] underline underline-offset-4"
+                  >
+                    Create one here
+                  </Link>
+                </p>
+              </>
+            )}
           </div>
         </section>
       </div>

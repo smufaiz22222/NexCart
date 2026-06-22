@@ -63,6 +63,7 @@ enum OrderStatus {
   PENDING
   PROCESSING
   SHIPPED
+  OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
   RETURN_COMPLETED
@@ -271,6 +272,7 @@ model User {
   email                   String                      @unique
   password                String
   role                    Role                        @default(CUSTOMER)
+  emailVerified           Boolean                     @default(false)
   cart                    Cart?
   b2bCart                 B2BCart?
   shippingAddresses       ShippingAddress[]
@@ -291,7 +293,6 @@ model User {
   disputeInternalNotes DisputeInternalNote[] @relation("DisputeInternalNoteAuthor")
   disputeEvents        DisputeEvent[]        @relation("DisputeEventPerformer")
   rfqs                 Rfq[]
-  wholesalerCreditLimits WholesalerCreditLimit[]
   linkedBusinessParties BusinessParty[]      @relation("BusinessPartyLinkedUser")
   notifications        Notification[]
 
@@ -335,7 +336,6 @@ model Wholesaler {
   subscriptions WholesalerSubscription[]
   subscriptionPayments SubscriptionPayment[]
   rfqs          Rfq[]
-  creditLimits  WholesalerCreditLimit[]
   usedCoupons   Coupon[]       @relation("WholesalerCoupon")
   businessParties BusinessParty[]
   accountingAccounts AccountingAccount[]
@@ -1167,19 +1167,6 @@ model BusinessProfile {
   updatedAt       DateTime         @updatedAt
 }
 
-model WholesalerCreditLimit {
-  id           String     @id @default(uuid())
-  wholesalerId String
-  wholesaler   Wholesaler @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
-  buyerId      String
-  buyer        User       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  creditLimit  Decimal    @default(50000.00) @db.Decimal(10, 2)
-  balance      Decimal    @default(0.00) @db.Decimal(10, 2)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@unique([wholesalerId, buyerId])
-}
 
 model ProductPriceTier {
   id          String   @id @default(uuid())
@@ -1248,3 +1235,30 @@ model Notification {
   @@index([isRead])
   @@index([userId, isRead])
 }
+
+enum EmailOtpPurpose {
+  VERIFICATION
+  PASSWORD_RESET
+}
+
+model EmailOTP {
+  id          String          @id @default(uuid())
+  email       String
+  otpHash     String
+  purpose     EmailOtpPurpose
+  attempts    Int             @default(0)
+  pendingData String?
+  expiresAt   DateTime
+  createdAt   DateTime        @default(now())
+
+  @@unique([email, purpose])
+}
+
+model OtpRateLimit {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  requestCount    Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lastRequestedAt DateTime @default(now())
+}
+

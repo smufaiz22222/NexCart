@@ -9,6 +9,12 @@ import {
   recordMarketplaceOrderReturnCharge,
   recordMarketplaceOrderReturnPayment,
 } from './accountingService.js';
+import {
+  dispatchEmailAsync,
+  sendSellerCancellationNotification,
+  sendOrderStatusUpdate,
+  sendRefundNotification,
+} from './emailService.js';
 
 export const ORDER_ITEM_STATUSES = {
   ACTIVE: 'ACTIVE',
@@ -110,25 +116,32 @@ const deriveOrderPaymentStatus = (order) => {
     return order.paymentStatus;
   }
 
-  const cancelledItems = order.items.filter(
-    (item) => item.status === ORDER_ITEM_STATUSES.CANCELLED
-  );
-  if (!cancelledItems.length) {
-    return 'PAID';
-  }
-
-  if (
-    cancelledItems.some((item) =>
-      [REFUND_STATUSES.PENDING, REFUND_STATUSES.PROCESSING, REFUND_STATUSES.FAILED].includes(
-        item.refundStatus
-      )
+  const refundPendingItems = order.items.filter((item) =>
+    [REFUND_STATUSES.PENDING, REFUND_STATUSES.PROCESSING, REFUND_STATUSES.FAILED].includes(
+      item.refundStatus
     )
-  ) {
+  );
+  if (refundPendingItems.length > 0) {
     return 'REFUND_PENDING';
   }
 
-  const activeItems = order.items.filter((item) => item.status !== ORDER_ITEM_STATUSES.CANCELLED);
-  return activeItems.length === 0 ? 'REFUNDED' : 'PAID';
+  const hasNonRefundedActiveItems = order.items.some(
+    (item) =>
+      item.status !== ORDER_ITEM_STATUSES.CANCELLED &&
+      item.refundStatus !== REFUND_STATUSES.REFUNDED
+  );
+
+  const hasAnyRefundedOrCancelled = order.items.some(
+    (item) =>
+      item.status === ORDER_ITEM_STATUSES.CANCELLED ||
+      item.refundStatus === REFUND_STATUSES.REFUNDED
+  );
+
+  if (!hasNonRefundedActiveItems && hasAnyRefundedOrCancelled) {
+    return 'REFUNDED';
+  }
+
+  return 'PAID';
 };
 
 export const refreshOrderPaymentStatus = async (db, orderId) => {
@@ -310,6 +323,11 @@ export const cancelOrderItemForCustomer = async ({
     };
   });
 
+  if (!result.alreadyCancelled) {
+    dispatchEmailAsync(() => sendSellerCancellationNotification(orderId, itemId, reason));
+    dispatchEmailAsync(() => sendOrderStatusUpdate(orderId, 'CANCELLED'));
+  }
+
   if (
     !result.alreadyCancelled &&
     result.order?.paymentMethod === 'PREPAID' &&
@@ -398,6 +416,7 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
         },
       });
       const refreshedOrder = await refreshOrderPaymentStatus(client, orderId);
+      dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
       return {
         order: refreshedOrder,
         item: refreshedOrder?.items.find((entry) => entry.id === itemId) || item,
@@ -432,6 +451,7 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
         },
       });
       const refreshedOrder = await refreshOrderPaymentStatus(client, orderId);
+      dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
       return {
         order: refreshedOrder,
         item: refreshedOrder?.items.find((entry) => entry.id === itemId) || item,
@@ -464,6 +484,8 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
     };
   }
 
+  dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'INITIATED'));
+
   const isTestMode = () => process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
   const shouldFallbackToMockRefund = (error) => {
     if (!isTestMode()) return false;
@@ -495,6 +517,7 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
         refundedAmount: toNumber(refund.amount ? refund.amount / 100 : item.subtotalAtPurchase),
       },
     });
+    dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
   } catch (error) {
     if (shouldFallbackToMockRefund(error)) {
       console.warn(
@@ -512,6 +535,7 @@ export const processCancelledItemRefund = async ({ orderId, itemId, client = pri
           refundedAmount: item.subtotalAtPurchase,
         },
       });
+      dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
     } else {
       await client.orderItem.update({
         where: { id: itemId },

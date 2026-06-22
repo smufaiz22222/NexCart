@@ -204,8 +204,13 @@ const syncRefundEvent = async ({ eventName, payload, client }) => {
   });
 
   const item = order?.items.find((entry) => entry.id === candidate.itemId);
-  if (!order || !item || item.status !== ORDER_ITEM_STATUSES.CANCELLED) {
-    return { handled: false, reason: 'Refund matched no cancellable item' };
+
+  const isDisputeRefund = refundEntity?.notes?.kind === 'dispute';
+  const isReturnRefund = refundEntity?.notes?.kind === 'return' || item?.returnStatus !== 'NONE';
+  const isCancellationRefund = item?.status === ORDER_ITEM_STATUSES.CANCELLED;
+
+  if (!order || !item || (!isCancellationRefund && !isDisputeRefund && !isReturnRefund)) {
+    return { handled: false, reason: 'Refund matched no cancellable, return, or dispute item' };
   }
 
   const refundStatus = mapRefundState(refundEntity, eventName);

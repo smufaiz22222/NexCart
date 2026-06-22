@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { createPurchaseInteractions } from '../services/interactionService.js';
 import { formatShippingAddress } from '../utils/addressUtils.js';
 import { recordMarketplaceOrderCharge } from '../services/accountingService.js';
+import { sendOrderConfirmationEmail } from '../services/emailService.js';
 
 const PAYMENT_METHODS = {
   BANK_TRANSFER: 'BANK_TRANSFER',
@@ -234,6 +235,12 @@ export const b2bCheckout = async (req, res) => {
 
       return orders;
     });
+
+    for (const order of createdOrders) {
+      sendOrderConfirmationEmail(order.id).catch((err) =>
+        console.error(`Failed to send order confirmation email for order ${order.id}:`, err)
+      );
+    }
 
     res.status(201).json({ message: 'B2B checkout successful!', orders: createdOrders });
   } catch (error) {

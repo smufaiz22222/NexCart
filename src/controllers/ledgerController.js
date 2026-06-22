@@ -30,7 +30,7 @@ export const recordPayment = async (req, res) => {
       return res.status(404).json({ error: 'User not found in the marketplace' });
     }
 
-    const [existingLedgerLink, existingOrderLink, existingCreditLimit] = await prisma.$transaction([
+    const [existingLedgerLink, existingOrderLink] = await prisma.$transaction([
       prisma.ledgerEntry.findFirst({
         where: { wholesalerId, userId },
         select: { id: true },
@@ -39,13 +39,9 @@ export const recordPayment = async (req, res) => {
         where: { sellerId: wholesalerId, buyerId: userId },
         select: { id: true },
       }),
-      prisma.wholesalerCreditLimit.findUnique({
-        where: { wholesalerId_buyerId: { wholesalerId, buyerId: userId } },
-        select: { id: true },
-      }),
     ]);
 
-    if (!existingLedgerLink && !existingOrderLink && !existingCreditLimit) {
+    if (!existingLedgerLink && !existingOrderLink) {
       return res.status(403).json({
         error:
           'Payment cannot be recorded for a user without an existing buyer relationship with this wholesaler',
@@ -78,12 +74,11 @@ export const getCustomerLedger = async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    const creditLimitRecord = await prisma.wholesalerCreditLimit.findUnique({
-      where: {
-        wholesalerId_buyerId: { wholesalerId, buyerId: userId },
-      },
+    const balanceRecord = await prisma.ledgerEntry.aggregate({
+      where: { wholesalerId, userId },
+      _sum: { amount: true },
     });
-    const balance = creditLimitRecord ? Number(creditLimitRecord.balance) : 0.0;
+    const balance = balanceRecord._sum.amount ? Number(balanceRecord._sum.amount) : 0.0;
 
     res.status(200).json({
       userId,
@@ -170,20 +165,19 @@ export const getMyLedger = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const [entries, creditLimits] = await Promise.all([
-      prisma.ledgerEntry.findMany({
-        where: { userId },
-        include: {
-          wholesaler: { select: { businessName: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.wholesalerCreditLimit.findMany({
-        where: { buyerId: userId },
-      }),
-    ]);
+    const entries = await prisma.ledgerEntry.findMany({
+      where: { userId },
+      include: {
+        wholesaler: { select: { businessName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    const balance = creditLimits.reduce((sum, limit) => sum + Number(limit.balance), 0);
+    const balanceRecord = await prisma.ledgerEntry.aggregate({
+      where: { userId },
+      _sum: { amount: true },
+    });
+    const balance = balanceRecord._sum.amount ? Number(balanceRecord._sum.amount) : 0.0;
 
     res.status(200).json({
       balance: balance.toFixed(2),

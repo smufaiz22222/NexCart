@@ -2,6 +2,11 @@ import { prisma } from '../config/db.js';
 import { decorateOrderWithReturnFinancials } from './orderReturnService.js';
 import { createRazorpayRefund, toNumber } from './paymentRefundService.js';
 import { createNotification, createWholesalerNotification } from './notificationService.js';
+import { refreshOrderPaymentStatus } from './orderCancellationService.js';
+import {
+  recordMarketplaceOrderReturnCharge,
+  recordMarketplaceOrderReturnPayment,
+} from './accountingService.js';
 
 const DISPUTE_STATUSES = {
   OPEN: 'OPEN',
@@ -451,6 +456,13 @@ const processResolvedDisputeRefund = async ({
   client = prisma,
 }) => {
   if (!(resolutionAmount > 0)) {
+    await client.orderItem.update({
+      where: { id: orderItemId },
+      data: {
+        refundStatus: 'NOT_APPLICABLE',
+      },
+    });
+    await refreshOrderPaymentStatus(client, orderId);
     return;
   }
 
@@ -467,6 +479,17 @@ const processResolvedDisputeRefund = async ({
   }
 
   if (order.paymentMethod !== 'PREPAID') {
+    await client.orderItem.update({
+      where: { id: orderItemId },
+      data: {
+        refundStatus: 'REFUNDED',
+        refundedAmount: resolutionAmount,
+        refundCompletedAt: new Date(),
+      },
+    });
+
+    await refreshOrderPaymentStatus(client, orderId);
+
     await appendRefundAuditNote({
       disputeId,
       performedByUserId: resolvedByUserId,
@@ -499,6 +522,17 @@ const processResolvedDisputeRefund = async ({
       },
     });
 
+    await client.orderItem.update({
+      where: { id: orderItemId },
+      data: {
+        refundStatus: 'PROCESSING',
+        refundReference: refund.id || `dispute-refund:${resolutionId}`,
+        refundRequestedAt: new Date(),
+      },
+    });
+
+    await refreshOrderPaymentStatus(client, orderId);
+
     await appendRefundAuditNote({
       disputeId,
       performedByUserId: resolvedByUserId,
@@ -507,6 +541,17 @@ const processResolvedDisputeRefund = async ({
     });
   } catch (error) {
     console.error('Dispute refund processing failed:', error);
+
+    await client.orderItem.update({
+      where: { id: orderItemId },
+      data: {
+        refundStatus: 'FAILED',
+        refundFailureReason: error?.message || 'Refund attempt failed.',
+      },
+    });
+
+    await refreshOrderPaymentStatus(client, orderId);
+
     await appendRefundAuditNote({
       disputeId,
       performedByUserId: resolvedByUserId,
@@ -779,6 +824,54 @@ export const resolveDispute = async ({
           ? `Resolution amount: Rs. ${toNumber(nextResolutionAmount).toFixed(2)}`
           : normalizedNotes,
     });
+
+    if (nextResolutionAmount > 0) {
+      try {
+        await recordMarketplaceOrderReturnCharge(tx, {
+          orderId,
+          sellerId: order.sellerId,
+          buyerId: order.buyerId,
+          returnAmount: nextResolutionAmount,
+          description: `Dispute resolution refund charge reversal ${orderId}:${itemId}`,
+        });
+      } catch (error) {
+        if (error?.code !== 'P2002') throw error;
+      }
+
+      if (order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUND_PENDING') {
+        try {
+          await recordMarketplaceOrderReturnPayment(tx, {
+            orderId,
+            sellerId: order.sellerId,
+            buyerId: order.buyerId,
+            returnAmount: nextResolutionAmount,
+            paymentMethod: order.paymentMethod,
+            description: `Dispute resolution refund settlement adjustment ${orderId}:${itemId}`,
+          });
+        } catch (error) {
+          if (error?.code !== 'P2002') throw error;
+        }
+      }
+
+      if (order.paymentMethod !== 'PREPAID') {
+        try {
+          await tx.ledgerEntry.create({
+            data: {
+              wholesalerId: order.sellerId,
+              userId: order.buyerId,
+              orderId: order.id,
+              amount: nextResolutionAmount,
+              description: normalizedNotes || `Dispute resolution refund for order #${order.id}`,
+              source: 'RETURN_REFUND',
+              referenceId: disputeId,
+              idempotencyKey: `dispute-refund-${disputeId}`,
+            },
+          });
+        } catch (error) {
+          if (error?.code !== 'P2002') throw error;
+        }
+      }
+    }
 
     const nextOrder = await getOrderWithDetails(tx, orderId);
     return {

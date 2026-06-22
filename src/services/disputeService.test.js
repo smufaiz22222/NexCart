@@ -57,6 +57,8 @@ const createFakeClient = (initialOrder) => {
     nextEventId: 1,
     nextEvidenceId: 1,
     nextNoteId: 1,
+    nextLedgerId: 1,
+    ledgerEntries: [],
   };
 
   const syncItemDisputes = () => {
@@ -94,6 +96,57 @@ const createFakeClient = (initialOrder) => {
     $queryRaw: async () => [],
     order: {
       findUnique: async ({ where }) => (where.id === state.order.id ? getOrder() : null),
+      update: async ({ where, data }) => {
+        if (where.id === state.order.id) {
+          Object.assign(state.order, data);
+        }
+        return getOrder();
+      },
+    },
+    orderItem: {
+      update: async ({ where, data }) => {
+        const item = state.order.items.find((entry) => entry.id === where.id);
+        if (item) {
+          Object.assign(item, data);
+        }
+        return item;
+      },
+    },
+    accountingAccount: {
+      findMany: async () => [
+        { id: 'acc-sales', code: 'SALES', name: 'Offline Sales', category: 'INCOME' },
+        {
+          id: 'acc-unreconciled',
+          code: 'UNRECONCILED_DEPOSITS',
+          name: 'Unreconciled Deposits',
+          category: 'ASSET',
+        },
+        { id: 'acc-cash', code: 'CASH', name: 'Cash in Hand', category: 'ASSET' },
+        { id: 'acc-bank', code: 'BANK', name: 'Bank Account', category: 'ASSET' },
+        { id: 'acc-upi', code: 'UPI', name: 'UPI Wallet', category: 'ASSET' },
+        {
+          id: 'acc-receivable',
+          code: 'RECEIVABLE',
+          name: 'Accounts Receivable',
+          category: 'ASSET',
+        },
+        { id: 'acc-payable', code: 'PAYABLE', name: 'Accounts Payable', category: 'LIABILITY' },
+      ],
+      createMany: async () => ({ count: 7 }),
+    },
+    accountingEntry: {
+      createMany: async () => ({ count: 0 }),
+    },
+    ledgerEntry: {
+      create: async ({ data }) => {
+        const entry = {
+          id: `ledger-${state.nextLedgerId++}`,
+          ...data,
+          createdAt: new Date().toISOString(),
+        };
+        state.ledgerEntries.push(entry);
+        return entry;
+      },
     },
     dispute: {
       count: async ({ where }) =>
@@ -212,6 +265,10 @@ const createFakeClient = (initialOrder) => {
     client: {
       $transaction: async (callback) => callback(tx),
       order: tx.order,
+      orderItem: tx.orderItem,
+      accountingAccount: tx.accountingAccount,
+      accountingEntry: tx.accountingEntry,
+      ledgerEntry: tx.ledgerEntry,
       dispute: {
         count: tx.dispute.count,
         findUnique: tx.dispute.findUnique,
@@ -402,4 +459,53 @@ test('decorateOrderWithDisputes hides seller-only notes from customers', () => {
 
   assert.equal(customerView.disputes[0].internalNotes.length, 0);
   assert.equal(sellerView.disputes[0].internalNotes.length, 1);
+});
+
+test('resolveDispute updates OrderItem refund properties for non-prepaid orders', async () => {
+  const orderCod = createBaseOrder();
+  orderCod.disputes = [
+    {
+      id: 'dispute-cod',
+      orderId: 'order-1',
+      orderItemId: 'item-1',
+      buyerId: 'buyer-1',
+      sellerId: 'seller-1',
+      status: 'OPEN',
+      reason: 'QUALITY_ISSUE',
+      description: 'The product was defective.',
+      openedAt: '2026-06-16T11:00:00.000Z',
+      respondedAt: null,
+      dueAt: null,
+      createdAt: '2026-06-16T11:00:00.000Z',
+      updatedAt: '2026-06-16T11:00:00.000Z',
+      evidence: [],
+      internalNotes: [],
+      events: [],
+      resolution: null,
+    },
+  ];
+  const { client, state } = createFakeClient(orderCod);
+
+  await resolveDispute({
+    wholesalerId: 'seller-1',
+    sellerUserId: 'seller-user-1',
+    orderId: 'order-1',
+    itemId: 'item-1',
+    disputeId: 'dispute-cod',
+    updatedAt: '2026-06-16T11:00:00.000Z',
+    resolutionType: 'APPROVE',
+    allowDirectResolution: true,
+    client,
+  });
+
+  const item = state.order.items.find((entry) => entry.id === 'item-1');
+  assert.equal(item.refundStatus, 'REFUNDED');
+  assert.equal(item.refundedAmount, 200);
+  assert.ok(item.refundCompletedAt);
+
+  assert.equal(state.ledgerEntries.length, 1);
+  assert.equal(state.ledgerEntries[0].wholesalerId, 'seller-1');
+  assert.equal(state.ledgerEntries[0].userId, 'buyer-1');
+  assert.equal(state.ledgerEntries[0].amount, 200);
+  assert.equal(state.ledgerEntries[0].source, 'RETURN_REFUND');
 });

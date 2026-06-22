@@ -9,6 +9,12 @@ import {
   recordMarketplaceOrderReturnCharge,
   recordMarketplaceOrderReturnPayment,
 } from './accountingService.js';
+import {
+  dispatchEmailAsync,
+  sendSellerReturnRequestNotification,
+  sendReturnNotification,
+  sendRefundNotification,
+} from './emailService.js';
 
 export const RETURN_STATUSES = {
   NONE: 'NONE',
@@ -206,8 +212,8 @@ export const requestOrderItemReturn = async ({
   notes = '',
   quantity = null,
   client = prisma,
-}) =>
-  client.$transaction(async (tx) => {
+}) => {
+  const result = await client.$transaction(async (tx) => {
     validateReturnReason(reason);
 
     await tx.$queryRaw`SELECT "id" FROM "OrderItem" WHERE "id" = ${itemId} FOR UPDATE`;
@@ -292,14 +298,21 @@ export const requestOrderItemReturn = async ({
     };
   });
 
+  if (result.message === 'Return requested successfully.') {
+    dispatchEmailAsync(() => sendSellerReturnRequestNotification(orderId, itemId, reason));
+  }
+
+  return result;
+};
+
 export const approveOrderItemReturn = async ({
   wholesalerId,
   decisionBy,
   orderId,
   itemId,
   client = prisma,
-}) =>
-  client.$transaction(async (tx) => {
+}) => {
+  const result = await client.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "OrderItem" WHERE "id" = ${itemId} FOR UPDATE`;
 
     const item = await tx.orderItem.findUnique({
@@ -360,6 +373,13 @@ export const approveOrderItemReturn = async ({
     };
   });
 
+  if (result.message === 'Return approved successfully.') {
+    dispatchEmailAsync(() => sendReturnNotification(orderId, itemId, 'APPROVED'));
+  }
+
+  return result;
+};
+
 export const rejectOrderItemReturn = async ({
   wholesalerId,
   decisionBy,
@@ -367,8 +387,8 @@ export const rejectOrderItemReturn = async ({
   itemId,
   rejectionReason,
   client = prisma,
-}) =>
-  client.$transaction(async (tx) => {
+}) => {
+  const result = await client.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "OrderItem" WHERE "id" = ${itemId} FOR UPDATE`;
 
     const item = await tx.orderItem.findUnique({
@@ -419,6 +439,13 @@ export const rejectOrderItemReturn = async ({
       message: 'Return rejected successfully.',
     };
   });
+
+  if (result.message === 'Return rejected successfully.') {
+    dispatchEmailAsync(() => sendReturnNotification(orderId, itemId, 'REJECTED'));
+  }
+
+  return result;
+};
 
 const getNextOrderStatus = (items = []) => {
   const eligibleItems = items.filter((item) => item.status !== 'CANCELLED');
@@ -518,6 +545,7 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
       });
       const nextOrder = await getOrderWithDetails(client, orderId);
       const decoratedOrder = decorateOrderWithReturnFinancials(nextOrder);
+      dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
       return {
         order: decoratedOrder,
         item: decoratedOrder?.items.find((entry) => entry.id === itemId) || item,
@@ -566,6 +594,7 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
       });
       const nextOrder = await getOrderWithDetails(client, orderId);
       const decoratedOrder = decorateOrderWithReturnFinancials(nextOrder);
+      dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
       return {
         order: decoratedOrder,
         item: decoratedOrder?.items.find((entry) => entry.id === itemId) || item,
@@ -601,6 +630,8 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
       message: 'Refund is already being processed.',
     };
   }
+
+  dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'INITIATED'));
 
   const isTestMode = () => process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_');
   const shouldFallbackToMockRefund = (error) => {
@@ -646,6 +677,7 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
         paymentStatus: nextStatus === 'RETURN_COMPLETED' ? 'REFUNDED' : order.paymentStatus,
       },
     });
+    dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
   } catch (error) {
     if (shouldFallbackToMockRefund(error)) {
       console.warn(
@@ -674,6 +706,7 @@ export const processReturnRefund = async ({ wholesalerId, orderId, itemId, clien
           paymentStatus: nextStatus === 'RETURN_COMPLETED' ? 'REFUNDED' : order.paymentStatus,
         },
       });
+      dispatchEmailAsync(() => sendRefundNotification(orderId, itemId, 'COMPLETED'));
     } else {
       await client.orderItem.update({
         where: { id: itemId },

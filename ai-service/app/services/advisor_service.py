@@ -10,6 +10,7 @@ from app.services.prompt_builder import (
     build_rag_context_text,
     build_rule_insights_text,
 )
+from app.services.domain_filter import REJECTION_MESSAGE, classify_business_query
 from app.services.question_classifier import (
     classify_question,
     requests_unavailable_business_data,
@@ -74,6 +75,15 @@ def run_advisor(
         raise ValueError("Query cannot be empty")
 
     normalized_session_id = _normalize_session_id(session_id)
+
+    if not classify_business_query(normalized_query):
+        return _finalize_response(
+            normalized_session_id,
+            normalized_query,
+            REJECTION_MESSAGE,
+            [],
+        )
+
     business_context = business_context or {}
     rule_insights = generate_rule_insights(business_context)
     question_type = classify_question(normalized_query)

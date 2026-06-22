@@ -1,5 +1,6 @@
 import app from './app.js';
 import { startTokenCleanupInterval } from './jobs/tokenCleanupJob.js';
+import { startOtpCleanupInterval } from './jobs/otpCleanupJob.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -8,3 +9,4 @@ app.listen(PORT, () => {
 });
 
 startTokenCleanupInterval();
+startOtpCleanupInterval();

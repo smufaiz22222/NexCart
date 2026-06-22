@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, BriefcaseBusiness, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import apiClient from '../api/axios.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordChecks = [
@@ -55,8 +56,15 @@ export default function Register() {
   const [successMessage, setSuccessMessage] = useState('');
   const [validationError, setValidationError] = useState('');
 
+  const [showOtpVerify, setShowOtpVerify] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [tempVerifyData, setTempVerifyData] = useState(null); // { email, password }
+  const [otpError, setOtpError] = useState('');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+
   const navigate = useNavigate();
-  const { register, isLoading, error } = useAuthStore();
+  const { register, login, isLoading, error } = useAuthStore();
 
   const handleChange = (event) => {
     setFormData((current) => ({
@@ -71,6 +79,7 @@ export default function Register() {
     event.preventDefault();
     setSuccessMessage('');
     setValidationError('');
+    setOtpError('');
 
     const nextError = validateRegistrationForm(formData);
     if (nextError) {
@@ -80,16 +89,80 @@ export default function Register() {
 
     try {
       const response = await register(formData);
+      setTempVerifyData({
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      });
+      setOtpCode('');
+      setOtpError('');
+
       if (formData.role === 'WHOLESALER' || response?.applicationSubmitted) {
         setSuccessMessage(
-          'Application submitted. You can sign in and manage billing while admin review is pending.'
+          'Application submitted. A verification code has been sent to your email.'
         );
       } else {
-        setSuccessMessage('Registration successful. You can sign in now.');
+        setSuccessMessage(
+          'Verification code sent! Please verify your email to complete registration.'
+        );
       }
-      setTimeout(() => navigate('/login'), 900);
+      setShowOtpVerify(true);
     } catch (submitError) {
       console.error(submitError);
+    }
+  };
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+    setValidationError('');
+    setSuccessMessage('');
+
+    if (otpCode.length !== 6) {
+      setOtpError('Please enter a 6-digit verification code.');
+      return;
+    }
+
+    setVerifyLoading(true);
+    try {
+      await apiClient.post('/auth/verify-otp', {
+        email: tempVerifyData.email,
+        otp: otpCode,
+        purpose: 'VERIFICATION',
+      });
+
+      setSuccessMessage('Email verified successfully! Logging you in...');
+
+      const user = await login(tempVerifyData.email, tempVerifyData.password);
+
+      if (user.role === 'SUPER_ADMIN') {
+        navigate('/admin');
+      } else if (user.role === 'WHOLESALER') {
+        navigate('/wholesaler');
+      } else {
+        navigate('/store');
+      }
+    } catch (err) {
+      setOtpError(err.response?.data?.error || 'Verification failed. Please try again.');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError('');
+    setValidationError('');
+    setSuccessMessage('');
+    setResendLoading(true);
+    try {
+      await apiClient.post('/auth/send-otp', {
+        email: tempVerifyData.email,
+        purpose: 'VERIFICATION',
+      });
+      setSuccessMessage('Verification code resent successfully!');
+    } catch (err) {
+      setOtpError(err.response?.data?.error || 'Failed to resend verification code.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -161,150 +234,215 @@ export default function Register() {
               </div>
             ) : null}
 
-            <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <RoleButton
-                  title="Buy Products"
-                  subtitle="Customer"
-                  active={formData.role === 'CUSTOMER'}
-                  onClick={() => setFormData((current) => ({ ...current, role: 'CUSTOMER' }))}
-                />
-                <RoleButton
-                  title="Sell Products"
-                  subtitle="Wholesaler"
-                  active={formData.role === 'WHOLESALER'}
-                  onClick={() => setFormData((current) => ({ ...current, role: 'WHOLESALER' }))}
-                />
-              </div>
+            {showOtpVerify ? (
+              <div>
+                {otpError && (
+                  <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
+                    {otpError}
+                  </div>
+                )}
 
-              <input type="hidden" name="role" value={formData.role} />
+                <form className="mt-8 space-y-5" onSubmit={handleOtpSubmit}>
+                  <div className="text-sm text-[#6b665f] leading-relaxed">
+                    We sent a 6-digit verification code to <br />
+                    <strong className="text-[#161412]">{tempVerifyData?.email}</strong>
+                  </div>
 
-              <FormField label="Full Name">
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Your full name"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <FormField label="Email">
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="you@example.com"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <FormField label="Password">
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Create a strong password"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <FormField label="Confirm Password">
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Repeat your password"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <div className="rounded-2xl border border-[#ddd7cc] bg-[#faf8f4] px-4 py-4 text-sm leading-6 text-[#6b665f]">
-                Password must be at least 8 characters and include uppercase, lowercase, a number,
-                and a special character.
-              </div>
-
-              {formData.role === 'WHOLESALER' ? (
-                <div className="space-y-4 rounded-[28px] border border-[#d2b08a] bg-[#fff8ee] p-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-                    Seller application details
-                  </p>
-                  <FormField label="Business / Shop Name">
+                  <FormField label="Verification Code">
                     <input
                       type="text"
-                      name="businessName"
                       required
-                      value={formData.businessName}
-                      onChange={handleChange}
-                      placeholder="Your brand or store name"
-                      className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      className="w-full text-center tracking-[0.3em] font-mono rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-lg text-[#161412] outline-none transition focus:border-[#161412]"
                     />
                   </FormField>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField label="Business Phone">
-                      <input
-                        type="text"
-                        name="businessPhone"
-                        required
-                        value={formData.businessPhone}
-                        onChange={handleChange}
-                        placeholder="+91 98xxxxxx"
-                        className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                      />
-                    </FormField>
-                    <FormField label="GST / Tax ID">
-                      <input
-                        type="text"
-                        name="taxId"
-                        value={formData.taxId}
-                        onChange={handleChange}
-                        placeholder="Optional tax identifier"
-                        className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                      />
-                    </FormField>
-                  </div>
-                  <FormField label="Business Address">
-                    <textarea
-                      name="businessAddress"
-                      required
-                      rows={3}
-                      value={formData.businessAddress}
-                      onChange={handleChange}
-                      placeholder="Shop address for review"
-                      className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                    />
-                  </FormField>
+
+                  <button
+                    type="submit"
+                    disabled={verifyLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {verifyLoading ? 'Verifying...' : 'Verify & Sign In'}
+                    {!verifyLoading && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+
+                <div className="flex flex-col items-center gap-3 mt-6 text-sm font-semibold">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendLoading}
+                    className="text-[#8f5d31] hover:underline disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Resending...' : 'Resend verification code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOtpVerify(false);
+                      setSuccessMessage('');
+                      setOtpError('');
+                    }}
+                    className="text-[#8b857c] hover:text-[#161412] underline"
+                  >
+                    Back to Register
+                  </button>
                 </div>
-              ) : null}
+              </div>
+            ) : (
+              <>
+                <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <RoleButton
+                      title="Buy Products"
+                      subtitle="Customer"
+                      active={formData.role === 'CUSTOMER'}
+                      onClick={() => setFormData((current) => ({ ...current, role: 'CUSTOMER' }))}
+                    />
+                    <RoleButton
+                      title="Sell Products"
+                      subtitle="Wholesaler"
+                      active={formData.role === 'WHOLESALER'}
+                      onClick={() => setFormData((current) => ({ ...current, role: 'WHOLESALER' }))}
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoading
-                  ? 'Creating account...'
-                  : formData.role === 'WHOLESALER'
-                    ? 'Submit application'
-                    : 'Create account'}
-                {!isLoading && <ArrowRight className="h-4 w-4" />}
-              </button>
-            </form>
+                  <input type="hidden" name="role" value={formData.role} />
 
-            <p className="mt-8 text-sm text-[#6b665f]">
-              Already have an account?{' '}
-              <Link to="/login" className="font-bold text-[#161412] underline underline-offset-4">
-                Sign in
-              </Link>
-            </p>
+                  <FormField label="Full Name">
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="Your full name"
+                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
+
+                  <FormField label="Email">
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="you@example.com"
+                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
+
+                  <FormField label="Password">
+                    <input
+                      type="password"
+                      name="password"
+                      required
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Create a strong password"
+                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
+
+                  <FormField label="Confirm Password">
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      required
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="Repeat your password"
+                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                    />
+                  </FormField>
+
+                  <div className="rounded-2xl border border-[#ddd7cc] bg-[#faf8f4] px-4 py-4 text-sm leading-6 text-[#6b665f]">
+                    Password must be at least 8 characters and include uppercase, lowercase, a
+                    number, and a special character.
+                  </div>
+
+                  {formData.role === 'WHOLESALER' ? (
+                    <div className="space-y-4 rounded-[28px] border border-[#d2b08a] bg-[#fff8ee] p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
+                        Seller application details
+                      </p>
+                      <FormField label="Business / Shop Name">
+                        <input
+                          type="text"
+                          name="businessName"
+                          required
+                          value={formData.businessName}
+                          onChange={handleChange}
+                          placeholder="Your brand or store name"
+                          className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+                        />
+                      </FormField>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField label="Business Phone">
+                          <input
+                            type="text"
+                            name="businessPhone"
+                            required
+                            value={formData.businessPhone}
+                            onChange={handleChange}
+                            placeholder="+91 98xxxxxx"
+                            className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+                          />
+                        </FormField>
+                        <FormField label="GST / Tax ID">
+                          <input
+                            type="text"
+                            name="taxId"
+                            value={formData.taxId}
+                            onChange={handleChange}
+                            placeholder="Optional tax identifier"
+                            className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+                          />
+                        </FormField>
+                      </div>
+                      <FormField label="Business Address">
+                        <textarea
+                          name="businessAddress"
+                          required
+                          rows={3}
+                          value={formData.businessAddress}
+                          onChange={handleChange}
+                          placeholder="Shop address for review"
+                          className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+                        />
+                      </FormField>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isLoading
+                      ? 'Creating account...'
+                      : formData.role === 'WHOLESALER'
+                        ? 'Submit application'
+                        : 'Create account'}
+                    {!isLoading && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+
+                <p className="mt-8 text-sm text-[#6b665f]">
+                  Already have an account?{' '}
+                  <Link
+                    to="/login"
+                    className="font-bold text-[#161412] underline underline-offset-4"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </>
+            )}
           </div>
         </section>
       </div>

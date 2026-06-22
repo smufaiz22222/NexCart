@@ -2,6 +2,7 @@ import { useState, useTransition } from 'react';
 import { X, ArrowRight, ShoppingBag, BriefcaseBusiness, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
+import apiClient from '../api/axios.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordChecks = [
@@ -40,7 +41,7 @@ function validateRegistrationForm(formData) {
 
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const { login, register } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
+  const [activeTab, setActiveTab] = useState('login'); // 'login', 'register', or 'verify-otp'
   const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -56,6 +57,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     role: 'CUSTOMER',
     businessName: '',
   });
+
+  // OTP Verification state
+  const [tempVerifyData, setTempVerifyData] = useState(null); // { email, password }
+  const [otpCode, setOtpCode] = useState('');
 
   const [formError, setFormError] = useState('');
 
@@ -77,7 +82,38 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
         onClose();
         if (onSuccess) onSuccess();
       } catch (err) {
-        setFormError(err.response?.data?.error || 'Invalid email or password.');
+        const errMsg = err.response?.data?.error || 'Invalid email or password.';
+        if (err.response?.status === 403 || errMsg.includes('verify')) {
+          setFormError(
+            <span>
+              {errMsg}{' '}
+              <button
+                type="button"
+                onClick={async () => {
+                  setFormError('');
+                  const email = loginData.email.trim().toLowerCase();
+                  setTempVerifyData({ email, password: loginData.password });
+                  try {
+                    await apiClient.post('/auth/send-otp', {
+                      email,
+                      purpose: 'VERIFICATION',
+                    });
+                    toast.success('Verification code sent to your email!');
+                    setOtpCode('');
+                    setActiveTab('verify-otp');
+                  } catch (sendErr) {
+                    setFormError(sendErr.response?.data?.error || 'Failed to send OTP code.');
+                  }
+                }}
+                className="underline hover:text-[#161412] font-bold"
+              >
+                Verify Now
+              </button>
+            </span>
+          );
+        } else {
+          setFormError(errMsg);
+        }
       }
     });
   };
@@ -95,15 +131,65 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     startTransition(async () => {
       try {
         await register(registerData);
-        toast.success('Account created! Logging you in...');
-
-        // Auto login
-        await login(registerData.email.trim().toLowerCase(), registerData.password);
-        toast.success('Logged in successfully!');
-        onClose();
-        if (onSuccess) onSuccess();
+        toast.success('Verification code sent! Please verify your email to complete registration.');
+        setTempVerifyData({
+          email: registerData.email.trim().toLowerCase(),
+          password: registerData.password,
+        });
+        setOtpCode('');
+        setActiveTab('verify-otp');
       } catch (err) {
         setFormError(err.response?.data?.error || 'Registration failed.');
+      }
+    });
+  };
+
+  const handleOtpSubmit = (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (otpCode.length !== 6) {
+      setFormError('Please enter a 6-digit verification code.');
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await apiClient.post('/auth/verify-otp', {
+          email: tempVerifyData.email,
+          otp: otpCode,
+          purpose: 'VERIFICATION',
+        });
+        toast.success('Email verified successfully!');
+
+        // Auto login if we have password
+        if (tempVerifyData.password) {
+          await login(tempVerifyData.email, tempVerifyData.password);
+          toast.success('Successfully logged in!');
+          onClose();
+          if (onSuccess) onSuccess();
+        } else {
+          setLoginData((prev) => ({ ...prev, email: tempVerifyData.email }));
+          setActiveTab('login');
+          toast.info('Please enter your password to log in.');
+        }
+      } catch (err) {
+        setFormError(err.response?.data?.error || 'Verification failed. Please try again.');
+      }
+    });
+  };
+
+  const handleResendOtp = () => {
+    setFormError('');
+    startTransition(async () => {
+      try {
+        await apiClient.post('/auth/send-otp', {
+          email: tempVerifyData.email,
+          purpose: 'VERIFICATION',
+        });
+        toast.success('Verification code resent successfully!');
+      } catch (err) {
+        setFormError(err.response?.data?.error || 'Failed to resend verification code.');
       }
     });
   };
@@ -130,34 +216,36 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
             Access the wholesale-to-consumer marketplace
           </p>
 
-          <div className="mt-6 flex border-b border-[#ece7de]">
-            <button
-              onClick={() => {
-                setActiveTab('login');
-                setFormError('');
-              }}
-              className={`flex-1 pb-3 text-sm font-bold transition-all border-b-2 ${
-                activeTab === 'login'
-                  ? 'border-[#161412] text-[#161412]'
-                  : 'border-transparent text-[#8b857c] hover:text-[#161412]'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('register');
-                setFormError('');
-              }}
-              className={`flex-1 pb-3 text-sm font-bold transition-all border-b-2 ${
-                activeTab === 'register'
-                  ? 'border-[#161412] text-[#161412]'
-                  : 'border-transparent text-[#8b857c] hover:text-[#161412]'
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
+          {activeTab !== 'verify-otp' && (
+            <div className="mt-6 flex border-b border-[#ece7de]">
+              <button
+                onClick={() => {
+                  setActiveTab('login');
+                  setFormError('');
+                }}
+                className={`flex-1 pb-3 text-sm font-bold transition-all border-b-2 ${
+                  activeTab === 'login'
+                    ? 'border-[#161412] text-[#161412]'
+                    : 'border-transparent text-[#8b857c] hover:text-[#161412]'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('register');
+                  setFormError('');
+                }}
+                className={`flex-1 pb-3 text-sm font-bold transition-all border-b-2 ${
+                  activeTab === 'register'
+                    ? 'border-[#161412] text-[#161412]'
+                    : 'border-transparent text-[#8b857c] hover:text-[#161412]'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Error Banner */}
@@ -168,7 +256,56 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
         )}
 
         {/* Content Body */}
-        {activeTab === 'login' ? (
+        {activeTab === 'verify-otp' ? (
+          <form onSubmit={handleOtpSubmit} className="mt-6 space-y-4">
+            <div className="text-sm text-[#6b665f] text-center mb-4 leading-relaxed">
+              We sent a 6-digit verification code to <br />
+              <strong className="text-[#161412]">{tempVerifyData?.email}</strong>
+            </div>
+
+            <FormField label="Verification Code">
+              <input
+                type="text"
+                required
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="123456"
+                className="w-full text-center tracking-[0.3em] font-mono rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-lg text-[#161412] outline-none transition focus:border-[#161412]"
+              />
+            </FormField>
+
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
+            >
+              {isPending ? 'Verifying...' : 'Verify & Sign In'}
+              {!isPending && <ArrowRight className="h-4 w-4" />}
+            </button>
+
+            <div className="flex flex-col items-center gap-2 mt-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={isPending}
+                className="text-[#8f5d31] hover:underline disabled:opacity-50"
+              >
+                Resend verification code
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('login');
+                  setFormError('');
+                }}
+                className="text-[#8b857c] hover:text-[#161412]"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          </form>
+        ) : activeTab === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
             <FormField label="Email Address">
               <input
