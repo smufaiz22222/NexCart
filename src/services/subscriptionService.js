@@ -349,14 +349,20 @@ const createSubscriptionAudit = async ({
   externalReference = null,
   paymentId = null,
   activatedByAdmin = false,
+  isUpgrade = false,
 }) => {
-  const pricing = computePlanPricing(plan, durationMonths || 1);
   const startAt = startDateTime ? new Date(startDateTime) : new Date();
-  const endAt = durationDays
-    ? addDays(startAt, durationDays)
-    : plan.code === 'TRIAL'
-      ? addDays(startAt, 2)
-      : addMonths(startAt, pricing.months);
+  let endAt;
+  let months;
+
+  if (durationDays) {
+    endAt = addDays(startAt, durationDays);
+    months = Math.max(1, Math.round(durationDays / 30));
+  } else {
+    const pricing = computePlanPricing(plan, durationMonths || 1);
+    endAt = plan.code === 'TRIAL' ? addDays(startAt, 2) : addMonths(startAt, pricing.months);
+    months = plan.code === 'TRIAL' ? 1 : pricing.months;
+  }
 
   await expireCurrentSubscriptions(tx, wholesaler.id);
 
@@ -366,11 +372,7 @@ const createSubscriptionAudit = async ({
       planId: plan.id,
       status: 'ACTIVE',
       billingCycle: 'MONTHLY',
-      durationMonths: durationDays
-        ? Math.max(1, Math.round(durationDays / 30))
-        : plan.code === 'TRIAL'
-          ? 1
-          : pricing.months,
+      durationMonths: months,
       purchaseMethod,
       activatedByAdmin,
       activationNotes,
@@ -379,6 +381,7 @@ const createSubscriptionAudit = async ({
       currentPeriodStart: startAt,
       currentPeriodEnd: endAt,
       autoRenews: false,
+      isUpgrade,
     },
     include: { plan: true },
   });
@@ -393,6 +396,7 @@ const createSubscriptionAudit = async ({
         validUntil: endAt,
         activationNotes,
         externalReference,
+        isUpgrade,
       },
     });
   }
@@ -482,7 +486,7 @@ export const startFreeTrial = async (db, wholesalerId) => {
 export const createCheckoutForSubscription = async (
   db,
   wholesalerId,
-  { planId, durationMonths }
+  { planId, durationMonths, isUpgrade }
 ) => {
   await ensureDefaultSubscriptionPlans(db);
 
@@ -503,31 +507,56 @@ export const createCheckoutForSubscription = async (
     throw error;
   }
 
-  const pricing = computePlanPricing(plan, durationMonths);
+  let finalAmount;
+  let baseAmount;
+  let discountPercent;
+  let months;
+
+  if (isUpgrade) {
+    const upgradeDetails = await getSubscriptionUpgradeDetails(db, wholesalerId);
+    if (!upgradeDetails.isEligible) {
+      const error = new Error(upgradeDetails.reason);
+      error.statusCode = 400;
+      throw error;
+    }
+    finalAmount = upgradeDetails.diffAmount;
+    baseAmount = upgradeDetails.diffAmount;
+    discountPercent = 0;
+    months = Math.max(1, Math.ceil(upgradeDetails.remainingDays / 30));
+  } else {
+    const pricing = computePlanPricing(plan, durationMonths);
+    finalAmount = pricing.finalAmount;
+    baseAmount = pricing.baseAmount;
+    discountPercent = pricing.discountPercent;
+    months = pricing.months;
+  }
+
   const payment = await db.subscriptionPayment.create({
     data: {
       wholesalerId,
       planId: plan.id,
       purchaseMethod: 'RAZORPAY',
       status: 'PENDING',
-      durationMonths: pricing.months,
-      baseAmount: pricing.baseAmount,
-      discountPercent: pricing.discountPercent,
-      finalAmount: pricing.finalAmount,
+      durationMonths: months,
+      baseAmount,
+      discountPercent,
+      finalAmount,
       currency: 'INR',
+      isUpgrade: isUpgrade || false,
     },
   });
 
   const razorpay = buildRazorpayClient();
   const order = await razorpay.orders.create({
-    amount: Math.round(pricing.finalAmount * 100),
+    amount: Math.round(finalAmount * 100),
     currency: 'INR',
     receipt: `sub_${payment.id.slice(0, 18)}`,
     notes: {
       wholesalerId,
       planCode: plan.code,
-      durationMonths: String(pricing.months),
+      durationMonths: String(months),
       subscriptionPaymentId: payment.id,
+      isUpgrade: isUpgrade ? 'true' : 'false',
     },
   });
 
@@ -594,14 +623,43 @@ export const verifyCheckoutPayment = async (
       },
     });
 
-    await createSubscriptionAudit({
-      tx,
-      wholesaler: payment.wholesaler,
-      plan: payment.plan,
-      durationMonths: payment.durationMonths,
-      purchaseMethod: 'RAZORPAY',
-      paymentId: payment.id,
-    });
+    if (payment.isUpgrade) {
+      const activeSub = await tx.wholesalerSubscription.findFirst({
+        where: {
+          wholesalerId,
+          status: 'ACTIVE',
+        },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      });
+
+      let durationDays = null;
+      if (activeSub) {
+        const now = new Date();
+        const currentPeriodEnd = new Date(activeSub.currentPeriodEnd);
+        durationDays = Math.max(1, Math.ceil((currentPeriodEnd - now) / (1000 * 60 * 60 * 24)));
+      }
+
+      await createSubscriptionAudit({
+        tx,
+        wholesaler: payment.wholesaler,
+        plan: payment.plan,
+        durationMonths: payment.durationMonths,
+        durationDays,
+        purchaseMethod: 'RAZORPAY',
+        paymentId: payment.id,
+        isUpgrade: true,
+        activationNotes: 'Upgraded to Premium via difference payment.',
+      });
+    } else {
+      await createSubscriptionAudit({
+        tx,
+        wholesaler: payment.wholesaler,
+        plan: payment.plan,
+        durationMonths: payment.durationMonths,
+        purchaseMethod: 'RAZORPAY',
+        paymentId: payment.id,
+      });
+    }
   });
 };
 
@@ -690,7 +748,7 @@ export const buildSellerPlansResponse = async (db, wholesalerId) => {
   };
 };
 
-export const validateCouponCode = async (db, code) => {
+export const validateCouponCode = async (db, code, wholesalerId = null) => {
   if (!code) {
     const error = new Error('Coupon code is required.');
     error.statusCode = 400;
@@ -725,11 +783,33 @@ export const validateCouponCode = async (db, code) => {
     throw error;
   }
 
+  if (coupon.isUpgrade && wholesalerId) {
+    const wholesaler = await db.wholesaler.findUnique({
+      where: { id: wholesalerId },
+      include: {
+        subscriptions: {
+          include: { plan: true },
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+    });
+
+    const activeSub = getCurrentSubscription(wholesaler);
+    const status = getEffectiveSubscriptionStatus(activeSub);
+
+    if (!activeSub || status !== 'ACTIVE' || activeSub.plan?.code !== 'STANDARD') {
+      const error = new Error('This upgrade coupon is only valid for wholesalers with an active Standard subscription.');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   return {
     id: coupon.id,
     code: coupon.code,
     durationDays: coupon.durationDays,
     expiryDate: coupon.expiryDate,
+    isUpgrade: coupon.isUpgrade,
     plan: {
       id: coupon.plan.id,
       code: coupon.plan.code,
@@ -741,7 +821,7 @@ export const validateCouponCode = async (db, code) => {
 };
 
 export const activateCouponSubscription = async (db, wholesalerId, code) => {
-  const couponDetails = await validateCouponCode(db, code);
+  const couponDetails = await validateCouponCode(db, code, wholesalerId);
 
   const wholesaler = await db.wholesaler.findUnique({
     where: { id: wholesalerId },
@@ -787,6 +867,23 @@ export const activateCouponSubscription = async (db, wholesalerId, code) => {
       },
     });
 
+    let durationDays = couponDetails.durationDays;
+    let baseAmount = plan.price;
+    let discountPercent = 100;
+    let finalAmount = 0;
+
+    if (couponDetails.isUpgrade) {
+      const activeSub = getCurrentSubscription(wholesaler);
+      if (activeSub) {
+        const now = new Date();
+        const currentPeriodEnd = new Date(activeSub.currentPeriodEnd);
+        durationDays = Math.max(1, Math.ceil((currentPeriodEnd - now) / (1000 * 60 * 60 * 24)));
+      }
+      baseAmount = 0;
+      discountPercent = 0;
+      finalAmount = 0;
+    }
+
     // Create free subscription payment record for audit log
     const payment = await tx.subscriptionPayment.create({
       data: {
@@ -794,14 +891,17 @@ export const activateCouponSubscription = async (db, wholesalerId, code) => {
         planId: plan.id,
         purchaseMethod: 'COUPON',
         status: 'PAID',
-        durationMonths: Math.max(1, Math.round(couponDetails.durationDays / 30)),
-        baseAmount: plan.price,
-        discountPercent: 100,
-        finalAmount: 0,
+        durationMonths: Math.max(1, Math.round(durationDays / 30)),
+        baseAmount,
+        discountPercent,
+        finalAmount,
         currency: 'INR',
         paidAt: new Date(),
-        activationNotes: `Coupon applied: ${couponDetails.code}`,
+        activationNotes: couponDetails.isUpgrade
+          ? `Upgraded to Premium via Coupon: ${couponDetails.code}`
+          : `Coupon applied: ${couponDetails.code}`,
         externalReference: couponDetails.code,
+        isUpgrade: couponDetails.isUpgrade || false,
       },
     });
 
@@ -810,12 +910,15 @@ export const activateCouponSubscription = async (db, wholesalerId, code) => {
       tx,
       wholesaler,
       plan,
-      durationMonths: Math.max(1, Math.round(couponDetails.durationDays / 30)),
-      durationDays: couponDetails.durationDays,
+      durationMonths: Math.max(1, Math.round(durationDays / 30)),
+      durationDays: durationDays,
       purchaseMethod: 'COUPON',
       paymentId: payment.id,
-      activationNotes: `Activated via Coupon: ${couponDetails.code}`,
+      activationNotes: couponDetails.isUpgrade
+        ? `Activated via Upgrade Coupon: ${couponDetails.code}`
+        : `Activated via Coupon: ${couponDetails.code}`,
       externalReference: couponDetails.code,
+      isUpgrade: couponDetails.isUpgrade || false,
     });
   });
 
@@ -860,4 +963,101 @@ export const checkAndExpireSubscription = async (db, wholesaler) => {
   }
 
   return wholesaler;
+};
+
+export const getSubscriptionUpgradeDetails = async (db, wholesalerId) => {
+  const wholesaler = await db.wholesaler.findUnique({
+    where: { id: wholesalerId },
+    include: {
+      subscriptions: {
+        include: { plan: true },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      },
+    },
+  });
+
+  if (!wholesaler) {
+    const error = new Error('Wholesaler not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const currentSub = getCurrentSubscription(wholesaler);
+  const status = getEffectiveSubscriptionStatus(currentSub);
+
+  if (!currentSub || status !== 'ACTIVE' || currentSub.plan?.code !== 'STANDARD') {
+    return {
+      isEligible: false,
+      reason: 'Only wholesalers with an active Standard subscription can upgrade.',
+    };
+  }
+
+  const now = new Date();
+  const currentPeriodEnd = new Date(currentSub.currentPeriodEnd);
+  const currentPeriodStart = new Date(currentSub.currentPeriodStart);
+
+  const totalMs = currentPeriodEnd - currentPeriodStart;
+  const remainingMs = currentPeriodEnd - now;
+
+  if (remainingMs <= 0) {
+    return {
+      isEligible: false,
+      reason: 'Your subscription has expired or is about to expire.',
+    };
+  }
+
+  const totalDays = Math.ceil(totalMs / (1000 * 60 * 60 * 24));
+  const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+
+  const plans = await db.subscriptionPlan.findMany({
+    where: { code: { in: ['STANDARD', 'PREMIUM'] } },
+  });
+
+  const standardPlan = plans.find((p) => p.code === 'STANDARD');
+  const premiumPlan = plans.find((p) => p.code === 'PREMIUM');
+
+  if (!standardPlan || !premiumPlan) {
+    const error = new Error('Subscription plans are not fully configured.');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const lastPayment = await db.subscriptionPayment.findFirst({
+    where: {
+      subscriptionId: currentSub.id,
+      status: 'PAID',
+    },
+    orderBy: { paidAt: 'desc' },
+  });
+
+  let paidAmount = 0;
+  if (lastPayment) {
+    paidAmount = Number(lastPayment.finalAmount);
+  } else {
+    paidAmount = computePlanPricing(standardPlan, currentSub.durationMonths).finalAmount;
+  }
+
+  const remainingStandardValue = Number((paidAmount * (remainingDays / totalDays)).toFixed(2));
+
+  const premiumTotalValue = computePlanPricing(premiumPlan, currentSub.durationMonths).finalAmount;
+  const premiumValueForRemaining = Number((premiumTotalValue * (remainingDays / totalDays)).toFixed(2));
+
+  const diffAmount = Math.max(0, Number((premiumValueForRemaining - remainingStandardValue).toFixed(2)));
+
+  return {
+    isEligible: true,
+    remainingDays,
+    totalDays,
+    diffAmount,
+    currentPlan: {
+      id: standardPlan.id,
+      code: 'STANDARD',
+      name: standardPlan.name,
+    },
+    targetPlan: {
+      id: premiumPlan.id,
+      code: 'PREMIUM',
+      name: premiumPlan.name,
+    },
+  };
 };

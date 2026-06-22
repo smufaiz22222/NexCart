@@ -14,6 +14,7 @@ import {
   Camera,
   BrainCircuit,
   MessageSquare,
+  Landmark,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import NotificationBell from '../components/NotificationBell';
@@ -39,6 +40,7 @@ export default function WholesalerLayout() {
     { name: 'Price Quotes (RFQs)', href: '/wholesaler/rfqs', icon: MessageSquare },
     { name: 'Payment & Billing', href: '/wholesaler/ledger', icon: CreditCard },
     { name: 'Ecommerce Accounting', href: '/wholesaler/ecommerce-accounting', icon: BookOpen },
+    { name: 'Withdrawals & Payouts', href: '/wholesaler/payouts', icon: Landmark },
     { name: 'Business Advisor', href: '/wholesaler/advisor', icon: BrainCircuit },
     { name: 'AI Khatta Scan', href: '/wholesaler/khatta', icon: Camera },
   ];

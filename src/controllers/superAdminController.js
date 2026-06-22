@@ -826,7 +826,7 @@ export const getCoupons = async (req, res) => {
 
 export const createCoupon = async (req, res) => {
   try {
-    const { code, planId, durationDays, expiryDate } = req.body || {};
+    const { code, planId, durationDays, expiryDate, isUpgrade } = req.body || {};
 
     if (!code || !planId || !durationDays || !expiryDate) {
       return res
@@ -848,6 +848,7 @@ export const createCoupon = async (req, res) => {
         planId,
         durationDays: parseInt(durationDays, 10),
         expiryDate: new Date(expiryDate),
+        isUpgrade: Boolean(isUpgrade),
       },
       include: { plan: true },
     });

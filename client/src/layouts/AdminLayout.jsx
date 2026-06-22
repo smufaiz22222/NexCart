@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { CreditCard, LayoutDashboard, Shield, LogOut, Menu, X } from 'lucide-react';
+import { CreditCard, LayoutDashboard, Shield, LogOut, Menu, X, Landmark } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import NotificationBell from '../components/NotificationBell';
 
@@ -24,6 +24,13 @@ export default function AdminLayout() {
       icon: CreditCard,
       description: 'Plans and billing control',
       matcher: (pathname) => pathname.startsWith('/admin/subscriptions'),
+    },
+    {
+      name: 'Supplier Payouts',
+      href: '/admin/payouts',
+      icon: Landmark,
+      description: 'Review and settle supplier requests',
+      matcher: (pathname) => pathname.startsWith('/admin/payouts'),
     },
   ];
 

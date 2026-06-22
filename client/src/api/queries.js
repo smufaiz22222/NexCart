@@ -449,11 +449,23 @@ export const useRetryRefund = () => {
 export const useRequestReturn = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ orderId, itemId, reason, notes, quantity }) => {
+    mutationFn: async ({
+      orderId,
+      itemId,
+      reason,
+      notes,
+      quantity,
+      bankAccountNumber,
+      bankIfsc,
+      bankAccountName,
+    }) => {
       const response = await apiClient.post(`/orders/${orderId}/items/${itemId}/request-return`, {
         reason,
         notes,
         quantity,
+        bankAccountNumber,
+        bankIfsc,
+        bankAccountName,
       });
       return response.data;
     },
@@ -515,6 +527,22 @@ export const useRetryReturnRefund = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};
+
+export const useSettleReturnRefund = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, itemId, refundMethod }) => {
+      const response = await apiClient.post(`/orders/${orderId}/items/${itemId}/settle-refund`, {
+        refundMethod,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
     },
   });
 };

@@ -40,6 +40,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
       description: initialData?.description || '',
       price: initialData?.price || '',
       costPrice: initialData?.costPrice || '',
+      actualPrice: initialData?.actualPrice || '',
       sku: initialData?.sku || '',
       category: initialData?.category || '',
       currentStock: initialData?.currentStock !== undefined ? initialData.currentStock : '',
@@ -123,25 +124,69 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
           )}
         </form.Field>
 
-        <div className="grid gap-6 sm:grid-cols-2">
+        {/* Pricing Configuration Row */}
+        <div className="grid gap-6 sm:grid-cols-3">
           <form.Field
-            name="price"
+            name="costPrice"
             validators={{
               onChange: ({ value }) =>
-                isNaN(value) || value <= 0 ? 'Enter a valid price' : undefined,
+                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
+                  ? 'Enter a valid cost price'
+                  : undefined,
             }}
           >
             {(field) => (
-              <TextField field={field} label="Price (₹) *" type="number" placeholder="0.00" />
+              <TextField field={field} label="Cost Price (₹)" type="number" placeholder="0.00" />
             )}
           </form.Field>
 
-          <form.Field name="category">
-            {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
+          <form.Field
+            name="actualPrice"
+            validators={{
+              onChange: ({ value }) => {
+                if (value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)) {
+                  return 'Enter a valid actual price';
+                }
+                const priceVal = form.getFieldValue('price');
+                if (value && priceVal && parseFloat(value) < parseFloat(priceVal)) {
+                  return 'Actual price must be >= selling price';
+                }
+                return undefined;
+              },
+            }}
+          >
+            {(field) => (
+              <TextField field={field} label="Actual Price (Original) (₹)" type="number" placeholder="0.00" />
+            )}
+          </form.Field>
+
+          <form.Field
+            name="price"
+            validators={{
+              onChange: ({ value }) => {
+                if (isNaN(value) || value <= 0) {
+                  return 'Enter a valid price';
+                }
+                const actualPriceVal = form.getFieldValue('actualPrice');
+                if (actualPriceVal && parseFloat(value) > parseFloat(actualPriceVal)) {
+                  return 'Selling price cannot exceed Actual Price';
+                }
+                return undefined;
+              },
+            }}
+          >
+            {(field) => (
+              <TextField field={field} label="Discounted/Selling Price (₹) *" type="number" placeholder="0.00" />
+            )}
           </form.Field>
         </div>
 
+        {/* Category & Delivery Settings */}
         <div className="grid gap-6 sm:grid-cols-2">
+          <form.Field name="category">
+            {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
+          </form.Field>
+
           <form.Field
             name="deliveryFee"
             validators={{
@@ -168,21 +213,8 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
           </form.Field>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-3">
-          <form.Field
-            name="costPrice"
-            validators={{
-              onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
-                  ? 'Enter a valid cost price'
-                  : undefined,
-            }}
-          >
-            {(field) => (
-              <TextField field={field} label="Cost Price (₹)" type="number" placeholder="0.00" />
-            )}
-          </form.Field>
-
+        {/* Stock Management */}
+        <div className="grid gap-6 sm:grid-cols-2">
           <form.Field
             name="currentStock"
             validators={{

@@ -258,6 +258,7 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
               item={item}
               orderId={order.id}
               orderStatus={order.status}
+              paymentMethod={order.paymentMethod}
               user={user}
               isWholesalerPath={isWholesalerPath}
             />

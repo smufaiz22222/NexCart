@@ -16,14 +16,41 @@ const normalizeProductInput = (body) => {
     }
   }
 
+  const price = parseFloat(body.price);
+  const costPrice = parseFloat(body.costPrice || 0);
+  const actualPrice = parseFloat(body.actualPrice || 0);
+
+  if (isNaN(price) || price < 0) {
+    const err = new Error('Price must be a non-negative number');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (isNaN(costPrice) || costPrice < 0) {
+    const err = new Error('Cost price must be a non-negative number');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (isNaN(actualPrice) || actualPrice < 0) {
+    const err = new Error('Actual price must be a non-negative number');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (actualPrice > 0 && actualPrice < price) {
+    const err = new Error('Actual price (original price) must be greater than or equal to the discounted selling price');
+    err.statusCode = 400;
+    throw err;
+  }
+
   return {
     name: body.name,
     sku: body.sku,
     description: body.description || null,
     imageUrl: body.imageUrl || null,
     category: body.category || undefined,
-    price: parseFloat(body.price),
-    costPrice: parseFloat(body.costPrice || 0),
+    price,
+    costPrice,
+    actualPrice,
     currentStock: parseInt(body.currentStock || 0, 10),
     minStock: parseInt(body.minStock || 10, 10),
     deliveryFee: parsedDeliveryFee,
@@ -36,7 +63,9 @@ const decorateProductForMarketplace = (product) => {
   const ratingAverage = reviewCount
     ? Number((ratings.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1))
     : 0;
-  const originalPrice = Number((product.price * 1.18).toFixed(2));
+  const originalPrice = product.actualPrice && product.actualPrice > 0
+    ? Number(Number(product.actualPrice).toFixed(2))
+    : product.price;
   const discountPercent =
     originalPrice > product.price
       ? Math.round(((originalPrice - product.price) / originalPrice) * 100)

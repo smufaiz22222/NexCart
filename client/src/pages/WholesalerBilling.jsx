@@ -62,6 +62,7 @@ export default function WholesalerBilling() {
   const [couponCode, setCouponCode] = useState('');
   const [validatedCoupon, setValidatedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
+  const [upgradeDetails, setUpgradeDetails] = useState(null);
 
   const refreshBilling = async () => {
     try {
@@ -74,11 +75,12 @@ export default function WholesalerBilling() {
       ]);
 
       const loadedPlans = plansResponse.data.plans || [];
+      const loadedSummary = summaryResponse.data;
       setPlans(loadedPlans);
-      setSummary(summaryResponse.data);
+      setSummary(loadedSummary);
       setPayments(paymentsResponse.data.payments || []);
       setSupportContact(
-        plansResponse.data.supportContact || summaryResponse.data.supportContact || null
+        plansResponse.data.supportContact || loadedSummary.supportContact || null
       );
       setSelectedDurations((current) => {
         const next = { ...current };
@@ -89,6 +91,21 @@ export default function WholesalerBilling() {
         });
         return next;
       });
+
+      if (
+        loadedSummary?.subscription?.plan?.code === 'STANDARD' &&
+        loadedSummary?.subscription?.status === 'ACTIVE'
+      ) {
+        try {
+          const upgradeResponse = await apiClient.get('/subscriptions/upgrade-details');
+          setUpgradeDetails(upgradeResponse.data);
+        } catch (upgradeErr) {
+          console.error('Failed to load upgrade details:', upgradeErr);
+          setUpgradeDetails(null);
+        }
+      } else {
+        setUpgradeDetails(null);
+      }
     } catch (fetchError) {
       console.error('Failed to load billing data:', fetchError);
       setError(fetchError.response?.data?.error || 'Failed to load billing data.');
@@ -195,6 +212,64 @@ export default function WholesalerBilling() {
         checkoutError.response?.data?.error ||
           checkoutError.message ||
           'Failed to start billing checkout.'
+      );
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  const handleUpgradePurchase = async () => {
+    if (!upgradeDetails || !upgradeDetails.isEligible) return;
+
+    try {
+      setBusyAction('upgrade:checkout');
+      setError('');
+
+      const razorpayLoaded = await loadRazorpayScript();
+      if (!razorpayLoaded) {
+        throw new Error('Failed to load Razorpay checkout.');
+      }
+
+      const checkoutResponse = await apiClient.post('/subscriptions/checkout', {
+        planId: upgradeDetails.targetPlan.id,
+        isUpgrade: true,
+      });
+
+      const { keyId, razorpayOrderId, amount, currency } = checkoutResponse.data;
+      const razorpay = new window.Razorpay({
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount,
+        currency,
+        name: 'NexCart Seller Upgrade',
+        description: `Upgrade to ${upgradeDetails.targetPlan.name} · ${upgradeDetails.remainingDays} days`,
+        order_id: razorpayOrderId,
+        handler: async (response) => {
+          const verifyResponse = await apiClient.post('/subscriptions/verify', {
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          });
+
+          updateSessionFromBilling(verifyResponse.data);
+          await refreshBilling();
+        },
+        theme: {
+          color: '#bc6c25',
+        },
+      });
+
+      razorpay.on('payment.failed', async (event) => {
+        setError(event.error?.description || 'Upgrade payment failed.');
+        await refreshBilling();
+      });
+
+      razorpay.open();
+    } catch (checkoutError) {
+      console.error('Upgrade checkout failed:', checkoutError);
+      setError(
+        checkoutError.response?.data?.error ||
+          checkoutError.message ||
+          'Failed to start upgrade checkout.'
       );
     } finally {
       setBusyAction('');
@@ -386,6 +461,53 @@ export default function WholesalerBilling() {
                         : busyAction === 'trial:start'
                           ? 'Starting free trial...'
                           : 'Start Free Trial'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {upgradeDetails && upgradeDetails.isEligible ? (
+            <div className="rounded-[28px] border border-amber-500/30 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_32%),linear-gradient(135deg,_#1c140e,_#0a0806)] p-6 shadow-[0_20px_50px_rgba(188,108,37,0.15)] animate-fadeIn">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400">
+                    Premium Upgrade Available
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-white">
+                    Upgrade to {upgradeDetails.targetPlan.name}
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-zinc-300">
+                    Unlock full seller intelligence stack, AI Business Advisor, and AI Khatta support instantly. You will only be charged the prorated difference for your remaining days.
+                  </p>
+                  <div className="mt-5 grid gap-3 text-sm text-zinc-300 sm:grid-cols-2">
+                    <PriceRow label="Current Plan" value={upgradeDetails.currentPlan.name} />
+                    <PriceRow label="Target Plan" value={upgradeDetails.targetPlan.name} />
+                    <PriceRow label="Remaining Period" value={`${upgradeDetails.remainingDays} days`} />
+                    <PriceRow label="Upgrade Cost" value={`₹${Number(upgradeDetails.diffAmount).toLocaleString()}`} highlight />
+                  </div>
+                </div>
+                <div className="w-full max-w-sm rounded-[24px] border border-amber-500/10 bg-black/40 p-5 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 block">
+                      Upgrade Difference
+                    </span>
+                    <span className="mt-2 text-4xl font-black text-amber-300 block">
+                      ₹{Number(upgradeDetails.diffAmount).toLocaleString()}
+                    </span>
+                    <span className="text-xs text-zinc-500 block mt-1">
+                      Prorated for {upgradeDetails.remainingDays} days
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleUpgradePurchase}
+                    disabled={busyAction === 'upgrade:checkout'}
+                    className="mt-6 flex w-full items-center justify-center rounded-full bg-amber-400 px-4 py-3 text-sm font-black text-[#111111] transition hover:bg-amber-300 disabled:opacity-50"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {busyAction === 'upgrade:checkout' ? 'Opening Checkout...' : 'Upgrade Now'}
                   </button>
                 </div>
               </div>
@@ -590,6 +712,11 @@ export default function WholesalerBilling() {
                         {new Date(validatedCoupon.expiryDate).toLocaleDateString()}
                       </span>
                     </div>
+                    {validatedCoupon.isUpgrade && (
+                      <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-2.5 text-xs text-amber-200 mt-2">
+                        <span className="font-bold">Upgrade Promocode:</span> This coupon will upgrade your active Standard subscription to Premium for free.
+                      </div>
+                    )}
                   </div>
 
                   <button

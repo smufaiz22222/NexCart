@@ -1424,9 +1424,12 @@ export default async function seedProducts(prisma, wholesalers) {
       category: 'Apparel',
       sizes: [],
     },
-  ];
+  const hardcodedProductsWithActual = hardcodedProducts.map(p => ({
+    ...p,
+    actualPrice: Math.round(p.price * 1.25 * 100) / 100
+  }));
 
-  await prisma.product.createMany({ data: hardcodedProducts });
+  await prisma.product.createMany({ data: hardcodedProductsWithActual });
 
   // 2. Generate 180 realistic products per category for the 11 categories (11 * 180 = 1980 products)
   console.log('  - Programmatically generating 1,980 products (180 per category)...');
@@ -1848,6 +1851,7 @@ export default async function seedProducts(prisma, wholesalers) {
 
       const finalPrice = faker.number.float({ min: priceMin, max: priceMax, fractionDigits: 2 });
       const finalCostPrice = Math.round(finalPrice * (0.55 + Math.random() * 0.1) * 100) / 100;
+      const finalActualPrice = Math.round(finalPrice * (1.15 + Math.random() * 0.15) * 100) / 100;
 
       let sizes;
       if (category === 'Apparel') {
@@ -1871,6 +1875,7 @@ export default async function seedProducts(prisma, wholesalers) {
         description: `Highly reliable ${faker.commerce.productAdjective().toLowerCase()} product. Built with durable ${faker.commerce.productMaterial().toLowerCase()} materials.`,
         price: finalPrice,
         costPrice: finalCostPrice,
+        actualPrice: finalActualPrice,
         sku,
         imageUrl,
         category,

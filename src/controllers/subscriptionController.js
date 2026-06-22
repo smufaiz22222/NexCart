@@ -9,7 +9,20 @@ import {
   validateCouponCode,
   activateCouponSubscription,
   checkAndExpireSubscription,
+  getSubscriptionUpgradeDetails,
 } from '../services/subscriptionService.js';
+
+export const getUpgradeDetails = async (req, res) => {
+  try {
+    const details = await getSubscriptionUpgradeDetails(prisma, req.user.wholesalerId);
+    res.status(200).json(details);
+  } catch (error) {
+    console.error('Get Upgrade Details Error:', error);
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Failed to fetch upgrade details.',
+    });
+  }
+};
 
 export const getSubscriptionPlans = async (req, res) => {
   try {
@@ -149,7 +162,7 @@ export const startSubscriptionTrial = async (req, res) => {
 export const validateCoupon = async (req, res) => {
   try {
     const { code } = req.body || {};
-    const details = await validateCouponCode(prisma, code);
+    const details = await validateCouponCode(prisma, code, req.user.wholesalerId);
     res.status(200).json(details);
   } catch (error) {
     console.error('Validate Coupon Error:', error);

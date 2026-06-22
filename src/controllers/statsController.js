@@ -268,6 +268,7 @@ export const getAnalyticsOverview = async (req, res) => {
           sku: true,
           price: true,
           costPrice: true,
+          actualPrice: true,
           currentStock: true,
         },
       }),

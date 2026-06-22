@@ -69,6 +69,7 @@ export default function SuperAdminSubscriptions() {
     planId: '',
     durationDays: 30,
     expiryDate: '',
+    isUpgrade: false,
   });
   const [isCreatingCoupon, setIsCreatingCoupon] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,6 +207,21 @@ export default function SuperAdminSubscriptions() {
         accessorKey: 'durationDays',
         header: 'Duration',
         cell: ({ getValue }) => <span>{getValue()} days</span>,
+      },
+      {
+        accessorKey: 'isUpgrade',
+        header: 'Type',
+        cell: ({ getValue }) => (
+          <span
+            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold border ${
+              getValue()
+                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                : 'bg-zinc-100 text-zinc-800 border-zinc-200'
+            }`}
+          >
+            {getValue() ? 'Upgrade' : 'Standard'}
+          </span>
+        ),
       },
       {
         accessorKey: 'expiryDate',
@@ -373,6 +389,7 @@ export default function SuperAdminSubscriptions() {
         planId: plans[0]?.id || '',
         durationDays: 30,
         expiryDate: '',
+        isUpgrade: false,
       });
       await refreshWorkspace();
     } catch (err) {
@@ -866,6 +883,26 @@ export default function SuperAdminSubscriptions() {
                               className="h-11 w-full rounded-xl border border-[#d8ccb9] bg-white px-3 text-sm text-[#221c16] outline-none focus:border-[#bc6c25] transition"
                             />
                           </AdminField>
+
+                          <div className="flex items-center gap-3 py-1 bg-white/40 p-3 rounded-xl border border-[#d8ccb9] mt-1">
+                            <input
+                              type="checkbox"
+                              id="isUpgrade"
+                              checked={couponForm.isUpgrade}
+                              onChange={(e) =>
+                                setCouponForm({ ...couponForm, isUpgrade: e.target.checked })
+                              }
+                              className="h-4.5 w-4.5 rounded border-[#d8ccb9] text-[#bc6c25] focus:ring-[#bc6c25] cursor-pointer"
+                            />
+                            <div className="flex flex-col">
+                              <label htmlFor="isUpgrade" className="text-xs font-black uppercase tracking-wider text-[#221c16] cursor-pointer">
+                                Is Upgrade Promocode?
+                              </label>
+                              <span className="text-[10px] text-[#6b6155] mt-0.5">
+                                Valid only for Standard members upgrading to Premium.
+                              </span>
+                            </div>
+                          </div>
 
                           <button
                             type="button"

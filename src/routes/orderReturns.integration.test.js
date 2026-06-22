@@ -305,13 +305,18 @@ test('COD delivery auto-settles once and return receipt reverses stock and ledge
       .set('Authorization', `Bearer ${sellerToken}`)
       .send();
     assert.equal(firstReceiveResponse.status, 200);
-    assert.equal(firstReceiveResponse.body.item.returnStatus, 'RETURN_COMPLETED');
+    assert.equal(firstReceiveResponse.body.item.returnStatus, 'RECEIVED');
+    assert.equal(firstReceiveResponse.body.item.returnRefundStatus, 'PENDING');
 
-    const secondReceiveResponse = await request(app)
-      .post(`/api/orders/${fixture.orderId}/items/${fixture.orderItemId}/receive-return`)
+    // Settle the refund manually
+    const settleResponse = await request(app)
+      .post(`/api/orders/${fixture.orderId}/items/${fixture.orderItemId}/settle-refund`)
       .set('Authorization', `Bearer ${sellerToken}`)
-      .send();
-    assert.equal(secondReceiveResponse.status, 200);
+      .send({ refundMethod: 'CASH' });
+    assert.equal(settleResponse.status, 200);
+    assert.equal(settleResponse.body.item.returnStatus, 'RETURN_COMPLETED');
+    assert.equal(settleResponse.body.item.returnRefundStatus, 'SUCCESS');
+    assert.equal(settleResponse.body.item.refundPaymentMethod, 'CASH');
 
     const product = await prisma.product.findUnique({ where: { id: fixture.productId } });
     assert.equal(product.currentStock, 5);
@@ -332,7 +337,9 @@ test('COD delivery auto-settles once and return receipt reverses stock and ledge
       where: { orderId: fixture.orderId },
       orderBy: { createdAt: 'asc' },
     });
-    assert.equal(ledgerEntries.length, 0);
+    assert.equal(ledgerEntries.length, 1);
+    assert.equal(toNumber(ledgerEntries[0].amount), 250);
+    assert.equal(ledgerEntries[0].source, 'RETURN_REFUND');
 
     const order = await prisma.order.findUnique({
       where: { id: fixture.orderId },

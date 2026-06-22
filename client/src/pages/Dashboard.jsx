@@ -55,6 +55,17 @@ export default function Dashboard() {
     }
   }, [data?.wholesalerProfile]);
 
+  useEffect(() => {
+    if (!isLoading && window.location.hash === '#bank-settings') {
+      setTimeout(() => {
+        const element = document.getElementById('bank-settings');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [isLoading]);
+
   const handleSaveBankDetails = async (e) => {
     e.preventDefault();
     try {
@@ -431,7 +442,7 @@ export default function Dashboard() {
       </section>
 
       {/* B2B GST Bank & UPI Settings Card */}
-      <section className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+      <section id="bank-settings" className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
         <div className="mb-5">
           <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-500">
             B2B GST Bank & UPI Settings

@@ -13,6 +13,7 @@ import {
   resolveOrderItemDispute,
   requestReturn,
   retryReturnRefund,
+  settleReturnRefund,
   retryOrderItemRefund,
   updateDisputeStatus,
   updateOrderIssue,
@@ -39,6 +40,7 @@ router.post('/:id/items/:itemId/approve-return', approveReturn);
 router.post('/:id/items/:itemId/reject-return', rejectReturn);
 router.post('/:id/items/:itemId/receive-return', receiveReturn);
 router.post('/:id/items/:itemId/retry-return-refund', retryReturnRefund);
+router.post('/:id/items/:itemId/settle-refund', settleReturnRefund);
 router.post('/:orderId/items/:itemId/disputes', createItemDispute);
 router.patch('/:orderId/items/:itemId/disputes/:disputeId/status', updateDisputeStatus);
 router.patch('/:orderId/items/:itemId/disputes/:disputeId/resolve', resolveOrderItemDispute);

@@ -80,6 +80,8 @@ export default function SellerProductDetails() {
       const response = await apiClient.put(`/products/${id}`, {
         ...values,
         price: parseFloat(values.price),
+        costPrice: parseFloat(values.costPrice || 0),
+        actualPrice: parseFloat(values.actualPrice || 0),
         currentStock: parseInt(values.currentStock || 0, 10),
         minStock: parseInt(values.minStock || 10, 10),
       });
@@ -195,7 +197,8 @@ export default function SellerProductDetails() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <DetailCard label="Selling Price" value={formatCurrency(product.price)} />
+                <DetailCard label="Discounted/Selling Price" value={formatCurrency(product.price)} />
+                <DetailCard label="Actual Price" value={formatCurrency(product.actualPrice)} />
                 <DetailCard label="Cost Price" value={formatCurrency(product.costPrice)} />
                 <DetailCard label="SKU" value={product.sku || 'Not set'} mono />
                 <DetailCard label="Current Stock" value={`${product.currentStock}`} />

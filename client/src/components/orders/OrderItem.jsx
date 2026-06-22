@@ -12,6 +12,7 @@ import {
   useReceiveReturn,
   useRetryReturnRefund,
   useCreateDispute,
+  useSettleReturnRefund,
 } from '../../api/queries';
 
 const CUSTOMER_CANCELLABLE_STATUSES = new Set(['PENDING', 'PROCESSING']);
@@ -42,7 +43,14 @@ const formatReturnReason = (reason) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
-export default function OrderItem({ item, orderId, orderStatus, user, isWholesalerPath }) {
+export default function OrderItem({
+  item,
+  orderId,
+  orderStatus,
+  paymentMethod,
+  user,
+  isWholesalerPath,
+}) {
   const [isPendingAction, setIsPendingAction] = useState(false);
 
   const cancelOrderItemMutation = useCancelOrderItem();
@@ -53,6 +61,7 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
   const receiveReturnMutation = useReceiveReturn();
   const retryReturnRefundMutation = useRetryReturnRefund();
   const createDisputeMutation = useCreateDispute();
+  const settleReturnRefundMutation = useSettleReturnRefund();
 
   const handleCancelItem = () => {
     setIsPendingAction(true);
@@ -111,6 +120,25 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
 
     const notes = window.prompt('Optional note for the seller', '') || '';
 
+    let bankAccountNumber = null;
+    let bankIfsc = null;
+    let bankAccountName = null;
+
+    if (paymentMethod === 'COD') {
+      const wantBankRefund = window.confirm(
+        'Would you like to receive your refund via bank transfer? Click OK to provide bank details, or Cancel to arrange offline cash pickup.'
+      );
+      if (wantBankRefund) {
+        bankAccountNumber = window.prompt('Enter your Bank Account Number:') || null;
+        bankIfsc = window.prompt('Enter Bank IFSC Code:') || null;
+        bankAccountName = window.prompt('Enter Account Holder Name:') || null;
+
+        if (bankAccountNumber && !bankAccountNumber.trim()) bankAccountNumber = null;
+        if (bankIfsc && !bankIfsc.trim()) bankIfsc = null;
+        if (bankAccountName && !bankAccountName.trim()) bankAccountName = null;
+      }
+    }
+
     setIsPendingAction(true);
     requestReturnMutation.mutate(
       {
@@ -119,6 +147,9 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
         reason: normalizedReason,
         notes,
         quantity: parsedQuantity,
+        bankAccountNumber,
+        bankIfsc,
+        bankAccountName,
       },
       {
         onSuccess: () => {
@@ -247,6 +278,37 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
     );
   };
 
+  const handleSettleReturnRefund = () => {
+    const refundMethodInput =
+      window.prompt('Settle refund method (CASH, BANK_TRANSFER, UPI)', 'CASH') || '';
+    const normalizedMethod = refundMethodInput.trim().toUpperCase().replace(' ', '_');
+    if (!['CASH', 'BANK_TRANSFER', 'UPI'].includes(normalizedMethod)) {
+      toast.warning('Please enter a valid refund method: CASH, BANK_TRANSFER, or UPI.');
+      return;
+    }
+
+    setIsPendingAction(true);
+    settleReturnRefundMutation.mutate(
+      {
+        orderId,
+        itemId: item.id,
+        refundMethod: normalizedMethod,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Refund settled successfully');
+        },
+        onError: (err) => {
+          console.error('Failed to settle return refund:', err);
+          toast.error(err.response?.data?.error || 'Failed to settle return refund');
+        },
+        onSettled: () => {
+          setIsPendingAction(false);
+        },
+      }
+    );
+  };
+
   const handleRetryReturnRefund = () => {
     setIsPendingAction(true);
     retryReturnRefundMutation.mutate(
@@ -347,6 +409,60 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
         {item.customerReturnNotes && (
           <p className={cn('text-xs mt-1', isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]')}>
             {item.customerReturnNotes}
+          </p>
+        )}
+        {item.bankAccountNumber && (
+          <div
+            className={cn(
+              'mt-2 p-2.5 rounded-lg border text-[11px] space-y-0.5 max-w-sm font-sans',
+              isWholesalerPath
+                ? 'bg-zinc-900/40 border-zinc-800 text-zinc-300'
+                : 'bg-[#fbfaf7] border-[#ddd7cc] text-zinc-700'
+            )}
+          >
+            <p
+              className={cn(
+                'font-bold uppercase tracking-wider text-[9px] mb-1',
+                isWholesalerPath ? 'text-amber-400' : 'text-[#0047AB]'
+              )}
+            >
+              Refund Destination Bank Account:
+            </p>
+            <p>
+              <span className="text-zinc-500 font-medium">A/C Number:</span>{' '}
+              <strong className={isWholesalerPath ? 'text-zinc-200' : 'text-zinc-800'}>
+                {item.bankAccountNumber}
+              </strong>
+            </p>
+            <p>
+              <span className="text-zinc-500 font-medium">IFSC Code:</span>{' '}
+              <strong className={isWholesalerPath ? 'text-zinc-200' : 'text-zinc-800'}>
+                {item.bankIfsc}
+              </strong>
+            </p>
+            <p>
+              <span className="text-zinc-500 font-medium">Holder Name:</span>{' '}
+              <strong className={isWholesalerPath ? 'text-zinc-200' : 'text-zinc-800'}>
+                {item.bankAccountName || 'N/A'}
+              </strong>
+            </p>
+          </div>
+        )}
+        {item.refundPaymentMethod && (
+          <p
+            className={cn(
+              'text-xs mt-1 font-semibold',
+              isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+            )}
+          >
+            Refund Method:{' '}
+            <span className={isWholesalerPath ? 'text-amber-400' : 'text-[#0047AB]'}>
+              {item.refundPaymentMethod === 'BANK_TRANSFER'
+                ? 'Bank Transfer'
+                : item.refundPaymentMethod === 'UPI'
+                  ? 'UPI'
+                  : 'Cash'}
+            </span>
           </p>
         )}
         {item.rejectionReason && (
@@ -491,20 +607,35 @@ export default function OrderItem({ item, orderId, orderStatus, user, isWholesal
         )}
         {user?.role === 'WHOLESALER' &&
           item.returnStatus === 'RECEIVED' &&
-          item.returnRefundStatus === 'FAILED' && (
+          item.returnRefundStatus === 'PENDING' && (
             <div className="mt-3 flex flex-col gap-2 items-end">
-              <button
-                onClick={handleRetryReturnRefund}
-                disabled={isPendingAction}
-                className={cn(
-                  'text-[11px] font-semibold uppercase tracking-wider px-3 py-2 rounded-md transition-colors disabled:opacity-50 border',
-                  isWholesalerPath
-                    ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border-zinc-700'
-                    : 'bg-white text-[#16171a] hover:bg-[#EFEFEF] border-[#C0C0C0]'
-                )}
-              >
-                {isPendingAction ? 'Retrying...' : 'Retry Return Refund'}
-              </button>
+              {paymentMethod === 'COD' ? (
+                <button
+                  onClick={handleSettleReturnRefund}
+                  disabled={isPendingAction}
+                  className={cn(
+                    'text-[11px] font-semibold uppercase tracking-wider px-3 py-2 rounded-md transition-colors disabled:opacity-50',
+                    isWholesalerPath
+                      ? 'bg-amber-600 hover:bg-amber-500 text-black font-bold'
+                      : 'bg-[#0047AB] hover:bg-[#003B91] text-white border border-[#0047AB]'
+                  )}
+                >
+                  {isPendingAction ? 'Saving...' : 'Settle Refund'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleRetryReturnRefund}
+                  disabled={isPendingAction}
+                  className={cn(
+                    'text-[11px] font-semibold uppercase tracking-wider px-3 py-2 rounded-md transition-colors disabled:opacity-50 border',
+                    isWholesalerPath
+                      ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border-zinc-700'
+                      : 'bg-white text-[#16171a] hover:bg-[#EFEFEF] border-[#C0C0C0]'
+                  )}
+                >
+                  {isPendingAction ? 'Retrying...' : 'Retry Return Refund'}
+                </button>
+              )}
             </div>
           )}
       </div>

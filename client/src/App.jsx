@@ -37,6 +37,8 @@ const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const SuperAdminSubscriptions = lazy(() => import('./pages/SuperAdminSubscriptions'));
 const WholesalerBilling = lazy(() => import('./pages/WholesalerBilling'));
 const EcommerceAccounting = lazy(() => import('./pages/EcommerceAccounting'));
+const WholesalerPayouts = lazy(() => import('./pages/WholesalerPayouts'));
+const AdminPayouts = lazy(() => import('./pages/AdminPayouts'));
 const AboutUs = lazy(() => import('./pages/AboutUs'));
 const Faq = lazy(() => import('./pages/Faq'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
@@ -315,6 +317,14 @@ function App() {
                     </PremiumRoute>
                   }
                 />
+                <Route
+                  path="payouts"
+                  element={
+                    <OperationalRoute>
+                      <WholesalerPayouts />
+                    </OperationalRoute>
+                  }
+                />
               </Route>
 
               <Route
@@ -327,6 +337,7 @@ function App() {
               >
                 <Route index element={<SuperAdminDashboard />} />
                 <Route path="subscriptions" element={<SuperAdminSubscriptions />} />
+                <Route path="payouts" element={<AdminPayouts />} />
               </Route>
 
               {/* Global Wildcard 404 Route */}

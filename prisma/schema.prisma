@@ -324,6 +324,11 @@ model Wholesaler {
   bankIfsc        String?
   upiId           String?
   qrCodeUrl       String?
+  payoutBankName        String?
+  payoutBankAccountNo   String?
+  payoutBankIfsc        String?
+  payoutUpiId           String?
+  useSameAsB2B          Boolean           @default(true)
   deliveryFee           Decimal           @default(0.00) @db.Decimal(10, 2)
   freeDeliveryThreshold Decimal?          @db.Decimal(10, 2)
 
@@ -343,6 +348,7 @@ model Wholesaler {
   offlineSales OfflineSale[]
   offlinePurchases OfflinePurchase[]
   paymentInstruments PaymentInstrument[]
+  payouts       WholesalerPayout[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -381,6 +387,7 @@ model WholesalerSubscription {
   currentPeriodStart DateTime?
   currentPeriodEnd  DateTime?
   autoRenews        Boolean                     @default(false)
+  isUpgrade         Boolean                     @default(false)
   payments          SubscriptionPayment[]
   createdAt         DateTime                    @default(now())
   updatedAt         DateTime                    @updatedAt
@@ -412,6 +419,7 @@ model SubscriptionPayment {
   failureReason     String?
   paidAt            DateTime?
   validUntil        DateTime?
+  isUpgrade         Boolean                     @default(false)
   createdAt         DateTime                    @default(now())
   updatedAt         DateTime                    @updatedAt
 
@@ -430,6 +438,7 @@ model Coupon {
   usedById     String?
   usedBy       Wholesaler?      @relation(fields: [usedById], references: [id], name: "WholesalerCoupon")
   usedAt       DateTime?
+  isUpgrade    Boolean          @default(false)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -445,6 +454,7 @@ model Product {
   description String?
   price       Float
   costPrice   Float   @default(0)
+  actualPrice Float   @default(0)
   sku         String?
   imageUrl    String?
 
@@ -601,6 +611,10 @@ model OrderItem {
   returnReceivedAt     DateTime?
   returnCompletedAt    DateTime?
   returnEligibleUntil  DateTime?
+  bankAccountNumber    String?
+  bankIfsc             String?
+  bankAccountName      String?
+  refundPaymentMethod  String?
   issues               OrderIssue[]
   adjustments          OrderAdjustment[]
   disputes             Dispute[]
@@ -1260,5 +1274,33 @@ model OtpRateLimit {
   requestCount    Int      @default(0)
   windowStartedAt DateTime @default(now())
   lastRequestedAt DateTime @default(now())
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model WholesalerPayout {
+  id              String         @id @default(uuid())
+  wholesalerId    String
+  wholesaler      Wholesaler     @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  amount          Decimal        @db.Decimal(10, 2)
+  status          PayoutStatus   @default(PENDING)
+  bankName        String?
+  bankAccountNo   String?
+  bankIfsc        String?
+  upiId           String?
+  adminNotes      String?
+  supplierNotes   String?
+  transactionRef  String?
+  paidAt          DateTime?
+  rejectedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([wholesalerId])
+  @@index([status])
 }
 

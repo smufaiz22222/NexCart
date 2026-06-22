@@ -29,6 +29,7 @@ import {
   rejectOrderItemReturn,
   requestOrderItemReturn,
   retryOrderItemReturnRefund,
+  settleOrderItemReturnRefund,
 } from '../services/orderReturnService.js';
 import {
   addDisputeInternalNote,
@@ -1217,7 +1218,8 @@ export const requestReturn = async (req, res) => {
     }
 
     const { id: orderId, itemId } = req.params;
-    const { reason, notes, quantity } = req.body || {};
+    const { reason, notes, quantity, bankAccountNumber, bankIfsc, bankAccountName } =
+      req.body || {};
     const result = await requestOrderItemReturn({
       buyerId: req.user.userId,
       orderId,
@@ -1225,6 +1227,9 @@ export const requestReturn = async (req, res) => {
       reason,
       notes,
       quantity,
+      bankAccountNumber,
+      bankIfsc,
+      bankAccountName,
       client: prisma,
     });
 
@@ -1237,6 +1242,35 @@ export const requestReturn = async (req, res) => {
     res
       .status(error.statusCode || 400)
       .json({ error: error.message || 'Failed to request return' });
+  }
+};
+
+export const settleReturnRefund = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can settle manual refunds' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const { refundMethod } = req.body || {};
+
+    const result = await settleOrderItemReturnRefund({
+      wholesalerId: req.user.wholesalerId,
+      orderId,
+      itemId,
+      refundMethod,
+      client: prisma,
+    });
+
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'WHOLESALER'),
+    });
+  } catch (error) {
+    console.error('Settle Return Refund Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to settle return refund' });
   }
 };
 

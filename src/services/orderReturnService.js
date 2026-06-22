@@ -211,6 +211,9 @@ export const requestOrderItemReturn = async ({
   reason,
   notes = '',
   quantity = null,
+  bankAccountNumber = null,
+  bankIfsc = null,
+  bankAccountName = null,
   client = prisma,
 }) => {
   const result = await client.$transaction(async (tx) => {
@@ -285,6 +288,11 @@ export const requestOrderItemReturn = async ({
         rejectionReason: null,
         returnRejectedAt: null,
         decisionBy: null,
+        bankAccountNumber:
+          item.order.paymentMethod === 'COD' ? bankAccountNumber?.trim() || null : null,
+        bankIfsc: item.order.paymentMethod === 'COD' ? bankIfsc?.trim() || null : null,
+        bankAccountName:
+          item.order.paymentMethod === 'COD' ? bankAccountName?.trim() || null : null,
       },
     });
 
@@ -839,7 +847,10 @@ export const receiveOrderItemReturn = async ({
       if (error?.code !== 'P2002') throw error;
     }
 
-    if (item.order.paymentStatus === 'PAID' || item.order.paymentStatus === 'REFUND_PENDING') {
+    if (
+      order.paymentMethod === 'PREPAID' &&
+      (item.order.paymentStatus === 'PAID' || item.order.paymentStatus === 'REFUND_PENDING')
+    ) {
       try {
         await recordMarketplaceOrderReturnPayment(tx, {
           orderId,
@@ -858,26 +869,12 @@ export const receiveOrderItemReturn = async ({
       where: { id: itemId },
       data: {
         inventoryRestored: true,
-        returnStatus:
-          order.paymentMethod === 'PREPAID'
-            ? RETURN_STATUSES.RECEIVED
-            : RETURN_STATUSES.RETURN_COMPLETED,
+        returnStatus: RETURN_STATUSES.RECEIVED,
         returnReceivedAt: new Date(),
-        returnCompletedAt: order.paymentMethod === 'PREPAID' ? null : new Date(),
-        returnRefundStatus:
-          order.paymentMethod === 'PREPAID'
-            ? RETURN_REFUND_STATUSES.PENDING
-            : RETURN_REFUND_STATUSES.NONE,
+        returnCompletedAt: null,
+        returnRefundStatus: RETURN_REFUND_STATUSES.PENDING,
       },
     });
-
-    if (order.paymentMethod !== 'PREPAID') {
-      const currentOrder = await getOrderWithDetails(tx, orderId);
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: getNextOrderStatus(currentOrder?.items || []) },
-      });
-    }
 
     const nextOrder = await getOrderWithDetails(tx, orderId);
     return {
@@ -906,6 +903,120 @@ export const receiveOrderItemReturn = async ({
     item: refunded.item,
     message: receiptResult.message,
   };
+};
+
+export const settleOrderItemReturnRefund = async ({
+  wholesalerId,
+  orderId,
+  itemId,
+  refundMethod,
+  client = prisma,
+}) => {
+  if (!['CASH', 'BANK_TRANSFER', 'UPI'].includes(refundMethod)) {
+    throw buildError('Invalid refund method. Must be CASH, BANK_TRANSFER, or UPI.');
+  }
+
+  const result = await client.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "OrderItem" WHERE "id" = ${itemId} FOR UPDATE`;
+
+    const item = await tx.orderItem.findUnique({
+      where: { id: itemId },
+      include: {
+        order: true,
+        product: true,
+      },
+    });
+
+    if (!item || item.orderId !== orderId) {
+      throw buildError('Order item not found', 404);
+    }
+
+    if (item.order.sellerId !== wholesalerId) {
+      throw buildError('Not authorized to settle this refund', 403);
+    }
+
+    if (item.order.paymentMethod !== 'COD') {
+      throw buildError('Only COD orders can be settled manually.', 400);
+    }
+
+    if (item.returnRefundStatus === RETURN_REFUND_STATUSES.SUCCESS) {
+      throw buildError('Refund already settled.', 400);
+    }
+
+    if (item.returnStatus !== RETURN_STATUSES.RECEIVED) {
+      throw buildError('Only received returns can be settled.', 400);
+    }
+
+    const returnQuantity = item.returnedQuantity || item.quantity;
+    const returnAmount = toNumber(
+      item.refundAmountSnapshot ?? calculateReturnAmount(item, returnQuantity)
+    );
+
+    // 1. Record the return payment in e-commerce double-entry accounting (CASH, BANK or UPI)
+    try {
+      await recordMarketplaceOrderReturnPayment(tx, {
+        orderId,
+        sellerId: item.order.sellerId,
+        buyerId: item.order.buyerId,
+        returnAmount,
+        paymentMethod:
+          refundMethod === 'BANK_TRANSFER'
+            ? 'BANK_TRANSFER'
+            : refundMethod === 'UPI'
+              ? 'BANK_TRANSFER'
+              : 'COD', // Maps back to ledger account logic: BANK_TRANSFER -> BANK/UPI, COD -> CASH
+        description: `Customer return COD manual refund (${refundMethod}) for Order ${orderId}:${itemId}`,
+      });
+    } catch (error) {
+      if (error?.code !== 'P2002') throw error;
+    }
+
+    // 2. Create customer-facing LedgerEntry so it appears in the retail buyer's statement
+    await tx.ledgerEntry.create({
+      data: {
+        wholesalerId: item.order.sellerId,
+        userId: item.order.buyerId,
+        orderId,
+        amount: returnAmount,
+        description: `Returned item refund (${refundMethod === 'BANK_TRANSFER' ? 'Bank Transfer' : refundMethod === 'UPI' ? 'UPI' : 'Cash'}) for Order ${orderId}`,
+        source: 'RETURN_REFUND',
+        idempotencyKey: `return-refund-manual-${itemId}`,
+      },
+    });
+
+    // 3. Update the OrderItem model
+    await tx.orderItem.update({
+      where: { id: itemId },
+      data: {
+        returnStatus: RETURN_STATUSES.RETURN_COMPLETED,
+        returnRefundStatus: RETURN_REFUND_STATUSES.SUCCESS,
+        refundPaymentMethod: refundMethod,
+        returnCompletedAt: new Date(),
+        refundedAmount: returnAmount,
+      },
+    });
+
+    // 4. Check and update the overall order status if all active items are resolved
+    const currentOrder = await getOrderWithDetails(tx, orderId);
+    const nextStatus = getNextOrderStatus(currentOrder?.items || []);
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        status: nextStatus,
+      },
+    });
+
+    const nextOrder = await getOrderWithDetails(tx, orderId);
+    return {
+      order: decorateOrderWithReturnFinancials(nextOrder),
+      item:
+        decorateOrderWithReturnFinancials(nextOrder)?.items.find((entry) => entry.id === itemId) ||
+        null,
+      message: 'Refund settled successfully.',
+    };
+  });
+
+  return result;
 };
 
 export const retryOrderItemReturnRefund = async ({
