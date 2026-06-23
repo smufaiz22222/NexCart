@@ -220,7 +220,9 @@ export const getProductById = async (req, res) => {
     const product = await prisma.product.findFirst({
       where: req.user?.role === 'WHOLESALER' ? { id, wholesalerId: req.user.wholesalerId } : { id },
       include: {
-        wholesaler: { select: { businessName: true, deliveryFee: true, freeDeliveryThreshold: true } },
+        wholesaler: {
+          select: { businessName: true, deliveryFee: true, freeDeliveryThreshold: true },
+        },
         reviews: {
           include: { user: { select: { name: true } } },
           orderBy: { createdAt: 'desc' },

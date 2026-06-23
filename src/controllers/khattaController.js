@@ -1,7 +1,24 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { prisma } from '../config/db.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const parseGeminiResponse = (text) => {
+  const cleanText = text.trim();
+  try {
+    return JSON.parse(cleanText);
+  } catch (directError) {
+    try {
+      const match = cleanText.match(/[{[][\s\S]*[}\]]/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch (regexError) {
+      console.error('Failed to parse extracted JSON block:', regexError);
+    }
+    throw directError;
+  }
+};
 
 export const processKhattaImage = async (req, res) => {
   try {
@@ -11,11 +28,42 @@ export const processKhattaImage = async (req, res) => {
     const base64Data = image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
     const mimeType = image.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: SchemaType.ARRAY,
+          description: 'List of transaction entries extracted from the invoice',
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              customerEmail: {
+                type: SchemaType.STRING,
+                description:
+                  'Best guess email of the customer from their name, e.g., customer@example.com',
+              },
+              amount: {
+                type: SchemaType.NUMBER,
+                description: 'Numeric amount. Negative value for debt/invoice, positive for credit',
+              },
+              notes: {
+                type: SchemaType.STRING,
+                description: 'Item description or transaction notes',
+              },
+              isTotal: {
+                type: SchemaType.BOOLEAN,
+                description: 'True if this row is the Grand Total or Subtotal, false otherwise',
+              },
+            },
+            required: ['customerEmail', 'amount', 'notes', 'isTotal'],
+          },
+        },
+      },
+    });
 
     const prompt = `
-      Extract transaction lines from this invoice. 
-      Return ONLY a raw JSON array.
+      Extract transaction lines from this invoice.
       Fields: 
       "customerEmail": (Best guess email from name), 
       "amount": (Number, negative for debt/invoice), 
@@ -27,17 +75,15 @@ export const processKhattaImage = async (req, res) => {
       { inlineData: { data: base64Data, mimeType } },
       prompt,
     ]);
-    const cleanJsonString = result.response
-      .text()
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
-    res.status(200).json({ entries: JSON.parse(cleanJsonString) });
+
+    const parsedData = parseGeminiResponse(result.response.text());
+    res.status(200).json({ entries: parsedData });
   } catch (error) {
     console.error('AI SCAN ERROR:', error);
     res.status(500).json({ error: 'AI Error' });
   }
 };
+
 export const saveKhattaEntries = async (req, res) => {
   try {
     const { entries } = req.body;
@@ -54,27 +100,34 @@ export const saveKhattaEntries = async (req, res) => {
       });
 
       const customerMap = new Map(customers.map((c) => [c.email.toLowerCase(), c]));
-      const results = [];
+      const ledgerEntries = entries
+        .map((entry) => {
+          const customer = entry.customerEmail
+            ? customerMap.get(entry.customerEmail.toLowerCase())
+            : null;
+          const amount = Number.parseFloat(entry.amount);
 
-      for (const entry of entries) {
-        const customer = entry.customerEmail
-          ? customerMap.get(entry.customerEmail.toLowerCase())
-          : null;
+          if (!customer || Number.isNaN(amount)) {
+            return null;
+          }
 
-        if (customer) {
-          const newEntry = await tx.ledgerEntry.create({
-            data: {
-              wholesalerId,
-              userId: customer.id,
-              amount: parseFloat(entry.amount),
-              description: `AI Scan: ${entry.notes}`,
-              referenceId: 'AI_UPLOAD',
-            },
-          });
-          results.push(newEntry);
-        }
+          return {
+            wholesalerId,
+            userId: customer.id,
+            amount,
+            description: `AI Scan: ${entry.notes}`,
+            referenceId: 'AI_UPLOAD',
+          };
+        })
+        .filter(Boolean);
+
+      if (ledgerEntries.length === 0) {
+        return [];
       }
-      return results;
+
+      return tx.ledgerEntry.createManyAndReturn({
+        data: ledgerEntries,
+      });
     });
 
     res
@@ -94,11 +147,63 @@ export const processPurchaseInvoice = async (req, res) => {
     const base64Data = image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
     const mimeType = image.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          description: 'Details extracted from the purchase invoice',
+          properties: {
+            invoiceNumber: {
+              type: SchemaType.STRING,
+              description: 'Invoice number string, or null if not found',
+              nullable: true,
+            },
+            supplierName: {
+              type: SchemaType.STRING,
+              description: 'Supplier or seller business name, or null if not found',
+              nullable: true,
+            },
+            supplierEmail: {
+              type: SchemaType.STRING,
+              description: 'Supplier or seller email address, or null if not found',
+              nullable: true,
+            },
+            totalAmount: {
+              type: SchemaType.NUMBER,
+              description: 'Grand total amount of the invoice',
+            },
+            items: {
+              type: SchemaType.ARRAY,
+              description: 'List of individual line items purchased',
+              items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  name: {
+                    type: SchemaType.STRING,
+                    description: 'Name of the product or item',
+                  },
+                  quantity: {
+                    type: SchemaType.NUMBER,
+                    description: 'Quantity purchased',
+                  },
+                  unitPrice: {
+                    type: SchemaType.NUMBER,
+                    description: 'Unit price of the item',
+                  },
+                },
+                required: ['name', 'quantity', 'unitPrice'],
+              },
+            },
+          },
+          required: ['invoiceNumber', 'supplierName', 'supplierEmail', 'totalAmount', 'items'],
+        },
+      },
+    });
 
     const prompt = `
       Analyze this purchase invoice and extract transaction details.
-      Return ONLY a raw JSON object (do not include markdown wrapping like \`\`\`json).
       The JSON object MUST have the following structure:
       {
         "invoiceNumber": "string representing invoice number (if found, otherwise null)",
@@ -119,13 +224,9 @@ export const processPurchaseInvoice = async (req, res) => {
       { inlineData: { data: base64Data, mimeType } },
       prompt,
     ]);
-    const cleanJsonString = result.response
-      .text()
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
 
-    res.status(200).json(JSON.parse(cleanJsonString));
+    const parsedData = parseGeminiResponse(result.response.text());
+    res.status(200).json(parsedData);
   } catch (error) {
     console.error('AI PURCHASE INVOICE SCAN ERROR:', error);
     res.status(500).json({ error: 'AI Error' });

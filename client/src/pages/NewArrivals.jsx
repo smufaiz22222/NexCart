@@ -21,7 +21,6 @@ export default function NewArrivals() {
   const {
     data: infiniteData,
     isLoading,
-    isFetching,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -43,7 +42,9 @@ export default function NewArrivals() {
     }
     toggleWishlistMutation.mutate(productId, {
       onSuccess: (res) => {
-        toast.success(res.wishlisted ? `${name} added to wishlist` : `${name} removed from wishlist`);
+        toast.success(
+          res.wishlisted ? `${name} added to wishlist` : `${name} removed from wishlist`
+        );
       },
     });
   };
@@ -81,7 +82,9 @@ export default function NewArrivals() {
         ) : products.length === 0 ? (
           <div className="mt-16 text-center">
             <p className="text-xl font-bold text-[#1e293b]">No new arrivals</p>
-            <p className="mt-2 text-sm text-[#64748b]">No products were added in the last 7 days. Check back soon!</p>
+            <p className="mt-2 text-sm text-[#64748b]">
+              No products were added in the last 7 days. Check back soon!
+            </p>
           </div>
         ) : (
           <>
@@ -112,10 +115,14 @@ export default function NewArrivals() {
                           : `Add ${product.name} to wishlist`
                       }
                       className={`absolute right-2.5 top-2.5 z-10 p-2 rounded-full bg-white/80 hover:bg-white border border-[#e2e8f0]/40 hover:scale-110 shadow-sm transition-all duration-200 ${
-                        wishlist.some((item) => item.id === product.id) ? 'text-red-500' : 'text-[#94a3b8] hover:text-red-500'
+                        wishlist.some((item) => item.id === product.id)
+                          ? 'text-red-500'
+                          : 'text-[#94a3b8] hover:text-red-500'
                       }`}
                     >
-                      <Heart className={`w-4 h-4 ${wishlist.some((item) => item.id === product.id) ? 'fill-current' : ''}`} />
+                      <Heart
+                        className={`w-4 h-4 ${wishlist.some((item) => item.id === product.id) ? 'fill-current' : ''}`}
+                      />
                     </button>
                     {product.imageUrl ? (
                       <img
@@ -143,7 +150,9 @@ export default function NewArrivals() {
                           />
                         ))}
                       </div>
-                      <span className="text-[11px] text-[#94a3b8]">({product.reviewCount || 0})</span>
+                      <span className="text-[11px] text-[#94a3b8]">
+                        ({product.reviewCount || 0})
+                      </span>
                     </div>
                     <div className="mt-2.5 flex items-baseline gap-2">
                       <span className="text-lg font-black tracking-tight text-[#1e293b]">

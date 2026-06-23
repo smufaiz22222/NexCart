@@ -237,7 +237,9 @@
   border-radius: 14px !important;
   background-color: #ffffff !important;
   border: 1px solid #ccfbf1 !important;
-  box-shadow: 0 2px 12px rgba(13, 148, 136, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  box-shadow:
+    0 2px 12px rgba(13, 148, 136, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.03) !important;
 }
 
 /* Light Mode White Buttons → Teal */
@@ -522,8 +524,14 @@ body {
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in-up {
@@ -563,7 +571,6 @@ body {
   background: rgba(22, 20, 18, 0.3);
 }
 
-
 /* ==========================================================================
    SWISS DESIGN SYSTEM — B2C Customer Portal Styles
    ========================================================================== */
@@ -573,11 +580,17 @@ body {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.02);
+  transition:
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
 }
 .swiss-panel:hover {
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.04), 0 2px 4px rgba(0, 0, 0, 0.03);
+  box-shadow:
+    0 4px 12px rgba(79, 70, 229, 0.04),
+    0 2px 4px rgba(0, 0, 0, 0.03);
 }
 
 /* Swiss Card — smaller interactive cards */
@@ -590,7 +603,9 @@ body {
 }
 .swiss-card:hover {
   border-color: #4f46e5;
-  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 8px 24px rgba(79, 70, 229, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04);
   transform: translateY(-2px);
 }
 
@@ -600,23 +615,45 @@ body {
 
 /* Fade-in slide animations */
 @keyframes slideInFromBottom {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideInFromLeft {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-slide-in {
@@ -632,14 +669,30 @@ body {
 }
 
 /* Stagger children animation delays */
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 350ms;
+}
 
 /* ==========================================================================
    CARD HOVER LIFT EFFECT
@@ -649,7 +702,9 @@ body {
 }
 .card-hover-lift:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(79, 70, 229, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 12px 32px rgba(79, 70, 229, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 /* Subtle lift for smaller cards */
@@ -658,7 +713,9 @@ body {
 }
 .card-hover-subtle:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+  box-shadow:
+    0 8px 20px rgba(79, 70, 229, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 /* ==========================================================================

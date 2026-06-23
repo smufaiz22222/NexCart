@@ -15,14 +15,14 @@ The following table summarizes the distribution of backlog items across categori
 
 | Category                       | Total Issues | Resolved | Active Flaws | Key Impact Area / Remaining Concerns                                |
 | :----------------------------- | :----------: | :------: | :----------: | :------------------------------------------------------------------ |
-| **Code Blockers & Bugs**       |      3       |    3     |      0       | Fully resolved. (Unused checkout totalAmount was resolved/removed). |
+| **Code Blockers & Bugs**       |      5       |    5     |      0       | Fully resolved.                                                     |
 | **Security & Vulnerabilities** |      10      |    10    |      0       | Fully resolved.                                                     |
-| **Database Performance**       |      6       |    6     |      0       | Fully resolved.                                                     |
-| **Architecture & Separation**  |      5       |    5     |      0       | Fully resolved.                                                     |
-| **Frontend Design & React**    |      19      |    19    |      0       | Fully resolved.                                                     |
-| **AI Service & RAG**           |      3       |    3     |      0       | Fully resolved (citations stripped, BM25 cached, model warmups).    |
-| **Linter & Code Standards**    |      5       |    5     |      0       | Fully resolved.                                                     |
-| **Total**                      |    **51**    |  **51**  |    **0**     |                                                                     |
+| **Database Performance**       |      7       |    7     |      0       | Fully resolved.                                                     |
+| **Architecture & Separation**  |      6       |    6     |      0       | Fully resolved.                                                     |
+| **Frontend Design & React**    |      18      |    18    |      0       | Fully resolved.                                                     |
+| **AI Service & RAG**           |      4       |    4     |      0       | Fully resolved.                                                     |
+| **Linter & Code Standards**    |      9       |    9     |      0       | Fully resolved.                                                     |
+| **Total**                      |    **59**    |  **59**  |    **0**     |                                                                     |
 
 ---
 
@@ -81,3 +81,12 @@ The following table summarizes the distribution of backlog items across categori
 | **BACKLOG-049** | Unused Variables in Prisma Extension & Tests              | Linter         |   LOW    | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-049-unused-variables-in-prisma-extension-hooks--test-files).                                           |
 | **BACKLOG-050** | Python Module-Level Imports Not at Top of File (Ruff)     | Linter         |   LOW    | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-050-python-module-level-imports-not-at-top-of-file-ruff-e402).                                         |
 | **BACKLOG-051** | Ambiguous Single-Character Variable Name `l` (Ruff)       | Linter         |   LOW    | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-051-ambiguous-single-character-variable-name-l-ruff-e741).                                             |
+| **BACKLOG-052** | Broken Unit Test for `updateProfile` Email Uniqueness     | Code Blockers  | CRITICAL | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-052-broken-unit-test-for-updateprofile-email-uniqueness-check).                                        |
+| **BACKLOG-053** | Unused Variables in `subscriptionUpgrade.integration.test.js` | Linter         |   HIGH   | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-053-unused-variables-in-subscriptionupgradeintegrationtestjs).                                         |
+| **BACKLOG-054** | Useless Assignment to `paidAmount` in `subscriptionService.js` | Linter         |  MEDIUM  | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-054-useless-assignment-to-paidamount-in-subscriptionservicejs).                                         |
+| **BACKLOG-055** | Code Formatting Drift Across Backend, DB, and Test Files  | Linter         |   LOW    | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-055-code-formatting-drift-across-backend-db-and-test-files).                                           |
+| **BACKLOG-056** | Extensive Style Formatting Drift in React Frontend Codebase | Linter         |   LOW    | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-056-extensive-style-formatting-drift-in-react-frontend-codebase).                                      |
+| **BACKLOG-057** | Monolithic UI Page Files                                  | Architecture   |  MEDIUM  | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-057-monolithic-ui-page-files).                                                                         |
+| **BACKLOG-058** | Raw JSON Parsing Fragility in AI Khatta Image Scanners    | AI & RAG       |  MEDIUM  | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-058-raw-json-parsing-fragility-in-ai-khatta-image-scanners).                                           |
+| **BACKLOG-059** | Full-Table Scan Risk in `checkAndNotifyLowStock`          | DB Performance |   LOW    | **RESOLVED** | Detailed resolution in [resolved_backlog.md](file:///c:/Users/smufa/Desktop/NexCart_updated/docs/resolved_backlog.md#backlog-059-full-table-scan-risk-in-checkandnotifylowstock-alert-de-duplication).                         |
+

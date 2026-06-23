@@ -88,10 +88,7 @@ export default function AdminOrders() {
   const orders = data?.orders || [];
   const pagination = data?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 };
 
-  const tanstackPagination = useMemo(
-    () => ({ pageIndex: page - 1, pageSize }),
-    [page, pageSize]
-  );
+  const tanstackPagination = useMemo(() => ({ pageIndex: page - 1, pageSize }), [page, pageSize]);
 
   const handlePaginationChange = (updater) => {
     const next = typeof updater === 'function' ? updater(tanstackPagination) : updater;
@@ -104,9 +101,7 @@ export default function AdminOrders() {
       columnHelper.accessor('id', {
         header: 'Order ID',
         cell: (info) => (
-          <span className="font-mono text-xs text-[#5E6673]">
-            {info.getValue().slice(0, 8)}...
-          </span>
+          <span className="font-mono text-xs text-[#5E6673]">{info.getValue().slice(0, 8)}...</span>
         ),
         enableSorting: false,
       }),

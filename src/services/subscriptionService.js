@@ -1032,7 +1032,7 @@ export const getSubscriptionUpgradeDetails = async (db, wholesalerId) => {
     orderBy: { paidAt: 'desc' },
   });
 
-  let paidAmount = 0;
+  let paidAmount;
   if (lastPayment) {
     paidAmount = Number(lastPayment.finalAmount);
   } else {

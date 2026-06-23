@@ -8,12 +8,22 @@ const createMockResponse = () => {
   const response = {
     statusCode: 200,
     body: null,
+    cookies: [],
+    clearedCookies: [],
     status(code) {
       this.statusCode = code;
       return this;
     },
     json(payload) {
       this.body = payload;
+      return this;
+    },
+    cookie(name, value, options) {
+      this.cookies.push({ name, value, options });
+      return this;
+    },
+    clearCookie(name, options) {
+      this.clearedCookies.push({ name, options });
       return this;
     },
   };
@@ -449,7 +459,8 @@ test('login allows differently cased email input after normalization', async () 
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.user.email, 'jane.doe@example.com');
-    assert.equal(typeof res.body.token, 'string');
+    assert.equal(res.cookies.length, 1);
+    assert.equal(typeof res.cookies[0].value, 'string');
   } finally {
     process.env.JWT_SECRET = originalSecret;
     setPrismaClient(originalClient);
@@ -503,9 +514,8 @@ test('updateProfile updates name successfully', async () => {
   }
 });
 
-test('updateProfile updates email successfully checking uniqueness', async () => {
+test('updateProfile blocks direct email updates and redirects to email change flow', async () => {
   const originalClient = getPrismaClient();
-  let updatedData = null;
   const userRecord = {
     id: 'user-123',
     name: 'Jane',
@@ -520,15 +530,6 @@ test('updateProfile updates email successfully checking uniqueness', async () =>
     user: {
       findUnique: async ({ where }) => {
         if (where.id === 'user-123') return userRecord;
-        if (where.email === 'newemail@example.com') return null; // unique check
-        if (where.email === 'taken@example.com') return { id: 'user-taken' };
-        return null;
-      },
-      update: async ({ where, data }) => {
-        if (where.id === 'user-123') {
-          updatedData = { ...userRecord, ...data };
-          return updatedData;
-        }
         return null;
       },
     },
@@ -537,7 +538,7 @@ test('updateProfile updates email successfully checking uniqueness', async () =>
   try {
     setPrismaClient(client);
 
-    // Scenario 1: Update to unique email
+    // Scenario 1: Attempt direct update to a different email
     const req1 = {
       user: { userId: 'user-123' },
       body: { email: 'newemail@example.com' },
@@ -545,20 +546,22 @@ test('updateProfile updates email successfully checking uniqueness', async () =>
     const res1 = createMockResponse();
     await updateProfile(req1, res1);
 
-    assert.equal(res1.statusCode, 200);
-    assert.equal(res1.body.user.email, 'newemail@example.com');
-    assert.equal(updatedData.email, 'newemail@example.com');
+    assert.equal(res1.statusCode, 400);
+    assert.equal(
+      res1.body.error,
+      'Email changes require OTP verification. Please use the email change flow.'
+    );
 
-    // Scenario 2: Update to taken email
+    // Scenario 2: Direct update to the same email casing-insensitive (should proceed as no-op)
     const req2 = {
       user: { userId: 'user-123' },
-      body: { email: 'taken@example.com' },
+      body: { email: '  JANE@example.com ' },
     };
     const res2 = createMockResponse();
     await updateProfile(req2, res2);
 
-    assert.equal(res2.statusCode, 400);
-    assert.equal(res2.body.error, 'Email is already in use by another account');
+    assert.equal(res2.statusCode, 200);
+    assert.equal(res2.body.message, 'No changes made');
   } finally {
     setPrismaClient(originalClient);
   }

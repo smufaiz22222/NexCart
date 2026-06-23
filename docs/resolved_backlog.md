@@ -46,6 +46,15 @@ This document catalogs the historical architectural, performance, security, and 
   - [inventoryController.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/controllers/inventoryController.js) (Function: `adjustStock`)
 - **Resolution:** Added a validation check inside the `adjustStock` controller to reject negative stock adjustments if `currentStock + parsedAmount < 0`. Created a corresponding test suite in `inventory.test.js` covering both failure and success cases.
 
+#### [BACKLOG-052] Broken Unit Test for `updateProfile` Email Uniqueness Check
+
+- **Status:** **RESOLVED**
+- **Priority:** CRITICAL
+- **Effort:** S (Small)
+- **AFFECTED FILES & SYMBOLS:**
+  - [authController.test.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/controllers/authController.test.js) (Test: `updateProfile updates email successfully checking uniqueness`)
+- **Resolution:** Modified the unit test in `authController.test.js` to assert that attempting direct email updates via `updateProfile` returns a `400 Bad Request` with an explanation error redirecting the user to the dual-OTP verification flow (as direct email changes have been disabled for security reasons).
+
 ---
 
 ### Category: Security & Vulnerabilities
@@ -201,6 +210,15 @@ This document catalogs the historical architectural, performance, security, and 
   - [schema.prisma](file:///c:/Users/smufa/Desktop/NexCart_updated/prisma/schema.prisma) (Model: `BlacklistedToken`)
   - [authMiddleware.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/middlewares/authMiddleware.js) (Function: `authenticate`)
 - **Resolution:** Introduced a backend background worker in `tokenCleanupJob.js` that periodically deletes expired records (`expiresAt < NOW()`) from the `BlacklistedToken` table. The job runs immediately on server startup to prune expired records, and schedules a periodic cleanup interval every 24 hours. The cleanup interval is unreferenced (`.unref()`) to allow clean server exits and test runner completions. Registered and invoked the cleanup worker during backend bootstrap in `index.js`.
+
+#### [BACKLOG-059] Full-Table Scan Risk in `checkAndNotifyLowStock` Alert De-duplication
+
+- **Status:** **RESOLVED**
+- **Priority:** LOW
+- **Effort:** M (Medium)
+- **AFFECTED FILES & SYMBOLS:**
+  - [notificationService.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/services/notificationService.js) (Function: `checkAndNotifyLowStock`)
+- **Resolution:** Added an optional `productId` column to the `Notification` database model schema and configured a dedicated B-tree index on it (`@@index([productId])`). Refactored `checkAndNotifyLowStock` and `createNotification` to save, pass, and query by this `productId` directly instead of running substring `contains` queries on the text of the notification `message` column. This enables highly optimized index seeks and completely eliminates full-table scans.
 
 ---
 
@@ -485,6 +503,15 @@ This document catalogs the historical architectural, performance, security, and 
   - [main.py](file:///c:/Users/smufa/Desktop/NexCart_updated/ai-service/app/main.py)
 - **Resolution:** Added `# ruff: noqa: E402` to the top of `main.py` to allow module-level imports after the initial configuration environment loading logic.
 
+#### [BACKLOG-058] Raw JSON Parsing Fragility in AI Khatta Image Scanners
+
+- **Status:** **RESOLVED**
+- **Priority:** MEDIUM
+- **Effort:** S (Small)
+- **AFFECTED FILES & SYMBOLS:**
+  - [khattaController.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/controllers/khattaController.js) (Functions: `processKhattaImage`, `processPurchaseInvoice`)
+- **Resolution:** Reconfigured the Gemini models to leverage native structured schema outputs using `responseMimeType: "application/json"` and `responseSchema` definitions for both the B2B Khatta entries array and the purchase invoice object. Additionally, wrapped the model response text parsing inside a robust regex-based parser that extracts JSON blocks (`/[{[][\s\S]*[}\]]/`) and catches any syntax exceptions to prevent any leading/trailing explanation text from crashing the request.
+
 ---
 
 ### Category: Linter & Code Standards
@@ -528,6 +555,42 @@ This document catalogs the historical architectural, performance, security, and 
   - [multi_query.py](file:///c:/Users/smufa/Desktop/NexCart_updated/ai-service/app/rag/multi_query.py) (Line 26)
 - **Resolution:** Renamed the single-character variable `l` in the list comprehension to the descriptive name `line` to improve code readability and satisfy the Ruff E741 linter rule.
 
+#### [BACKLOG-053] Unused Variables in `subscriptionUpgrade.integration.test.js`
+
+- **Status:** **RESOLVED**
+- **Priority:** HIGH
+- **Effort:** S (Small)
+- **AFFECTED FILES & SYMBOLS:**
+  - [subscriptionUpgrade.integration.test.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/routes/subscriptionUpgrade.integration.test.js) (Symbols: `standardPayment`, `standardSub2`)
+- **Resolution:** Removed the unused `standardPayment` and `standardSub2` variable assignments during test records creation in the integration test file to satisfy the `no-unused-vars` ESLint check.
+
+#### [BACKLOG-054] Useless Assignment to `paidAmount` in `subscriptionService.js`
+
+- **Status:** **RESOLVED**
+- **Priority:** MEDIUM
+- **Effort:** S (Small)
+- **AFFECTED FILES & SYMBOLS:**
+  - [subscriptionService.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/services/subscriptionService.js) (Function: `getSubscriptionUpgradeDetails`, Symbol: `paidAmount`)
+- **Resolution:** Changed the variable declaration from `let paidAmount = 0;` to `let paidAmount;` to prevent the unused initial value warning and resolve the `no-useless-assignment` ESLint rule violation.
+
+#### [BACKLOG-055] Code Formatting Drift Across Backend, DB, and Test Files
+
+- **Status:** **RESOLVED**
+- **Priority:** LOW
+- **Effort:** S (Small)
+- **AFFECTED FILES & SYMBOLS:**
+  - Multiple backend and seed files including: [dealsController.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/controllers/dealsController.js), [productController.js](file:///c:/Users/smufa/Desktop/NexCart_updated/src/controllers/productController.js), [seed.js](file:///c:/Users/smufa/Desktop/NexCart_updated/prisma/seed.js), [seed-at-risk-customers.js](file:///c:/Users/smufa/Desktop/NexCart_updated/prisma/seed-at-risk-customers.js)
+- **Resolution:** Executed project-wide formatting via `npm run format` at the root level, resolving all 22 file formatting drifts and satisfying Prettier configuration rules in backend/test/DB directories.
+
+#### [BACKLOG-056] Extensive Style Formatting Drift in React Frontend Codebase
+
+- **Status:** **RESOLVED**
+- **Priority:** LOW
+- **Effort:** S (Small)
+- **AFFECTED FILES & SYMBOLS:**
+  - Multiple frontend files in [client/src/](file:///c:/Users/smufa/Desktop/NexCart_updated/client/src)
+- **Resolution:** Fixed syntax, regex escape warnings, unused variable declarations, and dependencies in React hooks (specifically in `AdvisorTranscript.jsx`, `AdminWholesalers.jsx`, `BusinessAdvisor.jsx`, `NewArrivals.jsx`, and `TrendingProducts.jsx`). Ran `pnpm --filter frontend format` to resolve all Prettier styling issues, bringing the React frontend codebase to 100% linter and styling compliance.
+
 ---
 
 ### Category: Architecture & Separation of Concerns
@@ -546,3 +609,19 @@ This document catalogs the historical architectural, performance, security, and 
   - `AddressEditorForm` / `AddressManager`: manages address card layout and forms.
   - `CheckoutSummary`: displays pricing breakdowns and checkout options.
     Refactored `Cart.jsx` into a simple, declarative orchestration wrapper (~260 lines).
+
+#### [BACKLOG-057] Monolithic UI Page Files
+
+- **Status:** **RESOLVED**
+- **Priority:** MEDIUM
+- **Effort:** L (Large)
+- **AFFECTED FILES & SYMBOLS:**
+  - [Ledger.jsx](file:///c:/Users/smufa/Desktop/NexCart_updated/client/src/pages/Ledger.jsx)
+  - [RfqManager.jsx](file:///c:/Users/smufa/Desktop/NexCart_updated/client/src/pages/RfqManager.jsx)
+  - [Storefront.jsx](file:///c:/Users/smufa/Desktop/NexCart_updated/client/src/pages/Storefront.jsx)
+- **Resolution:** Decomposed the giant monolithic page files by extracting modular subcomponents into dedicated directories under `client/src/components/`:
+  - For `Ledger.jsx`: Extracted layouts and modals (`MetricCard`, `SectionCard`, `ModalShell`, `Field`, `PartyModal`, `SaleModal`, `PurchaseModal`, `SettlementModal`, `PartyDetailsModal`, `BillSummaryModal`, `AccountReportModal`) into `client/src/components/ledger/`.
+  - For `RfqManager.jsx`: Extracted table/card elements and sub-forms (`RfqFilterTabs`, `SellerCounterForm`, `BuyerCounterForm`, `RfqCard`) into `client/src/components/rfq/`.
+  - For `Storefront.jsx`: Extracted section panels, search/filters, and card skeletons (`HeroBanner`, `SearchBar`, `CategorySelector`, `DealsSection`, `TrendingSection`, `NewArrivalsSection`, `RecommendationsSection`, `FilterPanel`, `ProductCard`, `EmptyState`, `ProductGridSkeleton`, `NewsletterBanner`) into `client/src/components/storefront/`.
+  This separation dramatically reduced page file size and complexity, keeping main page files thin and focused on orchestrating queries and URL states.
+

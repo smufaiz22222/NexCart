@@ -151,7 +151,9 @@ export default function WholesalerLayout() {
         {/* Header Bar */}
         <header
           className={`h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm transition-colors duration-300 border-b ${
-            theme === 'light' ? 'bg-white/80 backdrop-blur-md border-teal-100' : 'bg-[#111827] border-[#1F2937]'
+            theme === 'light'
+              ? 'bg-white/80 backdrop-blur-md border-teal-100'
+              : 'bg-[#111827] border-[#1F2937]'
           }`}
         >
           <div className="md:hidden">
@@ -179,9 +181,7 @@ export default function WholesalerLayout() {
             {/* Segmented Control Theme Toggle */}
             <div
               className={`flex items-center p-0.5 rounded-lg border transition-all duration-300 ${
-                theme === 'light'
-                  ? 'bg-teal-50 border-teal-200'
-                  : 'bg-[#0B0F19] border-[#1F2937]'
+                theme === 'light' ? 'bg-teal-50 border-teal-200' : 'bg-[#0B0F19] border-[#1F2937]'
               }`}
             >
               <button

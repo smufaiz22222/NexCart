@@ -1246,12 +1246,14 @@ model Notification {
   type      String
   isRead    Boolean  @default(false)
   link      String?
+  productId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([isRead])
   @@index([userId, isRead])
+  @@index([productId])
 }
 
 enum EmailOtpPurpose {

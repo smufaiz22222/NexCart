@@ -11,7 +11,9 @@ import seedRecommendations from '../scripts/seeds/08_recommendations.js';
 async function main() {
   // Safety: prevent accidental execution in production
   if (process.env.NODE_ENV === 'production') {
-    console.error('❌ FATAL: Seed script cannot run in production! This would destroy all user data.');
+    console.error(
+      '❌ FATAL: Seed script cannot run in production! This would destroy all user data.'
+    );
     process.exit(1);
   }
 

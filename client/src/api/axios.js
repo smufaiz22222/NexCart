@@ -2,23 +2,11 @@ import axios from 'axios';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -26,8 +14,7 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const url = error.config?.url || '';
     const message = error.response?.data?.error || '';
-    const isAuthRoute =
-      url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/logout');
+    const isAuthRoute = url.includes('/auth/');
     const isExpiredTokenError =
       status === 403 && typeof message === 'string' && /invalid or expired token/i.test(message);
     const shouldForceLogout = !isAuthRoute && (status === 401 || isExpiredTokenError);

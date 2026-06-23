@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
+import { extractAuthToken } from '../utils/authCookies.js';
 import {
   buildWholesalerAccessSummary,
   assertFeatureAccess,
@@ -9,7 +10,7 @@ import {
 
 export const authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = extractAuthToken(req);
     if (!token) {
       return res.status(401).json({ error: 'Authentication token required' });
     }
@@ -138,7 +139,7 @@ export const requireSuperAdmin = (req, res, next) => {
 
 export const optionalAuthenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = extractAuthToken(req);
     if (!token) {
       return next();
     }

@@ -363,7 +363,7 @@ export default function CustomerLayout() {
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] selection:bg-[#4f46e5] selection:text-white">
       <div className="bg-[#1e1b4b] px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.26em] text-[#e0e7ff]">
-        Sign up and get 20% off your first wholesale-ready order.
+        Your one-stop wholesale marketplace — browse, order, and grow your business.
       </div>
 
       <header className="sticky top-0 z-40 border-b border-[#e2e8f0] bg-white/90 backdrop-blur">

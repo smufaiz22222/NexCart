@@ -177,11 +177,7 @@ export default function AdminOverview() {
                   tickLine={false}
                   tick={{ fill: '#848E9C', fontSize: 12 }}
                 />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#848E9C', fontSize: 12 }}
-                />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#848E9C', fontSize: 12 }} />
                 <Tooltip
                   formatter={(value) => formatCurrency(value)}
                   contentStyle={{

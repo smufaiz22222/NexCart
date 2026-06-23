@@ -29,6 +29,7 @@ pip install -r requirements.txt
 ### 3. Environment Variables
 
 Create a `.env` file:
+
 ```properties
 GEMINI_API_KEY="your_api_key"
 CHROMA_PATH="./chroma_db"

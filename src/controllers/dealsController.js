@@ -69,10 +69,7 @@ export const getDailyDeals = async (req, res) => {
       );
       const sellerId = product.wholesalerId;
 
-      if (
-        !sellerBestDeal[sellerId] ||
-        discountPercent > sellerBestDeal[sellerId].discountPercent
-      ) {
+      if (!sellerBestDeal[sellerId] || discountPercent > sellerBestDeal[sellerId].discountPercent) {
         sellerBestDeal[sellerId] = { ...product, discountPercent };
       }
     }
@@ -85,9 +82,7 @@ export const getDailyDeals = async (req, res) => {
         const ratings = product.reviews || [];
         const reviewCount = ratings.length;
         const ratingAverage = reviewCount
-          ? Number(
-              (ratings.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1)
-            )
+          ? Number((ratings.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1))
           : 0;
 
         deals.push({

@@ -5,7 +5,6 @@ import {
   CreditCard,
   HandCoins,
   Landmark,
-  Package2,
   Plus,
   ReceiptIndianRupee,
   ShoppingCart,
@@ -18,68 +17,23 @@ import { toast } from 'sonner';
 import { cn } from '../utils/cn';
 import apiClient from '../api/axios';
 import {
-  useCreateBusinessParty,
-  useCreateOfflineSale,
   useLedgerHub,
   useProducts,
-  useRecordPartyTransaction,
   useWholesalerBuyers,
-  useCreateOfflinePurchase,
   useReconcileInstrument,
   useVerifyBankPayment,
   usePartyDetails,
   useAccountEntries,
 } from '../api/queries';
 
-const PAYMENT_METHODS = ['CASH', 'CREDIT', 'UPI', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'OTHER'];
-
-const PARTY_TYPES = ['CUSTOMER', 'SUPPLIER', 'BOTH'];
-const OPENING_BALANCE_KINDS = ['RECEIVABLE', 'PAYABLE'];
-
-const emptyPartyForm = {
-  linkedUserId: '',
-  name: '',
-  phone: '',
-  email: '',
-  taxId: '',
-  address: '',
-  type: 'CUSTOMER',
-  openingBalance: '',
-  openingBalanceKind: 'RECEIVABLE',
-  notes: '',
-};
-
-const emptySaleItem = {
-  productId: '',
-  quantity: '1',
-  unitPrice: '',
-};
-
-const emptySaleForm = {
-  invoiceNumber: '',
-  partyId: '',
-  paymentMethod: 'CASH',
-  amountReceived: '',
-  notes: '',
-  items: [{ ...emptySaleItem }],
-  instrumentNumber: '',
-  bankName: '',
-  dueDate: '',
-  awaitingClearance: false,
-};
-
-const emptyPurchaseForm = {
-  invoiceNumber: '',
-  partyId: '',
-  paymentMethod: 'CASH',
-  amountPaid: '',
-  notes: '',
-  items: [{ productId: '', quantity: '1', unitPrice: '' }],
-  instrumentNumber: '',
-  bankName: '',
-  dueDate: '',
-  awaitingClearance: false,
-};
+import { MetricCard, SectionCard } from '../components/ledger/LayoutComponents';
+import PartyModal from '../components/ledger/PartyModal';
+import SaleModal from '../components/ledger/SaleModal';
+import PurchaseModal from '../components/ledger/PurchaseModal';
+import SettlementModal from '../components/ledger/SettlementModal';
+import PartyDetailsModal from '../components/ledger/PartyDetailsModal';
+import BillSummaryModal from '../components/ledger/BillSummaryModal';
+import AccountReportModal from '../components/ledger/AccountReportModal';
 
 function formatCurrency(value) {
   return `Rs ${Number(value || 0).toLocaleString(undefined, {
@@ -88,105 +42,17 @@ function formatCurrency(value) {
   })}`;
 }
 
-function MetricCard({ icon: Icon, label, value, subtitle, tone = 'amber' }) {
-  const toneClass =
-    tone === 'emerald'
-      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-      : tone === 'rose'
-        ? 'border-rose-500/20 bg-rose-500/10 text-rose-300'
-        : 'border-amber-500/20 bg-amber-500/10 text-amber-200';
-
-  return (
-    <div className={cn('rounded-2xl border p-4', toneClass)}>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] opacity-80">{label}</p>
-        <Icon className="h-5 w-5 opacity-80" />
-      </div>
-      <p className="mt-4 text-2xl font-black tracking-tight">{value}</p>
-      {subtitle ? <p className="mt-1 text-xs font-semibold opacity-70">{subtitle}</p> : null}
-    </div>
-  );
-}
-
-function SectionCard({ title, description, action, children }) {
-  return (
-    <section className="rounded-[24px] border border-zinc-800 bg-[#121212] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-      <div className="flex flex-col gap-3 border-b border-zinc-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-zinc-400">{description}</p> : null}
-        </div>
-        {action}
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
-function ModalShell({ title, subtitle, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-[28px] border border-zinc-800 bg-[#111111] shadow-2xl">
-        <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
-          <div>
-            <h3 className="text-xl font-bold text-white">{title}</h3>
-            {subtitle ? <p className="mt-1 text-sm text-zinc-400">{subtitle}</p> : null}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-zinc-700 px-3 py-1 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white"
-          >
-            Close
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function inputClassName() {
-  return 'w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-amber-500';
-}
-
 export default function Ledger() {
   const [activeTab, setActiveTab] = useState('overview');
   const [ledgerFilter, setLedgerFilter] = useState('all');
   const [showPartyModal, setShowPartyModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [ocrPurchaseValues, setOcrPurchaseValues] = useState(null);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const ocrInputRef = useRef(null);
 
   const [settlementContext, setSettlementContext] = useState(null);
-  const [partyForm, setPartyForm] = useState(emptyPartyForm);
-  const [saleForm, setSaleForm] = useState(emptySaleForm);
-  const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
-  const [settlementForm, setSettlementForm] = useState({
-    amount: '',
-    direction: 'IN',
-    paymentMethod: 'CASH',
-    description: '',
-    referenceId: '',
-    instrumentNumber: '',
-    bankName: '',
-    drawerName: '',
-    dueDate: '',
-    awaitingClearance: false,
-  });
-
   const [partyCategory, setPartyCategory] = useState('all'); // 'all', 'customers', 'suppliers'
   const [selectedPartyId, setSelectedPartyId] = useState(null);
   const [selectedBill, setSelectedBill] = useState(null);
@@ -198,10 +64,6 @@ export default function Ledger() {
     useAccountEntries(selectedAccountId);
   const { data: products = [] } = useProducts();
   const { data: buyers = [] } = useWholesalerBuyers();
-  const createPartyMutation = useCreateBusinessParty();
-  const createOfflineSaleMutation = useCreateOfflineSale();
-  const recordPartyTransactionMutation = useRecordPartyTransaction();
-  const createOfflinePurchaseMutation = useCreateOfflinePurchase();
   const reconcileInstrumentMutation = useReconcileInstrument();
   const verifyBankPaymentMutation = useVerifyBankPayment();
 
@@ -253,7 +115,7 @@ export default function Ledger() {
               p.email.toLowerCase() === data.supplierEmail.toLowerCase())
         );
 
-        setPurchaseForm({
+        setOcrPurchaseValues({
           invoiceNumber: data.invoiceNumber || '',
           partyId: matchedParty ? matchedParty.id : '',
           paymentMethod: 'CASH',
@@ -278,148 +140,6 @@ export default function Ledger() {
         setIsOcrLoading(false);
       }
     };
-  };
-
-  const handlePurchaseSubmit = (event) => {
-    event.preventDefault();
-    createOfflinePurchaseMutation.mutate(
-      {
-        ...purchaseForm,
-        amountPaid: purchaseForm.amountPaid || '0',
-        partyId: purchaseForm.partyId || null,
-        items: purchaseForm.items,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Offline purchase recorded successfully!');
-          setShowPurchaseModal(false);
-          setPurchaseForm(emptyPurchaseForm);
-        },
-        onError: (mutationError) => {
-          toast.error(mutationError.response?.data?.error || 'Failed to create offline purchase.');
-        },
-      }
-    );
-  };
-
-  const handlePartySubmit = (event) => {
-    event.preventDefault();
-    createPartyMutation.mutate(partyForm, {
-      onSuccess: () => {
-        toast.success('Party created successfully.');
-        setShowPartyModal(false);
-        setPartyForm(emptyPartyForm);
-      },
-      onError: (mutationError) => {
-        toast.error(mutationError.response?.data?.error || 'Failed to create party.');
-      },
-    });
-  };
-
-  const updateSaleItem = (index, field, value) => {
-    setSaleForm((current) => ({
-      ...current,
-      items: current.items.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [field]: value } : item
-      ),
-    }));
-  };
-
-  const addSaleItem = () => {
-    setSaleForm((current) => ({
-      ...current,
-      items: [...current.items, { ...emptySaleItem }],
-    }));
-  };
-
-  const removeSaleItem = (index) => {
-    setSaleForm((current) => ({
-      ...current,
-      items: current.items.filter((_, itemIndex) => itemIndex !== index),
-    }));
-  };
-
-  const updatePurchaseItem = (index, field, value) => {
-    setPurchaseForm((current) => ({
-      ...current,
-      items: current.items.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [field]: value } : item
-      ),
-    }));
-  };
-
-  const addPurchaseItem = () => {
-    setPurchaseForm((current) => ({
-      ...current,
-      items: [...current.items, { productId: '', quantity: '1', unitPrice: '' }],
-    }));
-  };
-
-  const removePurchaseItem = (index) => {
-    setPurchaseForm((current) => ({
-      ...current,
-      items: current.items.filter((_, itemIndex) => itemIndex !== index),
-    }));
-  };
-
-  const handleSaleSubmit = (event) => {
-    event.preventDefault();
-
-    createOfflineSaleMutation.mutate(
-      {
-        ...saleForm,
-        amountReceived: saleForm.amountReceived || '0',
-        partyId: saleForm.partyId || null,
-        items: saleForm.items,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Offline sale saved and inventory updated.');
-          setShowSaleModal(false);
-          setSaleForm(emptySaleForm);
-        },
-        onError: (mutationError) => {
-          toast.error(mutationError.response?.data?.error || 'Failed to create offline sale.');
-        },
-      }
-    );
-  };
-
-  const openSettlementModal = (partyId, direction) => {
-    setSettlementContext({ partyId, direction });
-    setSettlementForm({
-      amount: '',
-      direction,
-      paymentMethod: 'CASH',
-      description: direction === 'IN' ? 'Payment received from party' : 'Payment made to party',
-      referenceId: '',
-      instrumentNumber: '',
-      bankName: '',
-      drawerName: '',
-      dueDate: '',
-      awaitingClearance: false,
-    });
-  };
-
-  const handleSettlementSubmit = (event) => {
-    event.preventDefault();
-    if (!settlementContext?.partyId) return;
-
-    recordPartyTransactionMutation.mutate(
-      {
-        partyId: settlementContext.partyId,
-        ...settlementForm,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Party transaction recorded.');
-          setSettlementContext(null);
-        },
-        onError: (mutationError) => {
-          toast.error(mutationError.response?.data?.error || 'Failed to record party transaction.');
-        },
-      }
-    );
   };
 
   if (isError) {
@@ -486,7 +206,7 @@ export default function Ledger() {
             <button
               type="button"
               onClick={() => {
-                setPurchaseForm(emptyPurchaseForm);
+                setOcrPurchaseValues(null);
                 setShowPurchaseModal(true);
               }}
               className="rounded-2xl border border-zinc-700 bg-[#111111] px-4 py-3 text-sm font-bold text-white transition hover:border-zinc-500 flex items-center gap-2"
@@ -544,7 +264,11 @@ export default function Ledger() {
           icon={ReceiptIndianRupee}
           label="Offline Sales"
           value={isLoading ? 'Loading...' : formatCurrency(hub.overview.offline?.totalSales ?? 0)}
-          subtitle={isLoading ? '' : `Collected: ${formatCurrency(hub.overview.offline?.totalReceived ?? 0)}`}
+          subtitle={
+            isLoading
+              ? ''
+              : `Collected: ${formatCurrency(hub.overview.offline?.totalReceived ?? 0)}`
+          }
           tone="emerald"
         />
         <MetricCard
@@ -557,8 +281,14 @@ export default function Ledger() {
         <MetricCard
           icon={BookOpen}
           label="Ecom Collected"
-          value={isLoading ? 'Loading...' : formatCurrency(hub.overview.ecommerce?.totalReceived ?? 0)}
-          subtitle={isLoading ? '' : `Outstanding: ${formatCurrency(hub.overview.ecommerce?.totalOutstanding ?? 0)}`}
+          value={
+            isLoading ? 'Loading...' : formatCurrency(hub.overview.ecommerce?.totalReceived ?? 0)
+          }
+          subtitle={
+            isLoading
+              ? ''
+              : `Outstanding: ${formatCurrency(hub.overview.ecommerce?.totalOutstanding ?? 0)}`
+          }
           tone="emerald"
         />
         <MetricCard
@@ -707,61 +437,63 @@ export default function Ledger() {
         </div>
       ) : null}
 
-      {activeTab === 'overview' ? (
-        (() => {
-          const pendingEcomOrders = (hub.sales || []).filter(
-            (s) => s.type === 'ECOMMERCE' && s.balanceDue > 0
-          );
-          if (pendingEcomOrders.length === 0) return null;
-          return (
-            <SectionCard
-              title="Pending E-commerce Payments"
-              description={`${pendingEcomOrders.length} marketplace order(s) with outstanding payment.`}
-            >
-              <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                  <thead className="bg-[#0d0d0d] text-left text-zinc-400">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Order</th>
-                      <th className="px-4 py-3 font-semibold">Customer</th>
-                      <th className="px-4 py-3 font-semibold">Method</th>
-                      <th className="px-4 py-3 text-right font-semibold">Total</th>
-                      <th className="px-4 py-3 text-right font-semibold">Due</th>
-                      <th className="px-4 py-3 text-center font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800">
-                    {pendingEcomOrders.map((order) => (
-                      <tr key={order.id} className="bg-[#121212] hover:bg-zinc-900/30 transition">
-                        <td className="px-4 py-3 font-semibold text-white">{order.invoiceNumber}</td>
-                        <td className="px-4 py-3 text-zinc-300">{order.partyName}</td>
-                        <td className="px-4 py-3 text-zinc-400">{order.paymentMethod}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-white">
-                          {formatCurrency(order.totalAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-rose-300">
-                          {formatCurrency(order.balanceDue)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {order.isPendingBankTransfer ? (
-                            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-300">
-                              Awaiting Verification
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-bold text-rose-300">
-                              Unpaid
-                            </span>
-                          )}
-                        </td>
+      {activeTab === 'overview'
+        ? (() => {
+            const pendingEcomOrders = (hub.sales || []).filter(
+              (s) => s.type === 'ECOMMERCE' && s.balanceDue > 0
+            );
+            if (pendingEcomOrders.length === 0) return null;
+            return (
+              <SectionCard
+                title="Pending E-commerce Payments"
+                description={`${pendingEcomOrders.length} marketplace order(s) with outstanding payment.`}
+              >
+                <div className="overflow-hidden rounded-2xl border border-zinc-800">
+                  <table className="min-w-full divide-y divide-zinc-800 text-sm">
+                    <thead className="bg-[#0d0d0d] text-left text-zinc-400">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Order</th>
+                        <th className="px-4 py-3 font-semibold">Customer</th>
+                        <th className="px-4 py-3 font-semibold">Method</th>
+                        <th className="px-4 py-3 text-right font-semibold">Total</th>
+                        <th className="px-4 py-3 text-right font-semibold">Due</th>
+                        <th className="px-4 py-3 text-center font-semibold">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          );
-        })()
-      ) : null}
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {pendingEcomOrders.map((order) => (
+                        <tr key={order.id} className="bg-[#121212] hover:bg-zinc-900/30 transition">
+                          <td className="px-4 py-3 font-semibold text-white">
+                            {order.invoiceNumber}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">{order.partyName}</td>
+                          <td className="px-4 py-3 text-zinc-400">{order.paymentMethod}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-white">
+                            {formatCurrency(order.totalAmount)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-rose-300">
+                            {formatCurrency(order.balanceDue)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {order.isPendingBankTransfer ? (
+                              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-300">
+                                Awaiting Verification
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-bold text-rose-300">
+                                Unpaid
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </SectionCard>
+            );
+          })()
+        : null}
 
       {activeTab === 'sales' ? (
         <SectionCard
@@ -877,7 +609,7 @@ export default function Ledger() {
               <button
                 type="button"
                 onClick={() => {
-                  setPurchaseForm(emptyPurchaseForm);
+                  setOcrPurchaseValues(null);
                   setShowPurchaseModal(true);
                 }}
                 className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-black"
@@ -1211,7 +943,9 @@ export default function Ledger() {
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => openSettlementModal(party.id, 'IN')}
+                              onClick={() =>
+                                setSettlementContext({ partyId: party.id, direction: 'IN' })
+                              }
                               disabled={!canReceive}
                               className={cn(
                                 'rounded-xl border px-3 py-2 text-xs font-bold transition',
@@ -1224,7 +958,9 @@ export default function Ledger() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => openSettlementModal(party.id, 'OUT')}
+                              onClick={() =>
+                                setSettlementContext({ partyId: party.id, direction: 'OUT' })
+                              }
                               disabled={!canPay}
                               className={cn(
                                 'rounded-xl border px-3 py-2 text-xs font-bold transition',
@@ -1355,1032 +1091,78 @@ export default function Ledger() {
         : null}
 
       {showPartyModal ? (
-        <ModalShell
-          title="Create Party"
-          subtitle="Add a customer, supplier, or both. You can also start them with an opening receivable or payable balance."
-          onClose={() => setShowPartyModal(false)}
-        >
-          <form onSubmit={handlePartySubmit} className="grid gap-4 md:grid-cols-2">
-            <Field label="Link marketplace buyer">
-              <select
-                value={partyForm.linkedUserId}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, linkedUserId: event.target.value }))
-                }
-                className={inputClassName()}
-              >
-                <option value="">No link</option>
-                {buyers.map((buyer) => (
-                  <option key={buyer.buyerId} value={buyer.buyerId}>
-                    {buyer.companyName} - {buyer.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Party type">
-              <select
-                value={partyForm.type}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, type: event.target.value }))
-                }
-                className={inputClassName()}
-              >
-                {PARTY_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Name">
-              <input
-                required
-                value={partyForm.name}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, name: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-            <Field label="Phone">
-              <input
-                value={partyForm.phone}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, phone: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-            <Field label="Email">
-              <input
-                value={partyForm.email}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, email: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-            <Field label="Tax ID / GSTIN">
-              <input
-                value={partyForm.taxId}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, taxId: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-            <Field label="Opening balance">
-              <input
-                type="number"
-                step="0.01"
-                value={partyForm.openingBalance}
-                onChange={(event) =>
-                  setPartyForm((current) => ({ ...current, openingBalance: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-            <Field label="Opening balance kind">
-              <select
-                value={partyForm.openingBalanceKind}
-                onChange={(event) =>
-                  setPartyForm((current) => ({
-                    ...current,
-                    openingBalanceKind: event.target.value,
-                  }))
-                }
-                className={inputClassName()}
-              >
-                {OPENING_BALANCE_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {kind}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <div className="md:col-span-2">
-              <Field label="Address">
-                <textarea
-                  rows="3"
-                  value={partyForm.address}
-                  onChange={(event) =>
-                    setPartyForm((current) => ({ ...current, address: event.target.value }))
-                  }
-                  className={inputClassName()}
-                />
-              </Field>
-            </div>
-            <div className="md:col-span-2">
-              <Field label="Notes">
-                <textarea
-                  rows="3"
-                  value={partyForm.notes}
-                  onChange={(event) =>
-                    setPartyForm((current) => ({ ...current, notes: event.target.value }))
-                  }
-                  className={inputClassName()}
-                />
-              </Field>
-            </div>
-            <div className="md:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={createPartyMutation.isPending}
-                className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-black disabled:opacity-60"
-              >
-                {createPartyMutation.isPending ? 'Saving...' : 'Create Party'}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
+        <PartyModal
+          onClose={() => {
+            setShowPartyModal(false);
+            refetch();
+          }}
+          buyers={buyers}
+        />
       ) : null}
 
       {showSaleModal ? (
-        <ModalShell
-          title="New Offline Sale"
-          subtitle="Create a manual invoice, choose how much was received now, and the system will reduce inventory and update receivables."
-          onClose={() => setShowSaleModal(false)}
-        >
-          <form onSubmit={handleSaleSubmit} className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Invoice number">
-                <input
-                  placeholder="Auto-generated if left blank"
-                  value={saleForm.invoiceNumber}
-                  onChange={(event) =>
-                    setSaleForm((current) => ({ ...current, invoiceNumber: event.target.value }))
-                  }
-                  className={inputClassName()}
-                />
-              </Field>
-              <Field label="Party / Customer">
-                <select
-                  value={saleForm.partyId}
-                  onChange={(event) =>
-                    setSaleForm((current) => ({
-                      ...current,
-                      partyId: event.target.value,
-                      paymentMethod: event.target.value ? 'CREDIT' : 'CASH',
-                    }))
-                  }
-                  className={inputClassName()}
-                >
-                  <option value="">Walk-in / no party</option>
-                  {hub.parties.map((party) => (
-                    <option key={party.id} value={party.id}>
-                      {party.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              {!saleForm.partyId && (
-                <Field label="Payment method">
-                  <select
-                    value={saleForm.paymentMethod}
-                    onChange={(event) =>
-                      setSaleForm((current) => ({ ...current, paymentMethod: event.target.value }))
-                    }
-                    className={inputClassName()}
-                  >
-                    {PAYMENT_METHODS.filter(
-                      (method) => method !== 'CREDIT' && method !== 'CHEQUE'
-                    ).map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            </div>
-
-            <div className="rounded-[24px] border border-zinc-800 bg-[#0b0b0b] p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h4 className="text-base font-bold text-white">Sale Items</h4>
-                  <p className="text-sm text-zinc-400">Each line reduces product stock.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addSaleItem}
-                  className="rounded-xl border border-zinc-700 px-3 py-2 text-sm font-bold text-white"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Item
-                  </span>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {saleForm.items.map((item, index) => (
-                  <div
-                    key={`${index}-${item.productId}`}
-                    className="grid gap-4 rounded-2xl border border-zinc-800 bg-[#111111] p-4 md:grid-cols-[1.4fr_0.6fr_0.8fr_auto]"
-                  >
-                    <Field label={`Product ${index + 1}`}>
-                      <select
-                        required
-                        value={item.productId}
-                        onChange={(event) => updateSaleItem(index, 'productId', event.target.value)}
-                        className={inputClassName()}
-                      >
-                        <option value="">Select product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} (stock {product.currentStock})
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Qty">
-                      <input
-                        required
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(event) => updateSaleItem(index, 'quantity', event.target.value)}
-                        className={inputClassName()}
-                      />
-                    </Field>
-                    <Field label="Unit price">
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.unitPrice}
-                        onChange={(event) => updateSaleItem(index, 'unitPrice', event.target.value)}
-                        className={inputClassName()}
-                      />
-                    </Field>
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        onClick={() => removeSaleItem(index)}
-                        disabled={saleForm.items.length === 1}
-                        className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-xs font-bold text-rose-300 disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Field label="Notes">
-              <textarea
-                rows="3"
-                value={saleForm.notes}
-                onChange={(event) =>
-                  setSaleForm((current) => ({ ...current, notes: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={createOfflineSaleMutation.isPending}
-                className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-black disabled:opacity-60"
-              >
-                {createOfflineSaleMutation.isPending ? 'Saving...' : 'Save Offline Sale'}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
+        <SaleModal
+          onClose={() => {
+            setShowSaleModal(false);
+            refetch();
+          }}
+          parties={hub.parties}
+          products={products}
+        />
       ) : null}
 
       {showPurchaseModal ? (
-        <ModalShell
-          title="New Offline Purchase"
-          subtitle="Record inventory purchases from suppliers. This will automatically increase product stock."
-          onClose={() => setShowPurchaseModal(false)}
-        >
-          <form onSubmit={handlePurchaseSubmit} className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Invoice number">
-                <input
-                  placeholder="Auto-generated if left blank"
-                  value={purchaseForm.invoiceNumber}
-                  onChange={(event) =>
-                    setPurchaseForm((current) => ({
-                      ...current,
-                      invoiceNumber: event.target.value,
-                    }))
-                  }
-                  className={inputClassName()}
-                />
-              </Field>
-              <Field label="Supplier / Party">
-                <select
-                  value={purchaseForm.partyId}
-                  onChange={(event) =>
-                    setPurchaseForm((current) => ({
-                      ...current,
-                      partyId: event.target.value,
-                      paymentMethod: event.target.value ? 'CREDIT' : 'CASH',
-                    }))
-                  }
-                  className={inputClassName()}
-                >
-                  <option value="">Walk-in / no party</option>
-                  {hub.parties.map((party) => (
-                    <option key={party.id} value={party.id}>
-                      {party.name} ({party.type})
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              {!purchaseForm.partyId && (
-                <Field label="Payment method">
-                  <select
-                    value={purchaseForm.paymentMethod}
-                    onChange={(event) =>
-                      setPurchaseForm((current) => ({
-                        ...current,
-                        paymentMethod: event.target.value,
-                      }))
-                    }
-                    className={inputClassName()}
-                  >
-                    {PAYMENT_METHODS.filter(
-                      (method) => method !== 'CREDIT' && method !== 'CHEQUE'
-                    ).map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            </div>
-
-            <div className="rounded-[24px] border border-zinc-800 bg-[#0b0b0b] p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h4 className="text-base font-bold text-white">Purchase Items</h4>
-                  <p className="text-sm text-zinc-400">Each line increases product stock.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addPurchaseItem}
-                  className="rounded-xl border border-zinc-700 px-3 py-2 text-sm font-bold text-white"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Item
-                  </span>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {purchaseForm.items.map((item, index) => (
-                  <div
-                    key={`${index}-${item.productId}`}
-                    className="grid gap-4 rounded-2xl border border-zinc-800 bg-[#111111] p-4 md:grid-cols-[1.4fr_0.6fr_0.8fr_auto]"
-                  >
-                    <Field label={`Product ${index + 1}`}>
-                      <select
-                        required
-                        value={item.productId}
-                        onChange={(event) =>
-                          updatePurchaseItem(index, 'productId', event.target.value)
-                        }
-                        className={inputClassName()}
-                      >
-                        <option value="">Select product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} (stock {product.currentStock})
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Qty">
-                      <input
-                        required
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(event) =>
-                          updatePurchaseItem(index, 'quantity', event.target.value)
-                        }
-                        className={inputClassName()}
-                      />
-                    </Field>
-                    <Field label="Unit price">
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.unitPrice}
-                        onChange={(event) =>
-                          updatePurchaseItem(index, 'unitPrice', event.target.value)
-                        }
-                        className={inputClassName()}
-                      />
-                    </Field>
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        onClick={() => removePurchaseItem(index)}
-                        disabled={purchaseForm.items.length === 1}
-                        className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-xs font-bold text-rose-300 disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Field label="Notes">
-              <textarea
-                rows="3"
-                value={purchaseForm.notes}
-                onChange={(event) =>
-                  setPurchaseForm((current) => ({ ...current, notes: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={createOfflinePurchaseMutation.isPending}
-                className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-black disabled:opacity-60"
-              >
-                {createOfflinePurchaseMutation.isPending ? 'Saving...' : 'Save Offline Purchase'}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
+        <PurchaseModal
+          onClose={() => {
+            setShowPurchaseModal(false);
+            setOcrPurchaseValues(null);
+            refetch();
+          }}
+          parties={hub.parties}
+          products={products}
+          initialFormValues={ocrPurchaseValues}
+        />
       ) : null}
 
       {settlementContext && selectedParty ? (
-        <ModalShell
-          title={settlementForm.direction === 'IN' ? 'Receive Payment' : 'Pay Party'}
-          subtitle={`Record a manual settlement for ${selectedParty.name}.`}
-          onClose={() => setSettlementContext(null)}
-        >
-          <form onSubmit={handleSettlementSubmit} className="grid gap-4 md:grid-cols-2">
-            <Field label="Amount">
-              <input
-                required
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={settlementForm.amount}
-                onChange={(event) =>
-                  setSettlementForm((current) => ({ ...current, amount: event.target.value }))
-                }
-                className={inputClassName()}
-              />
-            </Field>
-            <Field label="Payment method">
-              <select
-                value={settlementForm.paymentMethod}
-                onChange={(event) =>
-                  setSettlementForm((current) => ({
-                    ...current,
-                    paymentMethod: event.target.value,
-                  }))
-                }
-                className={inputClassName()}
-              >
-                {PAYMENT_METHODS.filter((method) => method !== 'CREDIT').map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {['CHEQUE', 'UPI', 'BANK_TRANSFER', 'CARD'].includes(settlementForm.paymentMethod) && (
-              <div className="md:col-span-2 grid gap-4 md:grid-cols-2 rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4">
-                <div className="md:col-span-2 flex items-center justify-between">
-                  <h5 className="text-sm font-bold text-amber-400">Payment Instrument Details</h5>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settlementForm.awaitingClearance}
-                      onChange={(event) =>
-                        setSettlementForm((current) => ({
-                          ...current,
-                          awaitingClearance: event.target.checked,
-                        }))
-                      }
-                      className="rounded border-zinc-700 bg-[#0b0b0b] text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      Awaiting Bank Clearance?
-                    </span>
-                  </label>
-                </div>
-                <Field label="Reference / Instrument Number">
-                  <input
-                    placeholder="Cheque # / UTR / Transaction ID"
-                    value={settlementForm.instrumentNumber}
-                    onChange={(event) =>
-                      setSettlementForm((current) => ({
-                        ...current,
-                        instrumentNumber: event.target.value,
-                      }))
-                    }
-                    className={inputClassName()}
-                  />
-                </Field>
-                <Field label="Bank Name">
-                  <input
-                    placeholder="e.g. HDFC Bank"
-                    value={settlementForm.bankName}
-                    onChange={(event) =>
-                      setSettlementForm((current) => ({ ...current, bankName: event.target.value }))
-                    }
-                    className={inputClassName()}
-                  />
-                </Field>
-                <Field label="Instrument Date">
-                  <input
-                    type="date"
-                    value={settlementForm.dueDate}
-                    onChange={(event) =>
-                      setSettlementForm((current) => ({ ...current, dueDate: event.target.value }))
-                    }
-                    className={inputClassName()}
-                  />
-                </Field>
-                {settlementForm.paymentMethod === 'CHEQUE' &&
-                  settlementForm.direction === 'OUT' && (
-                    <div className="md:col-span-2">
-                      <Field label="Whose cheque is this? (Drawer Name)">
-                        <input
-                          placeholder="e.g. Self, or Customer/Party Name (if forwarding)"
-                          value={settlementForm.drawerName || ''}
-                          onChange={(event) =>
-                            setSettlementForm((current) => ({
-                              ...current,
-                              drawerName: event.target.value,
-                            }))
-                          }
-                          className={inputClassName()}
-                        />
-                      </Field>
-                    </div>
-                  )}
-              </div>
-            )}
-            <div className="md:col-span-2">
-              <Field label="Description">
-                <input
-                  value={settlementForm.description}
-                  onChange={(event) =>
-                    setSettlementForm((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  className={inputClassName()}
-                />
-              </Field>
-            </div>
-            <div className="md:col-span-2">
-              <Field label="Reference ID">
-                <input
-                  value={settlementForm.referenceId}
-                  onChange={(event) =>
-                    setSettlementForm((current) => ({
-                      ...current,
-                      referenceId: event.target.value,
-                    }))
-                  }
-                  className={inputClassName()}
-                />
-              </Field>
-            </div>
-            <div className="md:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={recordPartyTransactionMutation.isPending}
-                className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-black disabled:opacity-60"
-              >
-                {recordPartyTransactionMutation.isPending ? 'Saving...' : 'Record Transaction'}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
+        <SettlementModal
+          onClose={() => {
+            setSettlementContext(null);
+            refetch();
+          }}
+          selectedParty={selectedParty}
+          initialDirection={settlementContext.direction}
+        />
       ) : null}
 
       {/* Party Details Modal */}
       {selectedPartyId && (
-        <ModalShell
-          title={
-            isPartyDetailsLoading
-              ? 'Loading Party Details...'
-              : `Party Ledger: ${partyDetails?.party?.name}`
-          }
-          subtitle={
-            partyDetails?.party?.type
-              ? `Type: ${partyDetails.party.type} | Phone: ${partyDetails.party.phone || '-'} | Email: ${partyDetails.party.email || '-'}`
-              : ''
-          }
+        <PartyDetailsModal
           onClose={() => setSelectedPartyId(null)}
-        >
-          {isPartyDetailsLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-            </div>
-          ) : partyDetails ? (
-            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-              {/* Profile Card & Balances */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    They Owe You (Receivable)
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-amber-200">
-                    {formatCurrency(partyDetails.party?.receivable)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    You Owe Them (Payable)
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-rose-200">
-                    {formatCurrency(partyDetails.party?.payable)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Bills Section */}
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400 mb-3">
-                  Bills & Invoices
-                </h4>
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                  <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                    <thead className="bg-[#0d0d0d] text-left text-zinc-400">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Date</th>
-                        <th className="px-4 py-3 font-semibold">Invoice Number</th>
-                        <th className="px-4 py-3 font-semibold">Type</th>
-                        <th className="px-4 py-3 text-right font-semibold">Total</th>
-                        <th className="px-4 py-3 text-right font-semibold">Paid/Recv</th>
-                        <th className="px-4 py-3 text-right font-semibold">Due</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {partyDetails.bills?.map((bill) => (
-                        <tr key={bill.id} className="bg-[#121212] hover:bg-zinc-900/30 transition">
-                          <td className="px-4 py-3 text-zinc-400">
-                            {new Date(bill.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedBill(bill)}
-                              className="font-semibold text-amber-400 hover:underline text-left"
-                            >
-                              {bill.invoiceNumber}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={cn(
-                                'rounded-full px-2 py-0.5 text-xs font-semibold uppercase',
-                                bill.type === 'SALE'
-                                  ? 'bg-emerald-500/10 text-emerald-400'
-                                  : 'bg-rose-500/10 text-rose-400'
-                              )}
-                            >
-                              {bill.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold text-white">
-                            {formatCurrency(bill.totalAmount)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold text-emerald-300">
-                            {formatCurrency(bill.amountPaidReceived)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold text-rose-200">
-                            {formatCurrency(bill.balanceDue)}
-                          </td>
-                        </tr>
-                      ))}
-                      {partyDetails.bills?.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan="6"
-                            className="px-4 py-6 text-center text-zinc-500 bg-[#121212]"
-                          >
-                            No bills found for this party.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Payments Section */}
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400 mb-3">
-                  Payments & Manual Settlements
-                </h4>
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                  <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                    <thead className="bg-[#0d0d0d] text-left text-zinc-400">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Date</th>
-                        <th className="px-4 py-3 font-semibold">Description</th>
-                        <th className="px-4 py-3 font-semibold">Account / Mode</th>
-                        <th className="px-4 py-3 text-right font-semibold">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {partyDetails.payments?.map((pmt) => (
-                        <tr key={pmt.id} className="bg-[#121212]">
-                          <td className="px-4 py-3 text-zinc-400">
-                            {new Date(pmt.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3 text-white font-semibold text-left">
-                            {pmt.description}
-                          </td>
-                          <td className="px-4 py-3 text-zinc-400 text-left">
-                            {pmt.accountName} ({pmt.accountCode})
-                          </td>
-                          <td
-                            className={cn(
-                              'px-4 py-3 text-right font-bold',
-                              pmt.amount >= 0 ? 'text-emerald-300' : 'text-rose-300'
-                            )}
-                          >
-                            {pmt.amount >= 0 ? '+' : ''}
-                            {formatCurrency(pmt.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                      {partyDetails.payments?.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan="4"
-                            className="px-4 py-6 text-center text-zinc-500 bg-[#121212]"
-                          >
-                            No manual settlements found for this party.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Instruments/Cheques Section */}
-              {partyDetails.paymentInstruments?.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400 mb-3">
-                    Cheques & Instruments
-                  </h4>
-                  <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                    <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                      <thead className="bg-[#0d0d0d] text-left text-zinc-400">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">Date</th>
-                          <th className="px-4 py-3 font-semibold">Instrument Number</th>
-                          <th className="px-4 py-3 font-semibold">Bank Name</th>
-                          <th className="px-4 py-3 text-right font-semibold">Amount</th>
-                          <th className="px-4 py-3 text-center font-semibold">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800">
-                        {partyDetails.paymentInstruments?.map((inst) => (
-                          <tr key={inst.id} className="bg-[#121212]">
-                            <td className="px-4 py-3 text-zinc-400">
-                              {new Date(inst.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-3 text-white font-mono">
-                              {inst.instrumentNumber || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-zinc-400">{inst.bankName || '-'}</td>
-                            <td className="px-4 py-3 text-right font-semibold text-white">
-                              {formatCurrency(inst.amount)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span
-                                className={cn(
-                                  'rounded-full px-2 py-0.5 text-xs font-bold uppercase',
-                                  inst.status === 'CLEARED'
-                                    ? 'bg-emerald-500/10 text-emerald-400'
-                                    : 'bg-amber-500/10 text-amber-400'
-                                )}
-                              >
-                                {inst.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-6 text-zinc-400">Failed to load party details.</div>
-          )}
-        </ModalShell>
+          partyDetails={partyDetails}
+          isLoading={isPartyDetailsLoading}
+          formatCurrency={formatCurrency}
+          onSelectBill={setSelectedBill}
+        />
       )}
 
-      {/* Bill Item Summary Modal */}
+      {/* Bill Summary Modal */}
       {selectedBill && (
-        <ModalShell
-          title={`Bill Summary: ${selectedBill.invoiceNumber}`}
-          subtitle={`Type: ${selectedBill.type} | Date: ${new Date(selectedBill.date).toLocaleString()}`}
+        <BillSummaryModal
           onClose={() => setSelectedBill(null)}
-        >
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-            {/* Bill Details */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Total Amount</p>
-                <p className="mt-1 text-xl font-black text-white">
-                  {formatCurrency(selectedBill.totalAmount)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Paid/Received</p>
-                <p className="mt-1 text-xl font-black text-emerald-300">
-                  {formatCurrency(selectedBill.amountPaidReceived)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Balance Due</p>
-                <p className="mt-1 text-xl font-black text-rose-300">
-                  {formatCurrency(selectedBill.balanceDue)}
-                </p>
-              </div>
-            </div>
-
-            {/* Additional info */}
-            <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4 space-y-2">
-              <p className="text-xs text-zinc-400">
-                <strong className="text-zinc-300">Payment Method:</strong>{' '}
-                {selectedBill.paymentMethod}
-              </p>
-              {selectedBill.notes && (
-                <p className="text-xs text-zinc-400">
-                  <strong className="text-zinc-300">Notes:</strong> {selectedBill.notes}
-                </p>
-              )}
-            </div>
-
-            {/* Line Items Table */}
-            <div>
-              <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400 mb-3">
-                Item Summary
-              </h4>
-              <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                  <thead className="bg-[#0d0d0d] text-left text-zinc-400">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Product Name</th>
-                      <th className="px-4 py-3 text-right font-semibold">Quantity</th>
-                      <th className="px-4 py-3 text-right font-semibold">Unit Price</th>
-                      <th className="px-4 py-3 text-right font-semibold">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800">
-                    {selectedBill.items?.map((item) => (
-                      <tr key={item.id} className="bg-[#121212]">
-                        <td className="px-4 py-3 text-white font-semibold text-left">
-                          {item.productName}
-                        </td>
-                        <td className="px-4 py-3 text-right text-zinc-300">{item.quantity}</td>
-                        <td className="px-4 py-3 text-right text-zinc-300">
-                          {formatCurrency(item.unitPrice)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-white font-bold">
-                          {formatCurrency(item.subtotal)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </ModalShell>
+          selectedBill={selectedBill}
+          formatCurrency={formatCurrency}
+        />
       )}
 
       {/* Account Transactions Detail Modal */}
       {selectedAccountId && (
-        <ModalShell
-          title={
-            isAccountDetailLoading
-              ? 'Loading Account...'
-              : `Account Report: ${accountDetail?.account?.name || ''}`
-          }
-          subtitle={
-            !isAccountDetailLoading && accountDetail?.account
-              ? `Code: ${accountDetail.account.code} | Category: ${accountDetail.account.category}`
-              : ''
-          }
+        <AccountReportModal
           onClose={() => setSelectedAccountId(null)}
-        >
-          {isAccountDetailLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-zinc-400">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-              <p className="text-sm font-bold uppercase tracking-wider">
-                Loading detailed transaction history...
-              </p>
-            </div>
-          ) : accountDetail?.entries ? (
-            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-              <div className="rounded-2xl border border-zinc-800 bg-[#0d0d0d] p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Current Balance
-                  </p>
-                  <p className="mt-1 text-2xl font-black text-white">
-                    {formatCurrency(
-                      Number(accountDetail.account.openingBalance || 0) +
-                        accountDetail.entries.reduce((sum, entry) => sum + Number(entry.amount), 0)
-                    )}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Opening Balance
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-zinc-300">
-                    {formatCurrency(accountDetail.account.openingBalance)}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400 mb-3">
-                  Transaction Ledger History
-                </h4>
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                  <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                    <thead className="bg-[#0d0d0d] text-left text-zinc-400">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Date</th>
-                        <th className="px-4 py-3 font-semibold">Description</th>
-                        <th className="px-4 py-3 font-semibold">Linked Party</th>
-                        <th className="px-4 py-3 text-right font-semibold">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {accountDetail.entries.map((entry) => (
-                        <tr key={entry.id} className="bg-[#121212] hover:bg-zinc-900/10 transition">
-                          <td className="px-4 py-3 text-zinc-400">
-                            {new Date(entry.createdAt).toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-white font-semibold text-left">
-                            {entry.description}
-                          </td>
-                          <td className="px-4 py-3 text-zinc-400 text-left">
-                            {entry.party?.name || 'N/A'}
-                          </td>
-                          <td
-                            className={cn(
-                              'px-4 py-3 text-right font-black',
-                              Number(entry.amount) >= 0 ? 'text-emerald-300' : 'text-rose-300'
-                            )}
-                          >
-                            {Number(entry.amount) >= 0 ? '+' : ''}
-                            {formatCurrency(entry.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                      {accountDetail.entries.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan="4"
-                            className="px-4 py-6 text-center text-zinc-500 bg-[#121212]"
-                          >
-                            No transactions found for this account.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-6 text-zinc-400">
-              Failed to load account report details.
-            </div>
-          )}
-        </ModalShell>
+          accountDetail={accountDetail}
+          isLoading={isAccountDetailLoading}
+          formatCurrency={formatCurrency}
+        />
       )}
     </div>
   );

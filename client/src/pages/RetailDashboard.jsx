@@ -22,7 +22,6 @@ import {
   ArrowUpRight,
   ExternalLink,
   MessageSquare,
-  Briefcase,
 } from 'lucide-react';
 import { useOrders, useUserRecommendations } from '../api/queries';
 import useAuthStore from '../store/authStore';
@@ -316,28 +315,6 @@ export default function RetailDashboard() {
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* Join B2B Banner */}
-      <section className="swiss-panel p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-[#f1f5f9] text-[#4f46e5] rounded-md border border-[#e2e8f0]">
-            <Briefcase className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg text-[#1e293b] tracking-tight">Own a business?</h3>
-            <p className="text-sm text-[#64748b] mt-1">
-              Apply for a Business Account to unlock wholesale tiered pricing, RFQs, and wholesaler
-              credit lines.
-            </p>
-          </div>
-        </div>
-        <Link
-          to="/store/dashboard/b2b-onboarding"
-          className="rounded-md border-1.5 border-[#4f46e5] text-[#4f46e5] hover:bg-[#f1f5f9] px-6 py-3.5 text-xs font-semibold uppercase tracking-wider transition-colors"
-        >
-          Join B2B Wholesale
-        </Link>
       </section>
 
       {/* Quick Actions */}

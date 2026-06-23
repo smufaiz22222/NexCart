@@ -19,7 +19,7 @@ import {
 
 const renderInline = (text) => {
   if (!text) return null;
-  const regex = /(\*\*.*?\*\*|\`.*?\`|\*.*?\*)/g;
+  const regex = /(\*\*.*?\*\*|`.*?`|\*.*?\*)/g;
   const segments = text.split(regex);
 
   return segments.map((seg, idx) => {
@@ -30,10 +30,17 @@ const renderInline = (text) => {
         </strong>
       );
     } else if (seg.startsWith('*') && seg.endsWith('*')) {
-      return <em key={idx} className="italic text-zinc-100">{seg.slice(1, -1)}</em>;
+      return (
+        <em key={idx} className="italic text-zinc-100">
+          {seg.slice(1, -1)}
+        </em>
+      );
     } else if (seg.startsWith('`') && seg.endsWith('`')) {
       return (
-        <code key={idx} className="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 font-mono text-xs text-amber-400">
+        <code
+          key={idx}
+          className="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 font-mono text-xs text-amber-400"
+        >
           {seg.slice(1, -1)}
         </code>
       );
@@ -85,9 +92,9 @@ const CodeBlock = ({ code, lang }) => {
 };
 
 const AlertCallout = ({ type, content }) => {
-  let styleClass = '';
-  let IconComponent = Info;
-  let title = '';
+  let styleClass;
+  let IconComponent;
+  let title;
 
   switch (type) {
     case 'TIP':
@@ -133,9 +140,10 @@ const TextBlock = ({ text }) => {
   const flushList = (key) => {
     if (!currentList) return;
     const ListTag = currentList.type;
-    const listClasses = currentList.type === 'ul'
-      ? 'list-disc pl-6 space-y-1.5 my-2 text-zinc-300'
-      : 'list-decimal pl-6 space-y-1.5 my-2 text-zinc-300';
+    const listClasses =
+      currentList.type === 'ul'
+        ? 'list-disc pl-6 space-y-1.5 my-2 text-zinc-300'
+        : 'list-decimal pl-6 space-y-1.5 my-2 text-zinc-300';
     elements.push(
       <ListTag key={key} className={listClasses}>
         {currentList.items.map((item, idx) => (
@@ -149,11 +157,7 @@ const TextBlock = ({ text }) => {
   const flushAlert = (key) => {
     if (!currentAlert) return;
     elements.push(
-      <AlertCallout
-        key={key}
-        type={currentAlert.type}
-        content={currentAlert.lines.join('\n')}
-      />
+      <AlertCallout key={key} type={currentAlert.type} content={currentAlert.lines.join('\n')} />
     );
     currentAlert = null;
   };
@@ -223,7 +227,10 @@ const TextBlock = ({ text }) => {
     // Headers
     if (line.startsWith('### ')) {
       elements.push(
-        <h4 key={key} className="text-sm font-black uppercase tracking-wider text-zinc-100 mt-4 mb-2">
+        <h4
+          key={key}
+          className="text-sm font-black uppercase tracking-wider text-zinc-100 mt-4 mb-2"
+        >
           {renderInline(line.slice(4))}
         </h4>
       );
@@ -258,7 +265,7 @@ const TextBlock = ({ text }) => {
 
 const MarkdownRenderer = ({ content }) => {
   if (typeof content !== 'string') return null;
-  const codeBlockRegex = /(\`\`\`[a-zA-Z]*\n[\s\S]*?\`\`\`)/g;
+  const codeBlockRegex = /(```[a-zA-Z]*\n[\s\S]*?```)/g;
   const blocks = content.split(codeBlockRegex);
 
   return (
@@ -389,11 +396,10 @@ export default function AdvisorTranscript({ messages, isLoadingHistory, isSendin
       ) : messages.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center rounded-[24px] border border-dashed border-zinc-800/80 bg-zinc-950/20 p-8 text-center my-auto">
           <BrainCircuit className="h-12 w-12 text-amber-500/60" />
-          <h2 className="mt-4 font-bold text-lg text-white">
-            Ask the advisor what matters now.
-          </h2>
+          <h2 className="mt-4 font-bold text-lg text-white">Ask the advisor what matters now.</h2>
           <p className="mt-2 max-w-sm text-xs leading-relaxed text-zinc-400">
-            Query metrics like sales, low stock pressure, retention risks, or standard industry models (e.g. inventory turnover).
+            Query metrics like sales, low stock pressure, retention risks, or standard industry
+            models (e.g. inventory turnover).
           </p>
         </div>
       ) : (
@@ -499,7 +505,11 @@ export default function AdvisorTranscript({ messages, isLoadingHistory, isSendin
                   <div
                     key={idx}
                     className={`flex items-center gap-2.5 transition-all duration-300 ${
-                      isActive ? 'text-amber-400 font-bold' : isCompleted ? 'text-zinc-400' : 'text-zinc-600'
+                      isActive
+                        ? 'text-amber-400 font-bold'
+                        : isCompleted
+                          ? 'text-zinc-400'
+                          : 'text-zinc-600'
                     }`}
                   >
                     {isCompleted ? (

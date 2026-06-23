@@ -6,4 +6,4 @@ This document catalogs active architectural, performance, security, and logic is
 
 ## Active Backlog Details
 
-All backlog items have been successfully resolved!
+All identified backlog items have been successfully resolved!

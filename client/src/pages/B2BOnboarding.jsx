@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   XCircle,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import apiClient from '../api/axios';
 import { useB2BRegister } from '../api/queries';
@@ -114,15 +113,25 @@ export default function B2BOnboarding() {
             verified and approved. Your B2B portal is now available.
           </p>
 
-          <div className="mt-6 p-5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-left">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#7c3aed]" />
-              Wholesaler Trade Credit
-            </p>
-            <p className="text-sm text-[#1e293b] mt-2 leading-relaxed">
-              Participating wholesalers may independently offer trade credit based on your
-              relationship, purchasing history, and business verification.
-            </p>
+          <div className="mt-6 border-t border-[#e2e8f0] pt-6 text-left space-y-3">
+            <div className="flex items-center gap-3 text-xs text-[#64748b]">
+              <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
+                <Building2 className="w-4 h-4 text-[#64748b]" />
+              </div>
+              <div>
+                <span className="font-bold text-[#1e293b]">Tax ID / GSTIN:</span>{' '}
+                <span className="font-mono">{profile.taxId}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-[#64748b]">
+              <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
+                <MapPin className="w-4 h-4 text-[#64748b]" />
+              </div>
+              <div>
+                <span className="font-bold text-[#1e293b]">Business Location:</span>{' '}
+                {profile.businessAddress}
+              </div>
+            </div>
           </div>
 
           <button

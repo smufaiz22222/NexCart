@@ -18,14 +18,19 @@ import aiAdvisorClient from '../api/aiAdvisor';
 import MetricCard from '../components/advisor/MetricCard';
 import PromptSelector from '../components/advisor/PromptSelector';
 import AdvisorTranscript from '../components/advisor/AdvisorTranscript';
+import useAuthStore from '../store/authStore';
 
 const SESSION_STORAGE_KEY = 'nexcart:advisorSessionId';
+
+const generateSessionId = () => {
+  return globalThis.crypto?.randomUUID?.() || `advisor-${Date.now()}`;
+};
 
 const getSessionId = () => {
   const existing = localStorage.getItem(SESSION_STORAGE_KEY);
   if (existing) return existing;
 
-  const nextSessionId = globalThis.crypto?.randomUUID?.() || `advisor-${Date.now()}`;
+  const nextSessionId = generateSessionId();
   localStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
   return nextSessionId;
 };
@@ -37,6 +42,7 @@ const formatMetricValue = (key, value) => {
 };
 
 export default function BusinessAdvisor() {
+  const user = useAuthStore((state) => state.user);
   const [businessContext, setBusinessContext] = useState(null);
   const [messages, setMessages] = useState([]);
   const [query, setQuery] = useState('');
@@ -100,7 +106,7 @@ export default function BusinessAdvisor() {
     if (stored) {
       try {
         currentSessions = JSON.parse(stored);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -120,7 +126,7 @@ export default function BusinessAdvisor() {
   }, [messages, sessionId]);
 
   const handleNewChat = () => {
-    const nextSessionId = globalThis.crypto?.randomUUID?.() || `advisor-${Date.now()}`;
+    const nextSessionId = generateSessionId();
     localStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
     setSessionId(nextSessionId);
     setMessages([]);
@@ -265,19 +271,21 @@ export default function BusinessAdvisor() {
               <RefreshCcw className={`mr-2 h-4 w-4 ${isLoadingContext ? 'animate-spin' : ''}`} />
               Refresh Metrics
             </button>
-            <button
-              type="button"
-              onClick={handleIngest}
-              disabled={isIngesting}
-              className="inline-flex items-center rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isIngesting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Database className="mr-2 h-4 w-4" />
-              )}
-              Ingest Documents
-            </button>
+            {user?.role === 'SUPER_ADMIN' ? (
+              <button
+                type="button"
+                onClick={handleIngest}
+                disabled={isIngesting}
+                className="inline-flex items-center rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isIngesting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Database className="mr-2 h-4 w-4" />
+                )}
+                Ingest Documents
+              </button>
+            ) : null}
           </div>
         </div>
 

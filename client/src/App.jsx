@@ -11,7 +11,6 @@ import {
   OperationalAccessNotice,
   PremiumFeatureNotice,
 } from './components/wholesaler/WholesalerAccessPanel';
-import apiClient from './api/axios';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -58,7 +57,11 @@ const B2BCart = lazy(() => import('./pages/B2BCart'));
 const B2BOrders = lazy(() => import('./pages/B2BOrders'));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, isBootstrapping, user } = useAuthStore();
+
+  if (isBootstrapping) {
+    return <LoadingSpinner />;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -116,28 +119,33 @@ const ApprovedB2BCustomerRoute = ({ children }) => {
 };
 
 function App() {
-  const { isAuthenticated, user, setUser } = useAuthStore();
+  const { initializeSession, isAuthenticated, isBootstrapping, user } = useAuthStore();
   const startPolling = useNotificationStore((state) => state.startPolling);
   const stopPolling = useNotificationStore((state) => state.stopPolling);
 
   useEffect(() => {
+    initializeSession().catch((error) => {
+      console.error('Failed to initialize session:', error);
+    });
+  }, [initializeSession]);
+
+  useEffect(() => {
+    if (isBootstrapping) {
+      return undefined;
+    }
+
     if (isAuthenticated) {
       startPolling();
-      apiClient
-        .get('/auth/profile')
-        .then((response) => {
-          if (response.data?.user) {
-            setUser(response.data.user);
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to sync user profile on mount:', error);
-        });
-    } else {
-      stopPolling();
+      return () => stopPolling();
     }
-    return () => stopPolling();
-  }, [isAuthenticated, startPolling, stopPolling, setUser]);
+
+    stopPolling();
+    return undefined;
+  }, [isAuthenticated, isBootstrapping, startPolling, stopPolling]);
+
+  if (isBootstrapping) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

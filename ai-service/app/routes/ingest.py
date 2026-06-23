@@ -7,9 +7,12 @@
 #   "skip"              — skips ingestion if collection already has documents.
 
 import os
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from app.dependencies.auth import AuthenticatedUser, require_admin_user
 from app.services.document_utils import normalize_chunk_metadata
 from app.services.retrieval_service import invalidate_bm25_cache
 from app.vectorstore.chroma_store import add_documents, get_vectorstore
@@ -21,7 +24,9 @@ INGEST_MODE = os.getenv("INGEST_MODE", "replace")  # "replace" or "skip"
 
 
 @router.post("/ingest")
-async def ingest_documents():
+async def ingest_documents(
+    current_user: Annotated[AuthenticatedUser, Depends(require_admin_user)],
+):
     try:
         vectorstore = get_vectorstore()
 
@@ -81,6 +86,7 @@ async def ingest_documents():
             "pages_loaded": len(raw_docs),
             "chunks_stored": len(chunks),
             "message": "Knowledge base is ready.",
+            "requested_by": current_user.user_id,
         }
 
     except HTTPException:

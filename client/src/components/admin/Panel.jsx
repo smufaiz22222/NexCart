@@ -2,12 +2,7 @@ import { cn } from '../../utils/cn';
 
 export default function Panel({ title, eyebrow, icon: Icon, children, className, action }) {
   return (
-    <section
-      className={cn(
-        'rounded-xl border border-[#2B3139] bg-[#12161C] p-5',
-        className
-      )}
-    >
+    <section className={cn('rounded-xl border border-[#2B3139] bg-[#12161C] p-5', className)}>
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
           {eyebrow && (

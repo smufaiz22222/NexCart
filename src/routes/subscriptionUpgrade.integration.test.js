@@ -121,7 +121,7 @@ test('Subscription Upgrade and Upgrade Promocode Integration Test Flow', async (
     });
 
     // Create payment matching standard subscription
-    const standardPayment = await prisma.subscriptionPayment.create({
+    await prisma.subscriptionPayment.create({
       data: {
         wholesalerId,
         subscriptionId: standardSub.id,
@@ -205,7 +205,7 @@ test('Subscription Upgrade and Upgrade Promocode Integration Test Flow', async (
     await prisma.wholesalerSubscription.deleteMany({ where: { wholesalerId } });
     await prisma.subscriptionPayment.deleteMany({ where: { wholesalerId } });
 
-    const standardSub2 = await prisma.wholesalerSubscription.create({
+    await prisma.wholesalerSubscription.create({
       data: {
         wholesalerId,
         planId: standardPlan.id,

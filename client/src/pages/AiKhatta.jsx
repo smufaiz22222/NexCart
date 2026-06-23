@@ -238,7 +238,9 @@ export default function AiKhatta() {
               </div>
               <div>
                 <h3 className="text-base font-black text-white">Parsed Entries</h3>
-                <p className="text-xs text-zinc-500">{parsedData.length} entries extracted from document</p>
+                <p className="text-xs text-zinc-500">
+                  {parsedData.length} entries extracted from document
+                </p>
               </div>
             </div>
 

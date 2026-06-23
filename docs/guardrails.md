@@ -313,6 +313,7 @@ This document defines strict architectural, security, database, and frontend gua
 
 - **Rule**: Before running any migration in staging or production, take a database backup.
 - **Good Pattern**:
+
   ```bash
   # Backup before migrating
   pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME > backup_$(date +%Y%m%d_%H%M%S).sql
@@ -350,6 +351,7 @@ This document defines strict architectural, security, database, and frontend gua
 
 - **Rule**: When adding a new field that existing records need populated, write a backfill script instead of reseeding.
 - **Good Pattern**:
+
   ```javascript
   // scripts/backfill-subcategories.js
   import { prisma } from '../src/config/db.js';
@@ -362,4 +364,5 @@ This document defines strict architectural, security, database, and frontend gua
     });
   }
   ```
+
 - **Bad Pattern**: Running `prisma migrate reset` + `prisma db seed` to populate the new field (destroys all real data).

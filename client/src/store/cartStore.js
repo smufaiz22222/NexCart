@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import apiClient from '../api/axios';
+import { hasAuthSessionHint } from '../utils/sessionHint';
 
 const normalizeCartResponse = (data) => ({
   cart: data?.cart || data?.items || [],
@@ -25,8 +26,7 @@ const useCartStore = create(
       hydrateCart: async () => {
         if (get().isHydrating) return;
 
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!hasAuthSessionHint()) {
           set({ hasHydrated: true });
           return;
         }
@@ -57,8 +57,7 @@ const useCartStore = create(
         recommendationId = null,
         recommendationSource = null,
       }) => {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!hasAuthSessionHint()) {
           set({ isMutating: true });
           try {
             const res = await apiClient.get(`/products/${productId}`);
@@ -138,8 +137,7 @@ const useCartStore = create(
       },
 
       updateQuantity: async (cartItemId, quantity) => {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!hasAuthSessionHint()) {
           if (quantity <= 0) {
             return get().removeFromCart(cartItemId);
           }
@@ -185,8 +183,7 @@ const useCartStore = create(
       },
 
       removeFromCart: async (cartItemId) => {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!hasAuthSessionHint()) {
           set({ isMutating: true });
           try {
             const currentCart = get().cart || [];
@@ -213,8 +210,7 @@ const useCartStore = create(
       },
 
       clearCart: async () => {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!hasAuthSessionHint()) {
           set({
             cart: [],
             totals: { itemCount: 0, subtotal: 0 },
@@ -233,8 +229,7 @@ const useCartStore = create(
       },
 
       syncLocalCart: async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!hasAuthSessionHint()) return;
 
         const localCart = get().cart || [];
         if (localCart.length === 0) {

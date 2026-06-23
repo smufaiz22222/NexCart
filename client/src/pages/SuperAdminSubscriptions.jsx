@@ -441,7 +441,8 @@ export default function SuperAdminSubscriptions() {
               Merchant plans, billing, and activations.
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#848E9C]">
-              Query any wholesaler, inspect active plans, view past transactions, and perform manual overrides.
+              Query any wholesaler, inspect active plans, view past transactions, and perform manual
+              overrides.
             </p>
           </div>
 
@@ -449,7 +450,12 @@ export default function SuperAdminSubscriptions() {
             <TopCard title="Paid Active" value={paidActive} icon={CreditCard} accent="yellow" />
             <TopCard title="Trial Active" value={trialActive} icon={Sparkles} accent="blue" />
             <TopCard title="Past Due" value={pastDue} icon={CalendarClock} accent="red" />
-            <TopCard title="Total Sellers" value={wholesalers.length} icon={Building2} accent="green" />
+            <TopCard
+              title="Total Sellers"
+              value={wholesalers.length}
+              icon={Building2}
+              accent="green"
+            />
           </div>
         </div>
       </section>
@@ -465,7 +471,9 @@ export default function SuperAdminSubscriptions() {
         {/* Left: Directory */}
         <section className="rounded-xl border border-[#2B3139] bg-[#12161C] p-5 lg:sticky lg:top-24 lg:self-start max-h-[85vh] flex flex-col">
           <div className="border-b border-[#2B3139] pb-4 shrink-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#848E9C]">Directory</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#848E9C]">
+              Directory
+            </p>
             <h2 className="mt-1 text-lg font-bold text-[#EAECEF]">Subscription Targets</h2>
 
             <div className="mt-3 space-y-3">
@@ -524,7 +532,8 @@ export default function SuperAdminSubscriptions() {
                       </div>
                       <span
                         className={`text-[9px] font-semibold uppercase rounded-md px-1.5 py-0.5 ${
-                          wholesaler.onboardingStatus === 'APPROVED' || wholesaler.onboardingStatus === 'ACTIVE'
+                          wholesaler.onboardingStatus === 'APPROVED' ||
+                          wholesaler.onboardingStatus === 'ACTIVE'
                             ? 'bg-[#0ECB81]/10 text-[#0ECB81]'
                             : wholesaler.onboardingStatus === 'PAST_DUE'
                               ? 'bg-[#F6465D]/10 text-[#F6465D]'
@@ -589,16 +598,25 @@ export default function SuperAdminSubscriptions() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <span className={`text-[10px] font-semibold uppercase rounded-md px-2 py-1 ${
-                      selectedTenant.onboardingStatus === 'ACTIVE' ? 'bg-[#0ECB81]/10 text-[#0ECB81]' : 'bg-[#F0B90B]/10 text-[#F0B90B]'
-                    }`}>
+                    <span
+                      className={`text-[10px] font-semibold uppercase rounded-md px-2 py-1 ${
+                        selectedTenant.onboardingStatus === 'ACTIVE'
+                          ? 'bg-[#0ECB81]/10 text-[#0ECB81]'
+                          : 'bg-[#F0B90B]/10 text-[#F0B90B]'
+                      }`}
+                    >
                       {selectedTenant.onboardingStatus}
                     </span>
                     {selectedTenant.currentSubscription && (
-                      <span className={`text-[10px] font-semibold uppercase rounded-md px-2 py-1 ${
-                        selectedTenant.currentSubscription.status === 'ACTIVE' ? 'bg-[#0ECB81]/10 text-[#0ECB81]' : 'bg-[#F6465D]/10 text-[#F6465D]'
-                      }`}>
-                        {selectedTenant.currentSubscription.plan?.name} · {selectedTenant.currentSubscription.status}
+                      <span
+                        className={`text-[10px] font-semibold uppercase rounded-md px-2 py-1 ${
+                          selectedTenant.currentSubscription.status === 'ACTIVE'
+                            ? 'bg-[#0ECB81]/10 text-[#0ECB81]'
+                            : 'bg-[#F6465D]/10 text-[#F6465D]'
+                        }`}
+                      >
+                        {selectedTenant.currentSubscription.plan?.name} ·{' '}
+                        {selectedTenant.currentSubscription.status}
                       </span>
                     )}
                   </div>
@@ -638,12 +656,43 @@ export default function SuperAdminSubscriptions() {
                           Subscription Details
                         </div>
                         <div className="space-y-2.5">
-                          <StateRow label="Active Plan" value={selectedTenant.currentSubscription?.plan?.name || 'Not active'} />
-                          <StateRow label="Payment Status" value={selectedTenant.currentSubscription?.status || 'No record'} highlight={selectedTenant.currentSubscription?.status === 'ACTIVE' ? 'success' : null} />
-                          <StateRow label="Starts At" value={formatDate(selectedTenant.currentSubscription?.currentPeriodStart)} />
-                          <StateRow label="Ends At" value={formatDate(selectedTenant.currentSubscription?.currentPeriodEnd)} />
-                          <StateRow label="Billing Cycle" value={selectedTenant.currentSubscription?.plan?.code === 'TRIAL' ? '2-Day Trial' : selectedTenant.currentSubscription?.durationMonths ? `${selectedTenant.currentSubscription.durationMonths} Month(s)` : 'N/A'} />
-                          <StateRow label="Purchase Method" value={selectedTenant.currentSubscription?.purchaseMethod || 'N/A'} />
+                          <StateRow
+                            label="Active Plan"
+                            value={selectedTenant.currentSubscription?.plan?.name || 'Not active'}
+                          />
+                          <StateRow
+                            label="Payment Status"
+                            value={selectedTenant.currentSubscription?.status || 'No record'}
+                            highlight={
+                              selectedTenant.currentSubscription?.status === 'ACTIVE'
+                                ? 'success'
+                                : null
+                            }
+                          />
+                          <StateRow
+                            label="Starts At"
+                            value={formatDate(
+                              selectedTenant.currentSubscription?.currentPeriodStart
+                            )}
+                          />
+                          <StateRow
+                            label="Ends At"
+                            value={formatDate(selectedTenant.currentSubscription?.currentPeriodEnd)}
+                          />
+                          <StateRow
+                            label="Billing Cycle"
+                            value={
+                              selectedTenant.currentSubscription?.plan?.code === 'TRIAL'
+                                ? '2-Day Trial'
+                                : selectedTenant.currentSubscription?.durationMonths
+                                  ? `${selectedTenant.currentSubscription.durationMonths} Month(s)`
+                                  : 'N/A'
+                            }
+                          />
+                          <StateRow
+                            label="Purchase Method"
+                            value={selectedTenant.currentSubscription?.purchaseMethod || 'N/A'}
+                          />
                         </div>
                       </div>
 
@@ -653,11 +702,47 @@ export default function SuperAdminSubscriptions() {
                           Trial State
                         </div>
                         <div className="space-y-2.5">
-                          <StateRow label="Trial Active" value={selectedTenant.currentSubscription?.plan?.code === 'TRIAL' && selectedTenant.currentSubscription?.status === 'ACTIVE' ? 'Running' : 'No'} highlight={selectedTenant.currentSubscription?.plan?.code === 'TRIAL' && selectedTenant.currentSubscription?.status === 'ACTIVE' ? 'success' : null} />
-                          <StateRow label="Eligibility" value={selectedTenant.trialUsedAt ? 'Used' : 'Eligible'} highlight={!selectedTenant.trialUsedAt ? 'info' : null} />
-                          <StateRow label="Trial Starts" value={selectedTenant.trialEndsAt ? formatDate(new Date(new Date(selectedTenant.trialEndsAt).getTime() - 2 * 24 * 60 * 60 * 1000)) : 'N/A'} />
-                          <StateRow label="Trial Ends" value={formatDate(selectedTenant.trialEndsAt)} />
-                          <StateRow label="Trial Used At" value={formatDate(selectedTenant.trialUsedAt)} />
+                          <StateRow
+                            label="Trial Active"
+                            value={
+                              selectedTenant.currentSubscription?.plan?.code === 'TRIAL' &&
+                              selectedTenant.currentSubscription?.status === 'ACTIVE'
+                                ? 'Running'
+                                : 'No'
+                            }
+                            highlight={
+                              selectedTenant.currentSubscription?.plan?.code === 'TRIAL' &&
+                              selectedTenant.currentSubscription?.status === 'ACTIVE'
+                                ? 'success'
+                                : null
+                            }
+                          />
+                          <StateRow
+                            label="Eligibility"
+                            value={selectedTenant.trialUsedAt ? 'Used' : 'Eligible'}
+                            highlight={!selectedTenant.trialUsedAt ? 'info' : null}
+                          />
+                          <StateRow
+                            label="Trial Starts"
+                            value={
+                              selectedTenant.trialEndsAt
+                                ? formatDate(
+                                    new Date(
+                                      new Date(selectedTenant.trialEndsAt).getTime() -
+                                        2 * 24 * 60 * 60 * 1000
+                                    )
+                                  )
+                                : 'N/A'
+                            }
+                          />
+                          <StateRow
+                            label="Trial Ends"
+                            value={formatDate(selectedTenant.trialEndsAt)}
+                          />
+                          <StateRow
+                            label="Trial Used At"
+                            value={formatDate(selectedTenant.trialUsedAt)}
+                          />
                         </div>
                       </div>
                     </div>
@@ -668,10 +753,26 @@ export default function SuperAdminSubscriptions() {
                         Financial Overview
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <FinancialStat label="All-Time Revenue" value={formatCurrency(selectedTenant.metrics?.revenue || 0)} accent="yellow" />
-                        <FinancialStat label="This Subscription" value={formatCurrency(selectedTenant.metrics?.subscriptionRevenue || 0)} accent="green" />
-                        <FinancialStat label="Total Orders" value={selectedTenant.metrics?.orderCount || 0} accent="blue" />
-                        <FinancialStat label="Inventory Value" value={formatCurrency(selectedTenant.metrics?.inventoryValue || 0)} accent="purple" />
+                        <FinancialStat
+                          label="All-Time Revenue"
+                          value={formatCurrency(selectedTenant.metrics?.revenue || 0)}
+                          accent="yellow"
+                        />
+                        <FinancialStat
+                          label="This Subscription"
+                          value={formatCurrency(selectedTenant.metrics?.subscriptionRevenue || 0)}
+                          accent="green"
+                        />
+                        <FinancialStat
+                          label="Total Orders"
+                          value={selectedTenant.metrics?.orderCount || 0}
+                          accent="blue"
+                        />
+                        <FinancialStat
+                          label="Inventory Value"
+                          value={formatCurrency(selectedTenant.metrics?.inventoryValue || 0)}
+                          accent="purple"
+                        />
                       </div>
                     </div>
 
@@ -681,10 +782,29 @@ export default function SuperAdminSubscriptions() {
                         Account Timeline
                       </div>
                       <div className="grid gap-2.5 sm:grid-cols-2">
-                        <StateRow label="Account Created" value={formatDate(selectedTenant.joinedAt)} />
-                        <StateRow label="Onboarding" value={selectedTenant.onboardingStatus || 'N/A'} highlight={selectedTenant.onboardingStatus === 'ACTIVE' ? 'success' : null} />
-                        <StateRow label="Payments Made" value={`${(selectedTenant.subscriptionPayments || []).length} payment(s)`} />
-                        <StateRow label="Last Payment" value={selectedTenant.subscriptionPayments?.length > 0 ? formatDate(selectedTenant.subscriptionPayments[0]?.createdAt) : 'None'} />
+                        <StateRow
+                          label="Account Created"
+                          value={formatDate(selectedTenant.joinedAt)}
+                        />
+                        <StateRow
+                          label="Onboarding"
+                          value={selectedTenant.onboardingStatus || 'N/A'}
+                          highlight={
+                            selectedTenant.onboardingStatus === 'ACTIVE' ? 'success' : null
+                          }
+                        />
+                        <StateRow
+                          label="Payments Made"
+                          value={`${(selectedTenant.subscriptionPayments || []).length} payment(s)`}
+                        />
+                        <StateRow
+                          label="Last Payment"
+                          value={
+                            selectedTenant.subscriptionPayments?.length > 0
+                              ? formatDate(selectedTenant.subscriptionPayments[0]?.createdAt)
+                              : 'None'
+                          }
+                        />
                       </div>
                     </div>
                   </div>
@@ -1091,7 +1211,9 @@ function FinancialStat({ label, value, accent }) {
   };
 
   return (
-    <div className={`rounded-md bg-[#12161C] p-3 border border-[#2B3139] border-l-2 ${accentBorders[accent] || 'border-l-[#F0B90B]'}`}>
+    <div
+      className={`rounded-md bg-[#12161C] p-3 border border-[#2B3139] border-l-2 ${accentBorders[accent] || 'border-l-[#F0B90B]'}`}
+    >
       <p className="text-[10px] font-bold uppercase tracking-wide text-[#5E6673]">{label}</p>
       <p className="mt-1.5 text-lg font-bold text-[#EAECEF]">{value}</p>
     </div>

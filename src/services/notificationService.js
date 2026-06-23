@@ -25,7 +25,7 @@ export const getUserIdFromWholesalerId = async (wholesalerId, tx) => {
  * @param {string} [data.link]
  * @param {object} [tx] Optional Prisma transaction client
  */
-export const createNotification = async (userId, { title, message, type, link }, tx) => {
+export const createNotification = async (userId, { title, message, type, link, productId }, tx) => {
   const db = tx || prisma;
 
   // Verify that the user exists to prevent foreign key violations (common with mock test data)
@@ -46,6 +46,7 @@ export const createNotification = async (userId, { title, message, type, link },
       message,
       type,
       link,
+      productId,
     },
   });
 };
@@ -160,8 +161,8 @@ export const checkAndNotifyLowStock = async (productId, tx) => {
         userId: product.wholesaler.userId,
         type: 'STOCK_ALERT',
         link: '/wholesaler/products',
+        productId: product.id,
         createdAt: { gte: yesterday },
-        message: { contains: `"${product.name}"` },
       },
     });
 
@@ -173,6 +174,7 @@ export const checkAndNotifyLowStock = async (productId, tx) => {
           message: `Product "${product.name}" has reached low stock (${product.currentStock} units remaining).`,
           type: 'STOCK_ALERT',
           link: '/wholesaler/products',
+          productId: product.id,
         },
       });
     }

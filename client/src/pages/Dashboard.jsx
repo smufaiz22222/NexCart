@@ -537,9 +537,7 @@ export default function Dashboard() {
 
               <form onSubmit={handleSaveBankDetails} className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">
-                    Bank Name
-                  </label>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">Bank Name</label>
                   <input
                     type="text"
                     value={bankDetails.bankName}
@@ -563,9 +561,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">
-                    IFSC Code
-                  </label>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">IFSC Code</label>
                   <input
                     type="text"
                     value={bankDetails.bankIfsc}
@@ -575,9 +571,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">
-                    UPI ID
-                  </label>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">UPI ID</label>
                   <input
                     type="text"
                     value={bankDetails.upiId}

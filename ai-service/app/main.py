@@ -1,7 +1,13 @@
 # ruff: noqa: E402
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv()  # must be first line before any other imports
+SERVICE_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(SERVICE_DIR / ".env", override=True)
 
 import os
 from contextlib import asynccontextmanager
@@ -33,9 +39,15 @@ cors_origins = [
     ).split(",")
     if origin.strip()
 ]
+
+if not cors_origins:
+    raise RuntimeError(
+        "AI_CORS_ORIGINS must contain at least one allowed origin when credentials are enabled."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins or ["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

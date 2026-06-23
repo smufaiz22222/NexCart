@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
+import { clearAuthCookie, extractAuthToken, setAuthCookie } from '../utils/authCookies.js';
 import {
   sendWelcomeEmail,
   sendVerificationOtp,
@@ -164,10 +165,10 @@ export const login = async (req, res) => {
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    setAuthCookie(res, token);
 
     res.status(200).json({
       message: 'Login successful',
-      token,
       user: {
         id: user.id,
         name: user.name,
@@ -292,9 +293,10 @@ export const getProfile = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = extractAuthToken(req);
     if (!token) {
-      return res.status(400).json({ error: 'No token provided' });
+      clearAuthCookie(res);
+      return res.status(200).json({ message: 'Logged out successfully' });
     }
 
     const decoded = jwt.decode(token);
@@ -311,6 +313,7 @@ export const logout = async (req, res) => {
       },
     });
 
+    clearAuthCookie(res);
     res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('LOGOUT ERROR:', error);

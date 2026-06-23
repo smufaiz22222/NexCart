@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
 import { toast } from 'sonner';
@@ -105,25 +105,37 @@ export default function AdminWholesalers() {
     onError: (err) => toast.error(err.response?.data?.error || 'Failed to update.'),
   });
 
-  const handleApproveWholesaler = (wholesalerId) => {
-    if (window.confirm('Approve this wholesaler?')) approveMutation.mutate(wholesalerId);
-  };
+  const handleApproveWholesaler = useCallback(
+    (wholesalerId) => {
+      if (window.confirm('Approve this wholesaler?')) approveMutation.mutate(wholesalerId);
+    },
+    [approveMutation]
+  );
 
-  const handleRejectWholesaler = (wholesalerId) => {
-    const reason = window.prompt('Rejection reason:');
-    if (reason !== null) rejectMutation.mutate({ wholesalerId, reason });
-  };
+  const handleRejectWholesaler = useCallback(
+    (wholesalerId) => {
+      const reason = window.prompt('Rejection reason:');
+      if (reason !== null) rejectMutation.mutate({ wholesalerId, reason });
+    },
+    [rejectMutation]
+  );
 
-  const handleB2BApprove = (appId) => {
-    if (window.confirm('Approve this B2B application?'))
-      b2bActionMutation.mutate({ appId, verification: 'APPROVED' });
-  };
+  const handleB2BApprove = useCallback(
+    (appId) => {
+      if (window.confirm('Approve this B2B application?'))
+        b2bActionMutation.mutate({ appId, verification: 'APPROVED' });
+    },
+    [b2bActionMutation]
+  );
 
-  const handleB2BReject = (appId) => {
-    const reason = window.prompt('Rejection reason:');
-    if (reason !== null)
-      b2bActionMutation.mutate({ appId, verification: 'REJECTED', rejectionReason: reason });
-  };
+  const handleB2BReject = useCallback(
+    (appId) => {
+      const reason = window.prompt('Rejection reason:');
+      if (reason !== null)
+        b2bActionMutation.mutate({ appId, verification: 'REJECTED', rejectionReason: reason });
+    },
+    [b2bActionMutation]
+  );
 
   const directoryColumns = useMemo(
     () => [
@@ -220,7 +232,7 @@ export default function AdminWholesalers() {
         ),
       }),
     ],
-    []
+    [handleApproveWholesaler, handleRejectWholesaler]
   );
 
   const b2bColumns = useMemo(
@@ -273,7 +285,7 @@ export default function AdminWholesalers() {
         ),
       }),
     ],
-    []
+    [handleB2BApprove, handleB2BReject]
   );
 
   const pendingApplications = statsData?.pendingApplications || [];
@@ -414,36 +426,58 @@ function TenantDetailPanel({ tenant, isLoading, onClose }) {
             <p className="mt-1 text-xl font-bold text-[#EAECEF]">{tenant.ownerName}</p>
             <p className="mt-0.5 text-sm text-[#5E6673]">{tenant.ownerEmail}</p>
             <p className="mt-3 text-[10px] font-medium uppercase tracking-wide text-[#5E6673]">
-              Joined {new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(tenant.joinedAt))}
+              Joined{' '}
+              {new Intl.DateTimeFormat('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              }).format(new Date(tenant.joinedAt))}
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <MiniMetric label="Revenue" value={formatCurrency(tenant.metrics.revenue)} icon={CircleDollarSign} />
-            <MiniMetric label="Inventory" value={formatCurrency(tenant.metrics.inventoryValue)} icon={Boxes} />
+            <MiniMetric
+              label="Revenue"
+              value={formatCurrency(tenant.metrics.revenue)}
+              icon={CircleDollarSign}
+            />
+            <MiniMetric
+              label="Inventory"
+              value={formatCurrency(tenant.metrics.inventoryValue)}
+              icon={Boxes}
+            />
             <MiniMetric label="Orders" value={tenant.metrics.orderCount} icon={ShoppingBag} />
             <MiniMetric label="Products" value={tenant.metrics.productCount} icon={Building2} />
           </div>
 
           {/* Inventory Risk */}
           <div className="rounded-lg bg-[#1E2329] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#848E9C]">Inventory Risk</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#848E9C]">
+              Inventory Risk
+            </p>
             <div className="mt-3 space-y-2">
               {(tenant.inventoryRisk || []).length > 0 ? (
                 tenant.inventoryRisk.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between rounded-md bg-[#12161C] px-3 py-2">
+                  <div
+                    key={product.id}
+                    className="flex items-center justify-between rounded-md bg-[#12161C] px-3 py-2"
+                  >
                     <div>
                       <p className="text-sm font-medium text-[#EAECEF]">{product.name}</p>
                       <p className="text-xs text-[#5E6673]">{product.category}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-[#F6465D]">{product.currentStock} left</p>
+                      <p className="text-sm font-bold text-[#F6465D]">
+                        {product.currentStock} left
+                      </p>
                       <p className="text-xs text-[#5E6673]">Min {product.minStock}</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="rounded-md bg-[#12161C] px-3 py-3 text-sm text-[#5E6673]">No risk items.</p>
+                <p className="rounded-md bg-[#12161C] px-3 py-3 text-sm text-[#5E6673]">
+                  No risk items.
+                </p>
               )}
             </div>
           </div>
@@ -461,7 +495,9 @@ function TenantDetailPanel({ tenant, isLoading, onClose }) {
                       <p className="text-sm font-semibold text-[#EAECEF]">{order.buyerName}</p>
                       <p className="text-xs text-[#5E6673]">{order.buyerEmail}</p>
                     </div>
-                    <p className="text-sm font-bold text-[#0ECB81]">{formatCurrency(order.totalAmount)}</p>
+                    <p className="text-sm font-bold text-[#0ECB81]">
+                      {formatCurrency(order.totalAmount)}
+                    </p>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <StatusBadge variant="dark">{order.status}</StatusBadge>
