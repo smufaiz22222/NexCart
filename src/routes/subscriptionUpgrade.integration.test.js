@@ -131,7 +131,7 @@ test('Subscription Upgrade and Upgrade Promocode Integration Test Flow', async (
         durationMonths: 3,
         baseAmount: standardPlan.price * 3,
         discountPercent: 5,
-        finalAmount: (standardPlan.price * 3) * 0.95,
+        finalAmount: standardPlan.price * 3 * 0.95,
         paidAt: periodStart,
         validUntil: periodEnd,
       },
@@ -141,7 +141,7 @@ test('Subscription Upgrade and Upgrade Promocode Integration Test Flow', async (
     const upgradeDetailsResponse = await request(app)
       .get('/api/subscriptions/upgrade-details')
       .set('Authorization', `Bearer ${merchantToken}`);
-    
+
     assert.equal(upgradeDetailsResponse.status, 200);
     assert.equal(upgradeDetailsResponse.body.isEligible, true);
     assert.equal(upgradeDetailsResponse.body.currentPlan.code, 'STANDARD');
@@ -160,7 +160,10 @@ test('Subscription Upgrade and Upgrade Promocode Integration Test Flow', async (
 
     assert.equal(checkoutResponse.status, 200);
     assert.ok(checkoutResponse.body.razorpayOrderId);
-    assert.equal(checkoutResponse.body.amount, Math.round(upgradeDetailsResponse.body.diffAmount * 100));
+    assert.equal(
+      checkoutResponse.body.amount,
+      Math.round(upgradeDetailsResponse.body.diffAmount * 100)
+    );
 
     // 6. Verify checkout upgrade payment
     const rpOrderId = checkoutResponse.body.razorpayOrderId;

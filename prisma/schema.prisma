@@ -350,6 +350,8 @@ model Wholesaler {
   paymentInstruments PaymentInstrument[]
   payouts       WholesalerPayout[]
 
+  lastFeaturedDate DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -458,9 +460,10 @@ model Product {
   sku         String?
   imageUrl    String?
 
-  category String   @default("General")
-  sizes    String[]
-  reviews  Review[]
+  category    String   @default("General")
+  subcategory String?
+  sizes       String[]
+  reviews     Review[]
 
   currentStock Int @default(0)
   minStock     Int @default(10)
@@ -488,6 +491,7 @@ model Product {
 
   @@index([wholesalerId])
   @@index([category])
+  @@index([subcategory])
   @@index([currentStock])
 }
 
@@ -1253,6 +1257,8 @@ model Notification {
 enum EmailOtpPurpose {
   VERIFICATION
   PASSWORD_RESET
+  EMAIL_CHANGE_OLD
+  EMAIL_CHANGE_NEW
 }
 
 model EmailOTP {

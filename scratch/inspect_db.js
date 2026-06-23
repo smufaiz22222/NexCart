@@ -23,20 +23,19 @@ async function main() {
           select: {
             id: true,
             businessName: true,
-          }
+          },
         },
         businessProfile: {
           select: {
             id: true,
             companyName: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     console.log('\nUsers detail:');
     console.log(JSON.stringify(users, null, 2));
-
   } catch (error) {
     console.error('Error inspecting database:', error);
   } finally {

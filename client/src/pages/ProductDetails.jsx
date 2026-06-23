@@ -1,6 +1,15 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Star, Store, MessageSquare, Heart } from 'lucide-react';
+import {
+  ArrowLeft,
+  ShoppingBag,
+  Star,
+  Store,
+  MessageSquare,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import apiClient from '../api/axios';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
@@ -67,7 +76,8 @@ export default function ProductDetails() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-
+  const [reviewPage, setReviewPage] = useState(1);
+  const reviewsPerPage = 4;
   // B2B & B2C parameters
   const hasApprovedB2BAccess =
     user?.businessProfile?.verification === 'APPROVED' &&
@@ -260,14 +270,17 @@ export default function ProductDetails() {
 
   if (isErrorProduct) {
     return (
-      <div className="rounded-[30px] bg-white px-6 py-14 text-center shadow-[0_18px_45px_rgba(22,20,18,0.05)] font-sans">
-        <p className="text-2xl font-black tracking-tight text-red-500">Failed to load product</p>
-        <p className="mt-3 text-sm text-[#6b665f]">
+      <div className="rounded-2xl bg-white border border-[#e2e8f0] px-6 py-14 text-center shadow-sm font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
+          <Store className="h-7 w-7 text-red-400" />
+        </div>
+        <p className="text-2xl font-black tracking-tight text-red-600">Failed to load product</p>
+        <p className="mt-3 text-sm text-[#64748b]">
           {errorProduct?.message || 'Error occurred while loading product details.'}
         </p>
         <button
           onClick={() => refetchProduct()}
-          className="mt-6 rounded-full bg-[#161412] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#2c2926]"
+          className="mt-6 rounded-xl bg-[#4f46e5] px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#4338ca] btn-press"
         >
           Retry Loading
         </button>
@@ -278,8 +291,9 @@ export default function ProductDetails() {
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="rounded-full bg-white px-6 py-4 text-sm font-bold text-[#161412] shadow-[0_16px_40px_rgba(22,20,18,0.08)]">
-          Loading product...
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-2 border-[#e2e8f0] border-t-[#4f46e5] animate-spin" />
+          <p className="text-sm font-semibold text-[#64748b]">Loading product...</p>
         </div>
       </div>
     );
@@ -287,11 +301,11 @@ export default function ProductDetails() {
 
   if (!product) {
     return (
-      <div className="rounded-[30px] bg-white px-6 py-14 text-center shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-        <p className="text-2xl font-black tracking-tight text-[#161412]">Product not found</p>
+      <div className="rounded-2xl bg-white border border-[#e2e8f0] px-6 py-14 text-center shadow-sm">
+        <p className="text-2xl font-black tracking-tight text-[#1e293b]">Product not found</p>
         <button
           onClick={() => navigate('/store')}
-          className="mt-5 rounded-full border border-[#161412] px-5 py-3 text-sm font-bold text-[#161412]"
+          className="mt-5 rounded-xl border border-[#e2e8f0] px-5 py-3 text-sm font-bold text-[#1e293b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all"
         >
           Return to storefront
         </button>
@@ -300,85 +314,263 @@ export default function ProductDetails() {
   }
 
   return (
-    <div className="space-y-10 pb-12 text-[#161412]">
+    <div className="space-y-12 pb-16 text-[#1e293b] animate-slide-in">
       <button
         onClick={() => navigate('/store')}
-        className="inline-flex items-center gap-2 rounded-full border border-[#ddd7cc] bg-white px-4 py-3 text-sm font-bold text-[#161412]"
+        className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2.5 text-sm font-semibold text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all shadow-sm"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to store
       </button>
 
-      <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-[34px] bg-white p-5 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-          <div className="flex aspect-square items-center justify-center rounded-[28px] bg-[#f0eeea] p-8">
-            {product.imageUrl ? (
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="h-full w-full object-contain mix-blend-multiply"
-              />
+      {/* Main Product Section */}
+      <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] items-start">
+        {/* Image Panel */}
+        <div>
+          <div className="rounded-2xl bg-gradient-to-br from-[#f8fafc] via-[#eef2ff] to-[#f5f3ff] p-6 border border-[#e2e8f0] shadow-sm overflow-hidden relative">
+            <div className="absolute top-4 left-4 z-10 flex gap-2">
+              {product.originalPrice > product.price && (
+                <span className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+                  -{product.discountPercent}% OFF
+                </span>
+              )}
+              {product.currentStock <= 5 && product.currentStock > 0 && (
+                <span className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+                  Only {product.currentStock} left
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleWishlistToggle}
+              className={`absolute top-4 right-4 z-10 p-2.5 rounded-xl border backdrop-blur-sm transition-all duration-200 btn-press shadow-sm ${
+                isWishlisted
+                  ? 'border-red-200 bg-red-50/90 text-red-500 hover:bg-red-100'
+                  : 'border-white/60 bg-white/80 text-[#64748b] hover:text-[#4f46e5] hover:border-[#4f46e5]'
+              }`}
+              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+            >
+              <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
+            </button>
+            <div className="flex aspect-square items-center justify-center p-8">
+              {product.imageUrl ? (
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="h-full w-full object-contain drop-shadow-lg transition-transform duration-500 hover:scale-105"
+                />
+              ) : (
+                <Store className="h-20 w-20 text-[#c7d2fe]" />
+              )}
+            </div>
+          </div>
+
+          {/* Product Highlights & Delivery Info */}
+          <div className="mt-4 rounded-2xl bg-white border border-[#e2e8f0] p-5 space-y-4">
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-9 h-9 rounded-lg bg-[#eef2ff] flex items-center justify-center shrink-0">
+                <svg
+                  className="w-4 h-4 text-[#4f46e5]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                {(() => {
+                  const fee = Number(product.deliveryFee ?? product.wholesaler?.deliveryFee ?? 0);
+                  const threshold = product.wholesaler?.freeDeliveryThreshold
+                    ? Number(product.wholesaler.freeDeliveryThreshold)
+                    : null;
+
+                  if (fee <= 0) {
+                    return (
+                      <>
+                        <p className="font-bold text-[#1e293b] text-xs">Free Delivery</p>
+                        <p className="text-[11px] text-[#64748b]">
+                          From {product.wholesaler?.businessName || 'this seller'}
+                        </p>
+                      </>
+                    );
+                  }
+                  if (threshold) {
+                    return (
+                      <>
+                        <p className="font-bold text-[#1e293b] text-xs">
+                          Free Delivery above {formatCurrency(threshold)}
+                        </p>
+                        <p className="text-[11px] text-[#64748b]">
+                          From {product.wholesaler?.businessName || 'this seller'}
+                        </p>
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      <p className="font-bold text-[#1e293b] text-xs">
+                        Delivery: {formatCurrency(fee)}
+                      </p>
+                      <p className="text-[11px] text-[#64748b]">
+                        From {product.wholesaler?.businessName || 'this seller'}
+                      </p>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-9 h-9 rounded-lg bg-[#eef2ff] flex items-center justify-center shrink-0">
+                <svg
+                  className="w-4 h-4 text-[#4f46e5]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-[#1e293b] text-xs">Cash on Delivery</p>
+                <p className="text-[11px] text-[#64748b]">Pay when you receive</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-9 h-9 rounded-lg bg-[#eef2ff] flex items-center justify-center shrink-0">
+                <svg
+                  className="w-4 h-4 text-[#4f46e5]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-[#1e293b] text-xs">Secure Payment</p>
+                <p className="text-[11px] text-[#64748b]">100% secure checkout</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-9 h-9 rounded-lg bg-[#eef2ff] flex items-center justify-center shrink-0">
+                <svg
+                  className="w-4 h-4 text-[#4f46e5]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-[#1e293b] text-xs">Genuine Product</p>
+                <p className="text-[11px] text-[#64748b]">Verified seller guarantee</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Stock Status */}
+          <div className="mt-4 rounded-2xl bg-white border border-[#e2e8f0] p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b] mb-2">
+              Availability
+            </p>
+            {product.currentStock > 0 ? (
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-sm font-bold text-emerald-700">In Stock</span>
+                <span className="text-xs text-[#64748b]">
+                  ({product.currentStock} units available)
+                </span>
+              </div>
             ) : (
-              <Store className="h-14 w-14 text-[#a49d92]" />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-sm font-bold text-red-600">Out of Stock</span>
+              </div>
             )}
           </div>
         </div>
 
-        <div className="rounded-[34px] bg-white p-7 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#8f5d31]">
-            {product.category || 'General'}
-          </p>
-          <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight flex items-center gap-3">
-            {product.name}
+        {/* Product Info Panel */}
+        <div className="rounded-2xl bg-white border border-[#e2e8f0] shadow-sm p-7 space-y-6">
+          {/* Breadcrumb / Category */}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#eef2ff] border border-[#c7d2fe] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#4f46e5]">
+              {product.category || 'General'}
+            </span>
             {isFetchingProduct && !isLoadingProduct && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#8f5d31]/10 text-[#8f5d31] border border-[#8f5d31]/20 animate-pulse font-sans">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 animate-pulse">
                 Syncing...
               </span>
             )}
+          </div>
+
+          {/* Title */}
+          <h1 className="text-3xl lg:text-4xl font-black leading-tight tracking-tight text-[#0f172a]">
+            {product.name}
           </h1>
 
-          <div className="mt-4 flex items-center gap-2 text-[#161412]">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Star
-                key={index}
-                className={`h-4 w-4 ${index < Math.round(product.ratingAverage || 0) ? 'fill-current' : ''}`}
-              />
-            ))}
-            <span className="text-sm text-[#6b665f]">
-              {product.ratingAverage || 0}/5 · {product.reviewCount || product.reviews?.length || 0}{' '}
-              reviews
+          {/* Rating */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Star
+                  key={index}
+                  className={`h-5 w-5 ${index < Math.round(product.ratingAverage || 0) ? 'fill-amber-400 text-amber-400' : 'text-[#e2e8f0] fill-[#e2e8f0]'}`}
+                />
+              ))}
+            </div>
+            <span className="text-sm font-semibold text-[#64748b]">
+              {product.ratingAverage || 0}/5
+            </span>
+            <span className="text-sm text-[#94a3b8]">·</span>
+            <span className="text-sm text-[#64748b]">
+              {product.reviewCount || product.reviews?.length || 0} reviews
             </span>
           </div>
 
-          <div className="mt-6 flex items-center gap-4">
-            <span className="text-4xl font-black tracking-tight">
+          {/* Price */}
+          <div className="flex items-baseline gap-3 pt-2">
+            <span className="text-4xl font-black tracking-tight text-[#0f172a]">
               {formatCurrency(product.price)}
             </span>
             {product.originalPrice > product.price && (
-              <>
-                <span className="text-xl font-semibold text-[#8b857c] line-through">
-                  {formatCurrency(product.originalPrice)}
-                </span>
-                <span className="rounded-full bg-[#f8dfdb] px-3 py-1 text-sm font-bold text-[#a44737]">
-                  -{product.discountPercent}%
-                </span>
-              </>
+              <span className="text-lg font-semibold text-[#94a3b8] line-through">
+                {formatCurrency(product.originalPrice)}
+              </span>
             )}
           </div>
 
           {hasApprovedB2BAccess && product.priceTiers?.length > 0 && (
-            <div className="mt-6 p-4 rounded-2xl bg-[#f8f6f1] border border-[#ddd7cc] text-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#8b857c] mb-3">
+            <div className="mt-6 p-4 rounded-xl bg-[#f5f3ff] border border-[#ddd6fe] text-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7c3aed] mb-3">
                 Wholesale Volume Price Tiers
               </p>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 {product.priceTiers.map((tier) => (
                   <div
                     key={tier.id}
-                    className="flex justify-between border-b border-[#ddd7cc]/40 pb-2"
+                    className="flex justify-between border-b border-[#ddd6fe]/40 pb-2"
                   >
-                    <span className="font-semibold text-[#6b665f]">{tier.minQuantity}+ units</span>
-                    <span className="font-black text-[#161412]">
+                    <span className="font-semibold text-[#64748b]">{tier.minQuantity}+ units</span>
+                    <span className="font-black text-[#1e293b]">
                       {formatCurrency(tier.unitPrice)} / unit
                     </span>
                   </div>
@@ -387,37 +579,43 @@ export default function ProductDetails() {
             </div>
           )}
 
-          <p className="mt-6 text-base leading-8 text-[#5f5951]">
+          {/* Description */}
+          <p className="text-sm leading-7 text-[#64748b] border-t border-[#e2e8f0] pt-6">
             {product.description || 'No description provided for this product.'}
           </p>
 
-          <div className="mt-6 rounded-[26px] bg-[#f8f6f1] px-5 py-5">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">Sold by</p>
-            <p className="mt-2 text-lg font-black tracking-tight flex items-center justify-between">
-              {product.wholesaler?.businessName || 'Unknown shop'}
-              <button
-                onClick={() => navigate('/store/dashboard')}
-                className="text-xs font-black uppercase tracking-wider text-amber-600 hover:text-amber-700 flex items-center gap-1 bg-transparent border-none outline-none cursor-pointer"
-              >
-                View Price Desk
-              </button>
-            </p>
+          {/* Seller Info */}
+          <div className="flex items-center justify-between rounded-xl bg-[#f8fafc] border border-[#e2e8f0] px-5 py-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
+                Sold by
+              </p>
+              <p className="mt-1 text-base font-bold text-[#1e293b]">
+                {product.wholesaler?.businessName || 'Unknown shop'}
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/store/dashboard/rfqs')}
+              className="text-[10px] font-bold uppercase tracking-wider text-[#4f46e5] hover:text-[#4338ca] bg-[#eef2ff] border border-[#c7d2fe] px-3 py-1.5 rounded-lg transition-colors btn-press"
+            >
+              Request Quote
+            </button>
           </div>
 
           {product.sizes?.length > 0 && (
-            <div className="mt-8">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#1e293b] mb-3">
                 Select size
               </p>
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {product.sizes.map((size) => (
                   <button
                     key={size}
                     onClick={() => setSelectedSize(size)}
-                    className={`rounded-full px-5 py-3 text-sm font-bold transition ${
+                    className={`rounded-lg px-5 py-2.5 text-sm font-bold transition-all btn-press ${
                       selectedSize === size
-                        ? 'bg-[#161412] text-white'
-                        : 'border border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
+                        ? 'bg-[#0f172a] text-white shadow-md'
+                        : 'border border-[#e2e8f0] bg-white text-[#1e293b] hover:border-[#0f172a]'
                     }`}
                   >
                     {size}
@@ -428,24 +626,26 @@ export default function ProductDetails() {
           )}
 
           {/* Quantity selector and checkout */}
-          <div className="mt-8 flex flex-wrap gap-4 items-end">
-            <div className="w-[120px]">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c] mb-3">
+          <div className="flex flex-wrap gap-4 items-end pt-4 border-t border-[#e2e8f0]">
+            <div className="w-[130px]">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#1e293b] mb-2">
                 Quantity
               </p>
-              <div className="flex items-center justify-between border border-[#ddd7cc] rounded-full px-3 py-3 bg-[#fbfaf7]">
+              <div className="flex items-center justify-between border border-[#e2e8f0] rounded-lg px-1 py-1 bg-white">
                 <button
                   type="button"
                   onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
-                  className="font-bold text-[#6b665f] hover:text-[#161412] px-1"
+                  className="w-9 h-9 rounded-md bg-[#f1f5f9] text-[#64748b] hover:bg-[#eef2ff] hover:text-[#4f46e5] font-bold transition-colors flex items-center justify-center"
                 >
                   -
                 </button>
-                <span className="font-bold text-sm font-mono">{quantity}</span>
+                <span className="font-bold text-base font-mono text-[#0f172a] min-w-8 text-center">
+                  {quantity}
+                </span>
                 <button
                   type="button"
                   onClick={() => setQuantity(quantity + 1)}
-                  className="font-bold text-[#6b665f] hover:text-[#161412] px-1"
+                  className="w-9 h-9 rounded-md bg-[#f1f5f9] text-[#64748b] hover:bg-[#eef2ff] hover:text-[#4f46e5] font-bold transition-colors flex items-center justify-center"
                 >
                   +
                 </button>
@@ -454,23 +654,10 @@ export default function ProductDetails() {
 
             <button
               onClick={handleAddToCart}
-              className="flex-1 min-w-[200px] flex items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2d2a27] h-[52px]"
+              className="flex-1 min-w-[220px] flex items-center justify-center gap-3 rounded-xl bg-[#4f46e5] px-6 py-4 text-sm font-bold text-white transition-all hover:bg-[#4338ca] shadow-lg shadow-[#4f46e5]/25 hover:shadow-xl hover:shadow-[#4f46e5]/30 hover:-translate-y-0.5 btn-press"
             >
               <ShoppingBag className="h-5 w-5" />
-              Add to cart
-            </button>
-
-            <button
-              type="button"
-              onClick={handleWishlistToggle}
-              className={`p-3.5 rounded-full border transition-all duration-200 flex items-center justify-center shrink-0 h-[52px] w-[52px] ${
-                isWishlisted
-                  ? 'border-red-200 bg-red-50 text-red-500 hover:bg-red-100/50'
-                  : 'border-[#ddd7cc] bg-[#fbfaf7] hover:border-[#161412] text-[#6b665f] hover:text-[#161412]'
-              }`}
-              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
-            >
-              <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
+              Add to Cart
             </button>
           </div>
 
@@ -482,19 +669,18 @@ export default function ProductDetails() {
 
           {/* RFQ Quote Proposal Form */}
           {hasApprovedB2BAccess && (
-            <div className="mt-8 pt-6 border-t border-[#f3efe8]">
-              <h3 className="font-black text-lg tracking-tight flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-amber-500" /> Request Custom Quote (RFQ)
+            <div className="rounded-xl bg-[#faf5ff] border border-[#ddd6fe] p-5">
+              <h3 className="font-bold text-sm tracking-tight flex items-center gap-2 text-[#1e293b]">
+                <MessageSquare className="w-4 h-4 text-[#7c3aed]" /> Request Custom Quote
               </h3>
-              <p className="text-xs text-[#6b665f] mt-1 leading-relaxed">
-                Negotiate prices below tiers by proposing your target bid directly to the
-                wholesaler.
+              <p className="text-[11px] text-[#64748b] mt-1 leading-relaxed">
+                Propose your target bid directly to the wholesaler for bulk pricing.
               </p>
-              <form onSubmit={handleRfqSubmit} className="mt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+              <form onSubmit={handleRfqSubmit} className="mt-3 space-y-2.5">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">
-                      Target Quantity
+                    <label className="block text-[10px] font-bold text-[#64748b] uppercase tracking-wider mb-1">
+                      Quantity
                     </label>
                     <input
                       required
@@ -503,12 +689,12 @@ export default function ProductDetails() {
                       value={targetQty}
                       onChange={(e) => setTargetQty(e.target.value)}
                       placeholder={`Min ${product.minOrderQty}`}
-                      className="w-full px-3 py-2 bg-[#fbfaf7] border border-[#ddd7cc] rounded-xl text-xs focus:outline-none focus:border-[#161412] font-mono text-[#161412]"
+                      className="w-full px-3 py-2 bg-white border border-[#e2e8f0] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] font-mono text-[#1e293b] transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">
-                      Target Price (₹/unit)
+                    <label className="block text-[10px] font-bold text-[#64748b] uppercase tracking-wider mb-1">
+                      Price (₹/unit)
                     </label>
                     <input
                       required
@@ -516,29 +702,24 @@ export default function ProductDetails() {
                       step="0.01"
                       value={targetPrice}
                       onChange={(e) => setTargetPrice(e.target.value)}
-                      placeholder={`Catalog is ₹${product.price}`}
-                      className="w-full px-3 py-2 bg-[#fbfaf7] border border-[#ddd7cc] rounded-xl text-xs focus:outline-none focus:border-[#161412] font-mono text-[#161412]"
+                      placeholder={`₹${product.price}`}
+                      className="w-full px-3 py-2 bg-white border border-[#e2e8f0] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] font-mono text-[#1e293b] transition-all"
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-[#8f877b] uppercase tracking-wider mb-1">
-                    Comments / Terms
-                  </label>
-                  <input
-                    type="text"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Describe custom logistics, contracts, etc."
-                    className="w-full px-3 py-2 bg-[#fbfaf7] border border-[#ddd7cc] rounded-xl text-xs focus:outline-none focus:border-[#161412] text-[#161412]"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Notes (logistics, contracts, etc.)"
+                  className="w-full px-3 py-2 bg-white border border-[#e2e8f0] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] text-[#1e293b] transition-all"
+                />
                 <button
                   type="submit"
                   disabled={createRfq.isPending}
-                  className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-[#0a0a0a] font-bold text-xs uppercase tracking-widest py-3.5 rounded-full transition-all"
+                  className="w-full bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] hover:from-[#6d28d9] hover:to-[#4338ca] disabled:opacity-50 text-white font-bold text-[11px] uppercase tracking-wider py-2.5 rounded-lg transition-all shadow-sm btn-press"
                 >
-                  {createRfq.isPending ? 'Uploading Bid...' : 'Submit Target Price Offer'}
+                  {createRfq.isPending ? 'Submitting...' : 'Submit Price Offer'}
                 </button>
               </form>
             </div>
@@ -546,128 +727,188 @@ export default function ProductDetails() {
         </div>
       </section>
 
-      <section className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr]">
-        <div className="rounded-[34px] bg-white p-7 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-          <h2 className="text-3xl font-black tracking-tight">Reviews</h2>
-          {isAuthenticated ? (
-            <form
-              onSubmit={handleReviewSubmit}
-              className="mt-6 space-y-4 rounded-[28px] bg-[#f8f6f1] p-5"
-            >
-              <div className="flex flex-wrap gap-3">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRating(value)}
-                    className={`rounded-full px-4 py-2 text-sm font-bold ${
-                      rating === value ? 'bg-[#161412] text-white' : 'bg-white text-[#161412]'
-                    }`}
-                  >
-                    {value} Star
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={comment}
-                onChange={(event) => setComment(event.target.value)}
-                placeholder="Share your product experience"
-                rows={4}
-                className="w-full rounded-[22px] border border-[#ddd7cc] bg-white px-4 py-4 text-sm outline-none"
-              />
+      {/* You might also like — horizontal scroll */}
+      <section className="rounded-2xl bg-white p-7 border border-[#e2e8f0] shadow-sm">
+        <h2 className="text-xl font-black tracking-tight text-[#0f172a]">You might also like</h2>
+        <div className="mt-5 flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
+          {isLoadingSimilar ? (
+            <div className="min-w-full rounded-xl bg-[#f8fafc] border border-[#e2e8f0] px-5 py-8 text-sm font-semibold text-[#64748b] text-center animate-pulse">
+              Loading similar products...
+            </div>
+          ) : similarProducts.length > 0 ? (
+            similarProducts.map((item) => (
               <button
-                type="submit"
-                disabled={isSubmittingReview}
-                className="rounded-full bg-[#161412] px-5 py-3 text-sm font-bold text-white"
+                key={item.product.id}
+                onClick={() => handleRecommendationClick(item.product)}
+                className="min-w-[180px] max-w-[180px] flex-shrink-0 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-3 text-left transition-all hover:border-[#4f46e5] hover:shadow-md hover:shadow-[#4f46e5]/5 card-hover-subtle"
               >
-                {isSubmittingReview ? 'Posting review...' : 'Post review'}
+                <div className="flex h-28 w-full items-center justify-center rounded-lg bg-white border border-[#e2e8f0] p-2 mb-3">
+                  {item.product.imageUrl ? (
+                    <img
+                      src={item.product.imageUrl}
+                      alt={item.product.name}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <Store className="h-8 w-8 text-[#94a3b8]" />
+                  )}
+                </div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-[#4f46e5]">
+                  {item.product.category || 'General'}
+                </p>
+                <p className="mt-1 text-xs font-bold tracking-tight text-[#1e293b] line-clamp-2">
+                  {item.product.name}
+                </p>
+                <p className="mt-1.5 text-sm font-black font-mono text-[#4f46e5]">
+                  {formatCurrency(item.product.price)}
+                </p>
               </button>
-            </form>
+            ))
           ) : (
-            <div className="mt-6 rounded-[28px] bg-[#f8f6f1] p-6 text-center border border-dashed border-[#ddd7cc]">
-              <p className="text-sm font-semibold text-[#6b665f]">
-                You must be logged in to leave a review.
-              </p>
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal'))}
-                className="mt-4 rounded-full bg-[#161412] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#2c2926]"
-              >
-                Login / Register
-              </button>
+            <div className="min-w-full rounded-xl border border-dashed border-[#e2e8f0] px-5 py-8 text-sm text-[#64748b] text-center">
+              Similar products will appear after recommendation jobs are built.
             </div>
           )}
-
-          <div className="mt-6 space-y-4">
-            {(product.reviews || []).length ? (
-              product.reviews.map((review) => (
-                <div key={review.id} className="rounded-[24px] border border-[#ece7de] p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-[#161412]">
-                      {review.user?.name || 'Customer'}
-                    </p>
-                    <span className="text-sm text-[#6b665f]">{review.rating}/5</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-[#5f5951]">
-                    {review.comment || 'No comment left.'}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-[24px] border border-dashed border-[#ddd7cc] px-5 py-8 text-sm text-[#6b665f]">
-                No reviews yet. Be the first to review this product.
-              </div>
-            )}
-          </div>
         </div>
+      </section>
 
-        <div className="rounded-[34px] bg-white p-7 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-          <h2 className="text-3xl font-black tracking-tight">You might also like</h2>
-          <div className="mt-6 grid gap-4">
-            {isLoadingSimilar ? (
-              <div className="rounded-[24px] bg-[#f8f6f1] px-5 py-8 text-sm font-semibold text-[#6b665f]">
-                Loading similar products...
-              </div>
-            ) : similarProducts.length > 0 ? (
-              similarProducts.map((item) => (
+      {/* Customer Reviews — with pagination */}
+      <section className="rounded-2xl bg-white p-7 border border-[#e2e8f0] shadow-sm">
+        <h2 className="text-xl font-black tracking-tight text-[#0f172a] flex items-center gap-2">
+          <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+          Customer Reviews
+          {(product.reviews || []).length > 0 && (
+            <span className="text-xs font-mono font-bold text-[#64748b] bg-[#f1f5f9] border border-[#e2e8f0] px-2 py-0.5 rounded-lg">
+              {(product.reviews || []).length}
+            </span>
+          )}
+        </h2>
+
+        {isAuthenticated ? (
+          <form
+            onSubmit={handleReviewSubmit}
+            className="mt-6 space-y-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-5"
+          >
+            <div className="flex flex-wrap gap-2.5">
+              {[1, 2, 3, 4, 5].map((value) => (
                 <button
-                  key={item.product.id}
-                  onClick={() => handleRecommendationClick(item.product)}
-                  className="flex items-center gap-4 rounded-[26px] bg-[#f8f6f1] p-4 text-left transition hover:bg-[#f1ede6]"
+                  key={value}
+                  type="button"
+                  onClick={() => setRating(value)}
+                  className={`rounded-xl px-4 py-2 text-sm font-bold transition-all btn-press ${
+                    rating === value
+                      ? 'bg-[#4f46e5] text-white shadow-sm'
+                      : 'bg-white border border-[#e2e8f0] text-[#1e293b] hover:border-[#4f46e5]'
+                  }`}
                 >
-                  <div className="flex h-24 w-24 items-center justify-center rounded-[22px] bg-white p-3">
-                    {item.product.imageUrl ? (
-                      <img
-                        src={item.product.imageUrl}
-                        alt={item.product.name}
-                        className="h-full w-full object-contain mix-blend-multiply"
-                      />
-                    ) : (
-                      <Store className="h-8 w-8 text-[#a49d92]" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-                      {item.product.category || 'General'}
-                    </p>
-                    <p className="mt-2 text-base font-black tracking-tight text-[#161412]">
-                      {item.product.name}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[#161412]">
-                      {formatCurrency(item.product.price)}
-                    </p>
-                    {item.reasons?.[0] && (
-                      <p className="mt-2 text-xs leading-5 text-[#6b665f]">{item.reasons[0]}</p>
-                    )}
-                  </div>
+                  {value} Star
                 </button>
-              ))
-            ) : (
-              <div className="rounded-[24px] border border-dashed border-[#ddd7cc] px-5 py-8 text-sm text-[#6b665f]">
-                Similar products will appear after recommendation jobs are built.
-              </div>
-            )}
+              ))}
+            </div>
+            <textarea
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              placeholder="Share your product experience"
+              rows={3}
+              className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4f46e5]/20 focus:border-[#4f46e5] transition-all"
+            />
+            <button
+              type="submit"
+              disabled={isSubmittingReview}
+              className="rounded-xl bg-[#1e293b] px-5 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#4f46e5] transition-all btn-press"
+            >
+              {isSubmittingReview ? 'Posting review...' : 'Post review'}
+            </button>
+          </form>
+        ) : (
+          <div className="mt-6 rounded-xl bg-[#f8fafc] border border-dashed border-[#e2e8f0] p-6 text-center">
+            <p className="text-sm font-semibold text-[#64748b]">
+              You must be logged in to leave a review.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal'))}
+              className="mt-4 rounded-xl bg-[#4f46e5] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#4338ca] btn-press"
+            >
+              Login / Register
+            </button>
           </div>
+        )}
+
+        {/* Paginated Reviews */}
+        <div className="mt-6">
+          {(product.reviews || []).length > 0 ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(product.reviews || [])
+                  .slice((reviewPage - 1) * reviewsPerPage, reviewPage * reviewsPerPage)
+                  .map((review) => (
+                    <div key={review.id} className="rounded-xl border border-[#e2e8f0] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-bold text-[#1e293b]">
+                          {review.user?.name || 'Customer'}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          <span className="text-xs font-bold text-[#64748b]">
+                            {review.rating}/5
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#64748b] line-clamp-3">
+                        {review.comment || 'No comment left.'}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Pagination controls */}
+              {(product.reviews || []).length > reviewsPerPage && (
+                <div className="mt-5 flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setReviewPage((p) => Math.max(1, p - 1))}
+                    disabled={reviewPage === 1}
+                    className="p-2 rounded-lg border border-[#e2e8f0] text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] disabled:opacity-30 disabled:cursor-not-allowed transition-all btn-press"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  {Array.from(
+                    { length: Math.ceil((product.reviews || []).length / reviewsPerPage) },
+                    (_, i) => i + 1
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setReviewPage(page)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all btn-press ${
+                        reviewPage === page
+                          ? 'bg-[#4f46e5] text-white shadow-sm'
+                          : 'border border-[#e2e8f0] text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5]'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setReviewPage((p) =>
+                        Math.min(Math.ceil((product.reviews || []).length / reviewsPerPage), p + 1)
+                      )
+                    }
+                    disabled={
+                      reviewPage >= Math.ceil((product.reviews || []).length / reviewsPerPage)
+                    }
+                    className="p-2 rounded-lg border border-[#e2e8f0] text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] disabled:opacity-30 disabled:cursor-not-allowed transition-all btn-press"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[#e2e8f0] px-5 py-8 text-sm text-[#64748b] text-center">
+              No reviews yet. Be the first to review this product.
+            </div>
+          )}
         </div>
       </section>
     </div>

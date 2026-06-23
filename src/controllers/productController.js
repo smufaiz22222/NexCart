@@ -37,7 +37,9 @@ const normalizeProductInput = (body) => {
   }
 
   if (actualPrice > 0 && actualPrice < price) {
-    const err = new Error('Actual price (original price) must be greater than or equal to the discounted selling price');
+    const err = new Error(
+      'Actual price (original price) must be greater than or equal to the discounted selling price'
+    );
     err.statusCode = 400;
     throw err;
   }
@@ -63,9 +65,10 @@ const decorateProductForMarketplace = (product) => {
   const ratingAverage = reviewCount
     ? Number((ratings.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1))
     : 0;
-  const originalPrice = product.actualPrice && product.actualPrice > 0
-    ? Number(Number(product.actualPrice).toFixed(2))
-    : product.price;
+  const originalPrice =
+    product.actualPrice && product.actualPrice > 0
+      ? Number(Number(product.actualPrice).toFixed(2))
+      : product.price;
   const discountPercent =
     originalPrice > product.price
       ? Math.round(((originalPrice - product.price) / originalPrice) * 100)
@@ -125,12 +128,17 @@ export const getMarketplaceProducts = async (req, res) => {
     const pageSize = parseInt(req.query.pageSize, 10) || 24;
     const search = req.query.search ? String(req.query.search).trim() : '';
     const category = req.query.category ? String(req.query.category).trim() : '';
+    const subcategory = req.query.subcategory ? String(req.query.subcategory).trim() : '';
     const sortBy = req.query.sortBy ? String(req.query.sortBy).trim() : '';
 
     const where = { currentStock: { gt: 0 } };
 
     if (category && category !== 'All') {
       where.category = category;
+    }
+
+    if (subcategory) {
+      where.subcategory = subcategory;
     }
 
     if (search) {
@@ -140,8 +148,6 @@ export const getMarketplaceProducts = async (req, res) => {
         { wholesaler: { businessName: { contains: search, mode: 'insensitive' } } },
       ];
     }
-
-    const totalCount = await prisma.product.count({ where });
 
     let orderBy = [{ createdAt: 'desc' }];
     if (sortBy === 'topRated' || sortBy === 'topSelling') {
@@ -153,7 +159,14 @@ export const getMarketplaceProducts = async (req, res) => {
         },
         { createdAt: 'desc' },
       ];
+    } else if (sortBy === 'newArrivals') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      where.createdAt = { gte: sevenDaysAgo };
+      orderBy = [{ createdAt: 'desc' }];
     }
+
+    const totalCount = await prisma.product.count({ where });
 
     const findManyArgs = {
       where,
@@ -207,7 +220,7 @@ export const getProductById = async (req, res) => {
     const product = await prisma.product.findFirst({
       where: req.user?.role === 'WHOLESALER' ? { id, wholesalerId: req.user.wholesalerId } : { id },
       include: {
-        wholesaler: { select: { businessName: true, deliveryFee: true } },
+        wholesaler: { select: { businessName: true, deliveryFee: true, freeDeliveryThreshold: true } },
         reviews: {
           include: { user: { select: { name: true } } },
           orderBy: { createdAt: 'desc' },

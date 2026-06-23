@@ -8,9 +8,11 @@ import {
   Package2,
   Plus,
   ReceiptIndianRupee,
+  ShoppingCart,
   Wallet,
   Camera,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../utils/cn';
@@ -86,7 +88,7 @@ function formatCurrency(value) {
   })}`;
 }
 
-function MetricCard({ icon: Icon, label, value, tone = 'amber' }) {
+function MetricCard({ icon: Icon, label, value, subtitle, tone = 'amber' }) {
   const toneClass =
     tone === 'emerald'
       ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
@@ -101,6 +103,7 @@ function MetricCard({ icon: Icon, label, value, tone = 'amber' }) {
         <Icon className="h-5 w-5 opacity-80" />
       </div>
       <p className="mt-4 text-2xl font-black tracking-tight">{value}</p>
+      {subtitle ? <p className="mt-1 text-xs font-semibold opacity-70">{subtitle}</p> : null}
     </div>
   );
 }
@@ -511,7 +514,7 @@ export default function Ledger() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={Wallet}
           label="Assets"
@@ -534,17 +537,36 @@ export default function Ledger() {
           value={isLoading ? 'Loading...' : formatCurrency(hub.overview.partiesPayable)}
           tone="rose"
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={ReceiptIndianRupee}
           label="Offline Sales"
-          value={isLoading ? 'Loading...' : formatCurrency(hub.overview.totalSales)}
+          value={isLoading ? 'Loading...' : formatCurrency(hub.overview.offline?.totalSales ?? 0)}
+          subtitle={isLoading ? '' : `Collected: ${formatCurrency(hub.overview.offline?.totalReceived ?? 0)}`}
           tone="emerald"
         />
         <MetricCard
+          icon={ShoppingCart}
+          label="E-commerce Sales"
+          value={isLoading ? 'Loading...' : formatCurrency(hub.overview.ecommerce?.totalSales ?? 0)}
+          subtitle={isLoading ? '' : `${hub.overview.ecommerce?.count ?? 0} orders`}
+          tone="amber"
+        />
+        <MetricCard
           icon={BookOpen}
-          label="Collected"
-          value={isLoading ? 'Loading...' : formatCurrency(hub.overview.totalReceived)}
+          label="Ecom Collected"
+          value={isLoading ? 'Loading...' : formatCurrency(hub.overview.ecommerce?.totalReceived ?? 0)}
+          subtitle={isLoading ? '' : `Outstanding: ${formatCurrency(hub.overview.ecommerce?.totalOutstanding ?? 0)}`}
           tone="emerald"
+        />
+        <MetricCard
+          icon={AlertCircle}
+          label="Ecom Pending"
+          value={isLoading ? 'Loading...' : `${hub.overview.ecommerce?.pendingCount ?? 0} orders`}
+          subtitle={isLoading ? '' : formatCurrency(hub.overview.ecommerce?.totalOutstanding ?? 0)}
+          tone="rose"
         />
       </div>
 
@@ -683,6 +705,62 @@ export default function Ledger() {
             </div>
           </SectionCard>
         </div>
+      ) : null}
+
+      {activeTab === 'overview' ? (
+        (() => {
+          const pendingEcomOrders = (hub.sales || []).filter(
+            (s) => s.type === 'ECOMMERCE' && s.balanceDue > 0
+          );
+          if (pendingEcomOrders.length === 0) return null;
+          return (
+            <SectionCard
+              title="Pending E-commerce Payments"
+              description={`${pendingEcomOrders.length} marketplace order(s) with outstanding payment.`}
+            >
+              <div className="overflow-hidden rounded-2xl border border-zinc-800">
+                <table className="min-w-full divide-y divide-zinc-800 text-sm">
+                  <thead className="bg-[#0d0d0d] text-left text-zinc-400">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Order</th>
+                      <th className="px-4 py-3 font-semibold">Customer</th>
+                      <th className="px-4 py-3 font-semibold">Method</th>
+                      <th className="px-4 py-3 text-right font-semibold">Total</th>
+                      <th className="px-4 py-3 text-right font-semibold">Due</th>
+                      <th className="px-4 py-3 text-center font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {pendingEcomOrders.map((order) => (
+                      <tr key={order.id} className="bg-[#121212] hover:bg-zinc-900/30 transition">
+                        <td className="px-4 py-3 font-semibold text-white">{order.invoiceNumber}</td>
+                        <td className="px-4 py-3 text-zinc-300">{order.partyName}</td>
+                        <td className="px-4 py-3 text-zinc-400">{order.paymentMethod}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-white">
+                          {formatCurrency(order.totalAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-rose-300">
+                          {formatCurrency(order.balanceDue)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {order.isPendingBankTransfer ? (
+                            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-300">
+                              Awaiting Verification
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-bold text-rose-300">
+                              Unpaid
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          );
+        })()
       ) : null}
 
       {activeTab === 'sales' ? (

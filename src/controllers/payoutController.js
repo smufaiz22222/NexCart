@@ -101,13 +101,8 @@ export const adminRejectPayoutRequest = async (req, res) => {
 export const updateWholesalerPayoutSettings = async (req, res) => {
   try {
     const wholesalerId = req.user.wholesalerId;
-    const {
-      useSameAsB2B,
-      payoutBankName,
-      payoutBankAccountNo,
-      payoutBankIfsc,
-      payoutUpiId,
-    } = req.body;
+    const { useSameAsB2B, payoutBankName, payoutBankAccountNo, payoutBankIfsc, payoutUpiId } =
+      req.body;
 
     const updatedWholesaler = await payoutService.updateWholesalerPayoutSettings({
       wholesalerId,

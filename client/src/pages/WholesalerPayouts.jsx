@@ -23,7 +23,9 @@ export default function WholesalerPayouts() {
   const profile = user?.wholesalerProfile;
   const [useSameAsB2B, setUseSameAsB2B] = useState(profile?.useSameAsB2B ?? true);
   const [payoutBankName, setPayoutBankName] = useState(profile?.payoutBankName || '');
-  const [payoutBankAccountNo, setPayoutBankAccountNo] = useState(profile?.payoutBankAccountNo || '');
+  const [payoutBankAccountNo, setPayoutBankAccountNo] = useState(
+    profile?.payoutBankAccountNo || ''
+  );
   const [payoutBankIfsc, setPayoutBankIfsc] = useState(profile?.payoutBankIfsc || '');
   const [payoutUpiId, setPayoutUpiId] = useState(profile?.payoutUpiId || '');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -51,7 +53,7 @@ export default function WholesalerPayouts() {
       };
       await apiClient.put('/payouts/wholesaler/payout-settings', payload);
       toast.success('Payout settlement settings updated successfully!');
-      
+
       const profileRes = await apiClient.get('/auth/profile');
       if (profileRes.data?.user) {
         setUser(profileRes.data.user);
@@ -115,8 +117,8 @@ export default function WholesalerPayouts() {
   };
 
   const hasBankDetails = useSameAsB2B
-    ? (profile?.bankAccountNo || profile?.upiId)
-    : (profile?.payoutBankAccountNo || profile?.payoutUpiId);
+    ? profile?.bankAccountNo || profile?.upiId
+    : profile?.payoutBankAccountNo || profile?.payoutUpiId;
 
   if (isSummaryLoading || isRequestsLoading) {
     return (
@@ -139,8 +141,15 @@ export default function WholesalerPayouts() {
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ─── SECTION: Balance Overview ─── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Balance Overview
+          </h2>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Withdrawable Balance */}
         <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
           <div className="absolute right-4 top-4 text-amber-500/20">
@@ -208,9 +217,18 @@ export default function WholesalerPayouts() {
           </p>
           <div className="mt-2 text-xs text-zinc-500">Transferred to your bank/UPI</div>
         </div>
-      </div>
+        </div>
+      </section>
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      {/* ─── SECTION: Settlement & Withdrawal ─── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Settlement &amp; Withdrawal
+          </h2>
+        </div>
+        <div className="grid gap-8 lg:grid-cols-3">
         {/* Left/Middle Column: Request Form & Bank Details */}
         <div className="space-y-8 lg:col-span-2">
           {/* Bank Account Details Card */}
@@ -221,7 +239,8 @@ export default function WholesalerPayouts() {
             </h2>
             <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-zinc-400">
-                Configure whether to use your B2B account or a separate custom account for platform cashouts.
+                Configure whether to use your B2B account or a separate custom account for platform
+                cashouts.
               </p>
             </div>
 
@@ -252,8 +271,10 @@ export default function WholesalerPayouts() {
                     if (profileRes.data?.user) {
                       setUser(profileRes.data.user);
                     }
-                    toast.success(`Switched payout target to ${nextVal ? 'B2B Account' : 'Custom Account'}`);
-                  } catch (err) {
+                    toast.success(
+                      `Switched payout target to ${nextVal ? 'B2B Account' : 'Custom Account'}`
+                    );
+                  } catch {
                     toast.error('Failed to change payout target.');
                     setUseSameAsB2B(!nextVal); // revert
                   }
@@ -296,7 +317,9 @@ export default function WholesalerPayouts() {
                         <p className="font-mono text-xs text-zinc-400">IFSC: {profile.bankIfsc}</p>
                       </div>
                     ) : (
-                      <p className="mt-2 text-sm text-zinc-500 italic">No bank account details configured.</p>
+                      <p className="mt-2 text-sm text-zinc-500 italic">
+                        No bank account details configured.
+                      </p>
                     )}
                   </div>
 
@@ -320,7 +343,7 @@ export default function WholesalerPayouts() {
                 <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider block">
                   Custom Payout Settlement Details
                 </span>
-                
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
@@ -412,7 +435,8 @@ export default function WholesalerPayouts() {
                     </>
                   ) : (
                     <p className="mt-1 text-xs text-red-400">
-                      Please enter and save your payout-specific bank details or UPI ID above before you can request withdrawals.
+                      Please enter and save your payout-specific bank details or UPI ID above before
+                      you can request withdrawals.
                     </p>
                   )}
                 </div>
@@ -527,9 +551,18 @@ export default function WholesalerPayouts() {
           </div>
         </div>
       </div>
+      </section>
 
-      {/* Requests History Table */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+      {/* ─── SECTION: Request History ─── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Request History
+          </h2>
+        </div>
+        {/* Requests History Table */}
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
         <div className="px-6 py-5 border-b border-zinc-800">
           <h2 className="text-lg font-bold text-white">Withdrawal Request History</h2>
           <p className="text-xs text-zinc-500 mt-1">
@@ -624,6 +657,7 @@ export default function WholesalerPayouts() {
           )}
         </div>
       </div>
+      </section>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, LoaderCircle, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, LoaderCircle, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
+import { cn } from '../utils/cn';
 import { toast } from 'sonner';
 
 import { useRazorpayCheckout } from '../components/cart/useRazorpayCheckout';
@@ -181,11 +182,9 @@ export default function Cart() {
     }
   };
 
-  const selectedAddress = addresses.find((address) => address.id === selectedAddressId);
-
   if (isHydrating && !hasHydrated) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center text-[#161412]">
+      <div className="flex min-h-[60vh] items-center justify-center text-[#4f46e5]">
         <LoaderCircle className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -193,20 +192,20 @@ export default function Cart() {
 
   if (hasHydrated && cart.length === 0) {
     return (
-      <div className="flex min-h-[80vh] flex-col items-center justify-center rounded-[34px] bg-white px-6 py-16 text-center shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-        <div className="rounded-full bg-[#f8f6f1] p-6">
-          <ShoppingBag className="h-16 w-16 text-[#161412]" />
+      <div className="flex min-h-[80vh] flex-col items-center justify-center rounded-2xl bg-white border border-[#e2e8f0] px-6 py-16 text-center shadow-sm">
+        <div className="w-20 h-20 rounded-2xl bg-[#eef2ff] flex items-center justify-center">
+          <ShoppingBag className="h-10 w-10 text-[#4f46e5]" />
         </div>
-        <h2 className="mt-6 text-3xl font-black tracking-tight text-[#161412]">
+        <h2 className="mt-6 text-2xl font-black tracking-tight text-[#1e293b]">
           Your cart is empty
         </h2>
-        <p className="mt-3 max-w-md text-sm leading-7 text-[#6b665f]">
-          Looks like you haven&apos;t added anything yet. Browse the latest storefront collections
-          and come back when something fits.
+        <p className="mt-3 max-w-md text-sm leading-6 text-[#64748b]">
+          Looks like you haven&apos;t added anything yet. Browse the storefront and come back when
+          something catches your eye.
         </p>
         <button
           onClick={() => navigate('/store')}
-          className="mt-8 rounded-full bg-[#161412] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#2c2926]"
+          className="mt-8 rounded-xl bg-[#4f46e5] px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#4338ca] shadow-sm btn-press"
         >
           Start shopping
         </button>
@@ -215,23 +214,33 @@ export default function Cart() {
   }
 
   return (
-    <div className="space-y-8 pb-12 text-[#161412]">
-      <button
-        onClick={() => navigate('/store')}
-        className="inline-flex items-center gap-2 rounded-full border border-[#ddd7cc] bg-white px-4 py-3 text-sm font-bold text-[#161412]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to store
-      </button>
-
-      <div className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr]">
-        <section className="space-y-6">
-          <div className="rounded-[34px] bg-white p-6 shadow-[0_18px_45px_rgba(22,20,18,0.05)]">
-            <h1 className="text-4xl font-black tracking-tight text-[#161412]">Your cart</h1>
-            <p className="mt-3 text-sm leading-7 text-[#6b665f]">
-              Server-synced across refreshes, with checkout built around saved delivery addresses.
+    <div className="space-y-6 pb-12 text-[#1e293b]">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#4f46e5]">
+            <ShoppingBag className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-[#0f172a]">Shopping Cart</h1>
+            <p className="text-xs text-[#64748b]">
+              {totals.itemCount} item{totals.itemCount !== 1 ? 's' : ''} in your cart
             </p>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/store')}
+          className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2.5 text-xs font-bold text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Continue Shopping
+        </button>
+      </div>
 
+      <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr] items-start">
+        <section className="space-y-6">
+          {/* Cart Items */}
+          <div className="rounded-2xl bg-white p-6 border border-[#e2e8f0] shadow-sm">
             <CartItemList
               cart={cart}
               updateQuantity={updateQuantity}
@@ -239,6 +248,7 @@ export default function Cart() {
             />
           </div>
 
+          {/* Address Section */}
           {isAuthenticated && isCustomer ? (
             <AddressManager
               addresses={addresses}
@@ -264,32 +274,39 @@ export default function Cart() {
               handleAddressSubmit={handleAddressSubmit}
             />
           ) : (
-            <div className="rounded-[34px] bg-white p-8 text-center shadow-[0_18px_45px_rgba(22,20,18,0.05)] border border-dashed border-[#ddd7cc] flex flex-col items-center justify-center min-h-[260px]">
-              <p className="text-xl font-black tracking-tight text-[#161412]">Shipping Details</p>
-              <p className="mt-2 text-sm text-[#6b665f] max-w-sm mx-auto leading-6">
+            <div className="rounded-2xl bg-white p-8 text-center border border-dashed border-[#e2e8f0] flex flex-col items-center justify-center min-h-[200px] shadow-sm">
+              <p className="text-base font-bold text-[#1e293b]">Shipping Address</p>
+              <p className="mt-2 text-sm text-[#64748b] max-w-sm mx-auto">
                 {isAuthenticated
-                  ? 'This cart checkout flow is only available for customer accounts.'
-                  : 'Please sign in or create a customer account to save your delivery addresses and proceed with checkout.'}
+                  ? 'Checkout is available for customer accounts only.'
+                  : 'Sign in to save your delivery address and proceed to checkout.'}
               </p>
               {!isAuthenticated && (
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal'))}
-                  className="mt-6 rounded-full bg-[#161412] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#2c2926]"
+                  className="mt-5 rounded-xl bg-[#4f46e5] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#4338ca] shadow-sm btn-press"
                 >
-                  Login / Register to Checkout
+                  Login to Continue
                 </button>
               )}
             </div>
           )}
+
+          {/* Payment Method Selection */}
+          {isAuthenticated && isCustomer && (
+            <PaymentMethodSection
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+            />
+          )}
         </section>
 
+        {/* Checkout Sidebar */}
         <CheckoutSummary
           isAuthenticated={isAuthenticated}
           isCustomer={isCustomer}
-          selectedAddress={selectedAddress}
           paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
           deliveryDetails={deliveryDetails}
           totals={totals}
           checkoutError={checkoutError}
@@ -297,6 +314,45 @@ export default function Cart() {
           isProcessing={isProcessing}
           handleCheckout={handleCheckout}
         />
+      </div>
+    </div>
+  );
+}
+
+function PaymentMethodSection({ paymentMethod, setPaymentMethod }) {
+  const options = [
+    { value: 'COD', label: 'Cash on Delivery', icon: Banknote },
+    { value: 'PREPAID', label: 'Pay Online (Razorpay)', icon: CreditCard },
+  ];
+
+  return (
+    <div className="rounded-2xl bg-white p-5 border border-[#e2e8f0] shadow-sm">
+      <h3 className="text-sm font-bold text-[#0f172a] mb-3">Payment Method</h3>
+      <div className="flex gap-3">
+        {options.map((option) => {
+          const Icon = option.icon;
+          const isActive = paymentMethod === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setPaymentMethod(option.value)}
+              className={cn(
+                'flex-1 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all btn-press',
+                isActive
+                  ? 'border-[#4f46e5] bg-[#eef2ff] shadow-sm'
+                  : 'border-[#e2e8f0] bg-[#f8fafc] hover:border-[#4f46e5]/40'
+              )}
+            >
+              <Icon className={cn('h-5 w-5', isActive ? 'text-[#4f46e5]' : 'text-[#94a3b8]')} />
+              <span
+                className={cn('text-xs font-bold', isActive ? 'text-[#4f46e5]' : 'text-[#64748b]')}
+              >
+                {option.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

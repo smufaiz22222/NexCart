@@ -123,38 +123,59 @@ export default function AiKhatta() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto font-sans selection:bg-amber-500/30 selection:text-amber-200">
-      <h1 className="text-2xl font-bold text-white flex items-center tracking-wide">
-        <FileText className="h-6 w-6 mr-3 text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-        AI Khatta Digitizer
-      </h1>
-      <p className="text-sm text-zinc-400 -mt-4">
-        Upload handwritten ledgers or invoices for automatic data extraction.
-      </p>
+    <div className="space-y-8 max-w-5xl mx-auto font-sans selection:bg-amber-500/30 selection:text-amber-200">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-white flex items-center tracking-tight">
+          <FileText className="h-7 w-7 mr-3 text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+          AI Khatta Digitizer
+        </h1>
+        <p className="text-sm text-zinc-400 mt-2">
+          Upload handwritten ledgers or invoices for automatic data extraction using AI Vision.
+        </p>
+      </div>
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg text-sm font-medium flex items-center">
-          <AlertCircle className="h-5 w-5 mr-2" />
+          <AlertCircle className="h-5 w-5 mr-2 shrink-0" />
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="flex flex-col space-y-6">
-          <div className="bg-[#1c1c1c] rounded-xl shadow-2xl border border-zinc-800 p-6 flex-grow flex flex-col">
-            <label className="flex flex-col items-center justify-center w-full flex-grow border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer bg-[#0a0a0a] hover:bg-zinc-900/50 hover:border-amber-500/50 transition-all duration-300 group min-h-[250px]">
-              <UploadCloud className="w-12 h-12 text-zinc-600 mb-4 group-hover:text-amber-500 transition-colors" />
+      {/* ─── SECTION: Upload & Preview ─── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Upload &amp; Scan
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Upload Area */}
+          <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)] flex flex-col">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2">
+                <UploadCloud className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Document Upload</h3>
+                <p className="text-xs text-zinc-500">Select an image of your handwritten ledger</p>
+              </div>
+            </div>
+
+            <label className="flex flex-col items-center justify-center w-full flex-grow border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer bg-[#0a0a0a] hover:bg-zinc-900/50 hover:border-amber-500/50 transition-all duration-300 group min-h-[220px]">
+              <UploadCloud className="w-10 h-10 text-zinc-600 mb-3 group-hover:text-amber-500 transition-colors" />
               <p className="text-sm font-bold text-zinc-400 group-hover:text-zinc-300">
-                {selectedFile ? 'Change Image' : 'Upload Invoice/Ledger Image'}
+                {selectedFile ? 'Change Image' : 'Upload Invoice / Ledger Image'}
               </p>
-              <p className="text-xs text-zinc-600 mt-2 font-mono">JPG, PNG, WEBP</p>
+              <p className="text-xs text-zinc-600 mt-1.5 font-mono">JPG, PNG, WEBP (max 10MB)</p>
               <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
             </label>
 
             <button
               onClick={handleProcessImage}
               disabled={!selectedFile || isProcessing}
-              className="w-full mt-6 py-4 bg-amber-500 text-[#0a0a0a] font-extrabold tracking-wide rounded-md disabled:bg-zinc-800 disabled:text-zinc-500 transition-all duration-300 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] disabled:shadow-none disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full mt-5 py-3.5 bg-amber-500 text-[#0a0a0a] font-extrabold tracking-wide rounded-xl disabled:bg-zinc-800 disabled:text-zinc-500 transition-all duration-300 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] disabled:shadow-none disabled:cursor-not-allowed active:scale-[0.98]"
             >
               {isProcessing ? (
                 <span className="flex items-center justify-center">
@@ -165,79 +186,104 @@ export default function AiKhatta() {
               )}
             </button>
           </div>
-        </div>
 
-        <div className="space-y-6 flex flex-col">
-          <div className="bg-[#1c1c1c] rounded-xl shadow-2xl border border-zinc-800 p-4 h-64 flex items-center justify-center overflow-hidden relative group">
-            {previewUrl ? (
-              <>
-                <img
-                  src={previewUrl}
-                  className="max-h-full max-w-full object-contain drop-shadow-xl z-10"
-                  alt="Preview"
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center justify-center pointer-events-none">
-                  <ImageIcon className="h-8 w-8 text-white/50" />
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-zinc-600">
-                <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
-                <p className="text-sm font-medium tracking-widest uppercase">No Preview</p>
+          {/* Preview Area */}
+          <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)] flex flex-col">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-2">
+                <ImageIcon className="h-4 w-4 text-sky-400" />
               </div>
-            )}
-          </div>
-
-          {parsedData && (
-            <div className="bg-[#0a0a0a] border border-emerald-500/30 p-6 rounded-xl space-y-5 shadow-[0_0_30px_rgba(16,185,129,0.05)] flex-grow">
-              <h3 className="font-bold text-emerald-400 flex items-center tracking-wide">
-                <CheckCircle className="h-5 w-5 mr-2" />
-                Extraction Results
-              </h3>
-
-              <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                {parsedData.map((data, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-md flex justify-between items-center transition-colors ${
-                      data.isTotal
-                        ? 'border border-amber-500/40 bg-amber-500/10'
-                        : 'border border-zinc-800 bg-[#1c1c1c] hover:bg-zinc-800/50'
-                    }`}
-                  >
-                    <div className="text-sm flex-1 mr-4">
-                      <p className="font-bold text-white truncate">{data.customerEmail}</p>
-                      <p className="text-zinc-500 text-xs mt-1 truncate">{data.notes}</p>
-                    </div>
-                    <span
-                      className={`font-black text-base whitespace-nowrap ${
-                        data.amount > 0 ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
-                      {data.amount > 0 ? `+₹${data.amount}` : `-₹${Math.abs(data.amount)}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800/50">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="flex-1 py-3 border border-zinc-700 text-zinc-300 font-bold tracking-wide rounded-md flex justify-center items-center hover:bg-zinc-800 hover:text-white transition-colors"
-                >
-                  <Download className="w-4 h-4 mr-2" /> Download PDF
-                </button>
-                <button
-                  onClick={handleSaveToDatabase}
-                  className="flex-1 py-3 bg-emerald-600 text-[#0a0a0a] font-extrabold tracking-wide rounded-md flex justify-center items-center hover:bg-emerald-500 transition-colors shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-                >
-                  <Database className="w-4 h-4 mr-2" /> Save to Ledger
-                </button>
+              <div>
+                <h3 className="text-base font-black text-white">Image Preview</h3>
+                <p className="text-xs text-zinc-500">Visual confirmation of uploaded document</p>
               </div>
             </div>
-          )}
+
+            <div className="flex-grow rounded-xl border border-zinc-800 bg-[#0a0a0a] flex items-center justify-center overflow-hidden relative group min-h-[220px]">
+              {previewUrl ? (
+                <>
+                  <img
+                    src={previewUrl}
+                    className="max-h-full max-w-full object-contain drop-shadow-xl z-10 p-2"
+                    alt="Preview"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center justify-center pointer-events-none">
+                    <ImageIcon className="h-8 w-8 text-white/50" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-zinc-600">
+                  <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
+                  <p className="text-sm font-medium tracking-widest uppercase">No Preview</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* ─── SECTION: Extraction Results ─── */}
+      {parsedData && (
+        <section>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="h-1 w-6 rounded-full bg-emerald-500/60" />
+            <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+              Extraction Results
+            </h2>
+          </div>
+          <div className="rounded-[24px] border border-emerald-500/20 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)] space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Parsed Entries</h3>
+                <p className="text-xs text-zinc-500">{parsedData.length} entries extracted from document</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+              {parsedData.map((data, idx) => (
+                <div
+                  key={idx}
+                  className={`p-4 rounded-xl flex justify-between items-center transition-colors ${
+                    data.isTotal
+                      ? 'border border-amber-500/40 bg-amber-500/10'
+                      : 'border border-zinc-800 bg-[#0a0a0a] hover:bg-zinc-800/50'
+                  }`}
+                >
+                  <div className="text-sm flex-1 mr-4 min-w-0">
+                    <p className="font-bold text-white truncate">{data.customerEmail}</p>
+                    <p className="text-zinc-500 text-xs mt-1 truncate">{data.notes}</p>
+                  </div>
+                  <span
+                    className={`font-black text-base whitespace-nowrap ${
+                      data.amount > 0 ? 'text-emerald-400' : 'text-red-400'
+                    }`}
+                  >
+                    {data.amount > 0 ? `+₹${data.amount}` : `-₹${Math.abs(data.amount)}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800/50">
+              <button
+                onClick={handleDownloadPDF}
+                className="flex-1 py-3 border border-zinc-700 text-zinc-300 font-bold tracking-wide rounded-xl flex justify-center items-center hover:bg-zinc-800 hover:text-white transition-colors"
+              >
+                <Download className="w-4 h-4 mr-2" /> Download PDF
+              </button>
+              <button
+                onClick={handleSaveToDatabase}
+                className="flex-1 py-3 bg-emerald-600 text-[#0a0a0a] font-extrabold tracking-wide rounded-xl flex justify-center items-center hover:bg-emerald-500 transition-colors shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+              >
+                <Database className="w-4 h-4 mr-2" /> Save to Ledger
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

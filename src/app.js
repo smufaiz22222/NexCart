@@ -23,6 +23,7 @@ import superAdminRoutes from './routes/superAdminRoutes.js';
 import b2bRoutes from './routes/b2bRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import payoutRoutes from './routes/payoutRoutes.js';
+import dealsRoutes from './routes/dealsRoutes.js';
 
 dotenv.config({
   path: path.resolve(process.cwd(), '.env'),
@@ -81,6 +82,7 @@ app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/b2b', b2bRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payouts', payoutRoutes);
+app.use('/api/deals', dealsRoutes);
 
 const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, 'client/dist')));

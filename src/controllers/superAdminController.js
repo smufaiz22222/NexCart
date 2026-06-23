@@ -537,7 +537,6 @@ export const getTenantData = async (req, res) => {
             adjustments: true,
           },
           orderBy: { createdAt: 'desc' },
-          take: 10,
         },
         ledgerEntries: {
           orderBy: { createdAt: 'desc' },
@@ -586,6 +585,26 @@ export const getTenantData = async (req, res) => {
         Math.max(0, formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)),
       0
     );
+
+    // Calculate revenue within current subscription period
+    const currentSub = getCurrentSubscription(tenant);
+    const subStartDate = currentSub?.currentPeriodStart
+      ? new Date(currentSub.currentPeriodStart)
+      : null;
+    const subscriptionRevenue = subStartDate
+      ? tenant.orders
+          .filter((order) => new Date(order.createdAt) >= subStartDate)
+          .reduce(
+            (sum, order) =>
+              sum +
+              Math.max(
+                0,
+                formatCurrencyValue(order.totalAmount) - getReturnedAmount(order.adjustments)
+              ),
+            0
+          )
+      : 0;
+
     const inventoryValue = tenant.products.reduce(
       (sum, product) => sum + product.currentStock * Number(product.price || 0),
       0
@@ -621,9 +640,10 @@ export const getTenantData = async (req, res) => {
           productCount: tenant.products.length,
           orderCount: tenant.orders.length,
           revenue: Number(totalRevenue.toFixed(2)),
+          subscriptionRevenue: Number(subscriptionRevenue.toFixed(2)),
           inventoryValue: Number(inventoryValue.toFixed(2)),
         },
-        recentOrders: tenant.orders.map((order) => ({
+        recentOrders: tenant.orders.slice(0, 10).map((order) => ({
           id: order.id,
           buyerName: order.buyer.name,
           buyerEmail: order.buyer.email,
@@ -887,5 +907,76 @@ export const deleteCoupon = async (req, res) => {
   } catch (error) {
     console.error('Delete Coupon Error:', error);
     res.status(500).json({ error: 'Failed to delete coupon.' });
+  }
+};
+
+export const getAdminOrders = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+    const search = req.query.search ? String(req.query.search).trim() : '';
+    const status = req.query.status || '';
+
+    const where = {};
+    if (search) {
+      where.OR = [
+        { buyer: { name: { contains: search, mode: 'insensitive' } } },
+        { buyer: { email: { contains: search, mode: 'insensitive' } } },
+        { seller: { businessName: { contains: search, mode: 'insensitive' } } },
+        { id: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (status) {
+      where.status = status;
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          buyer: { select: { id: true, name: true, email: true } },
+          seller: { select: { id: true, businessName: true } },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              unitPrice: true,
+              status: true,
+              product: { select: { id: true, name: true, imageUrl: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.status(200).json({
+      orders: orders.map((order) => ({
+        id: order.id,
+        buyerName: order.buyer.name,
+        buyerEmail: order.buyer.email,
+        sellerName: order.seller.businessName,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        totalAmount: Number(order.totalAmount),
+        deliveryFee: Number(order.deliveryFee),
+        itemCount: order.items.length,
+        createdAt: order.createdAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Get Admin Orders Error:', error);
+    res.status(500).json({ error: 'Failed to fetch orders.' });
   }
 };

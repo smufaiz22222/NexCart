@@ -107,7 +107,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
               <div className="relative">
                 <TextField field={field} label="SKU Code *" placeholder="e.g. JKT-DENIM-001" />
                 {field.state.meta.isValidating ? (
-                  <Loader2 className="absolute right-3 top-8 h-4 w-4 animate-spin text-amber-500" />
+                  <Loader2 className="absolute right-3 top-8 h-4 w-4 animate-spin text-brand-accent" />
                 ) : null}
               </div>
             )}
@@ -144,7 +144,11 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
             name="actualPrice"
             validators={{
               onChange: ({ value }) => {
-                if (value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)) {
+                if (
+                  value !== undefined &&
+                  value !== '' &&
+                  (isNaN(value) || parseFloat(value) < 0)
+                ) {
                   return 'Enter a valid actual price';
                 }
                 const priceVal = form.getFieldValue('price');
@@ -156,7 +160,12 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
             }}
           >
             {(field) => (
-              <TextField field={field} label="Actual Price (Original) (₹)" type="number" placeholder="0.00" />
+              <TextField
+                field={field}
+                label="Actual Price (Original) (₹)"
+                type="number"
+                placeholder="0.00"
+              />
             )}
           </form.Field>
 
@@ -176,7 +185,12 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
             }}
           >
             {(field) => (
-              <TextField field={field} label="Discounted/Selling Price (₹) *" type="number" placeholder="0.00" />
+              <TextField
+                field={field}
+                label="Discounted/Selling Price (₹) *"
+                type="number"
+                placeholder="0.00"
+              />
             )}
           </form.Field>
         </div>
@@ -204,7 +218,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
                   type="number"
                   placeholder={`Default: ₹${defaultDeliveryFee.toFixed(2)}`}
                 />
-                <p className="text-[11px] text-zinc-500 font-medium leading-normal pl-1">
+                <p className="text-[11px] text-text-muted font-medium leading-normal pl-1">
                   Specify a custom per-item delivery fee for this product. Leave blank to default to
                   your profile shipping settings.
                 </p>
@@ -245,18 +259,20 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
         </div>
 
         {/* Nested Attributes Section (Field Array) */}
-        <div className="space-y-4 rounded-3xl border border-zinc-800 bg-[#0a0a0a] p-6 shadow-inner">
+        <div className="space-y-4 rounded-lg border border-border-subtle bg-bg-main p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-white tracking-wide">Product Attributes</h3>
-              <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-text-title tracking-wide">
+                Product Attributes
+              </h3>
+              <p className="text-[11px] text-text-muted mt-1 uppercase tracking-wider">
                 Add details like Material, Fit, or Origin
               </p>
             </div>
             <button
               type="button"
               onClick={() => form.pushFieldValue('attributes', { name: '', value: '' })}
-              className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-zinc-700 hover:text-white"
+              className="flex items-center gap-1.5 rounded-md bg-bg-card border border-border-subtle px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-body transition-all hover:bg-bg-card-hover hover:text-text-title"
             >
               <Plus className="h-3 w-3" />
               Add Detail
@@ -292,7 +308,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
                     <button
                       type="button"
                       onClick={() => form.removeFieldValue('attributes', i)}
-                      className="mb-1 rounded-xl bg-red-500/10 p-3 text-red-400 opacity-0 transition-all hover:bg-red-500/20 group-hover:opacity-100"
+                      className="mb-1 rounded-md bg-semantic-danger/10 p-3 text-semantic-danger opacity-0 transition-all hover:bg-semantic-danger/20 group-hover:opacity-100"
                       aria-label="Remove detail"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -300,7 +316,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
                   </div>
                 ))}
                 {field.state.value.length === 0 && (
-                  <p className="text-center py-4 text-xs text-zinc-600 italic">
+                  <p className="text-center py-4 text-xs text-text-muted italic">
                     No custom details added yet.
                   </p>
                 )}
@@ -310,11 +326,11 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-col-reverse gap-3 pt-4 border-t border-zinc-800 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 pt-4 border-t border-border-subtle/50 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-800"
+            className="rounded-md border border-border-subtle bg-bg-card px-6 py-2.5 text-sm font-semibold text-text-body transition hover:bg-bg-card-hover"
           >
             Cancel
           </button>
@@ -325,7 +341,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
                 type="submit"
                 disabled={!canSubmit || isSubmitting}
                 className={cn(
-                  'inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-8 py-3 text-sm font-black text-zinc-950 transition shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:bg-amber-300 hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none',
+                  'inline-flex items-center justify-center gap-2 rounded-md bg-brand-primary px-8 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed',
                   isSubmitting && 'animate-pulse'
                 )}
               >

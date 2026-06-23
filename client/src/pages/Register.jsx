@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, ShoppingBag } from 'lucide-react';
+import { ArrowRight, Check, ShoppingBag, Store } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import apiClient from '../api/axios.js';
@@ -16,28 +16,19 @@ const passwordChecks = [
 function validateRegistrationForm(formData) {
   const name = formData.name.trim();
   const email = formData.email.trim().toLowerCase();
-  const businessName = formData.businessName.trim();
-  const businessPhone = formData.businessPhone.trim();
-  const businessAddress = formData.businessAddress.trim();
-
   if (!name) return 'Full name is required.';
   if (!email) return 'Email address is required.';
   if (!emailPattern.test(email)) return 'Enter a valid email address.';
   if (!formData.password) return 'Password is required.';
-
-  const passwordMessage = passwordChecks.find(
-    ({ pattern }) => !pattern.test(formData.password)
-  )?.message;
-  if (passwordMessage) return passwordMessage;
+  const msg = passwordChecks.find(({ pattern }) => !pattern.test(formData.password))?.message;
+  if (msg) return msg;
   if (!formData.confirmPassword) return 'Confirm your password.';
   if (formData.password !== formData.confirmPassword) return 'Passwords do not match.';
-
   if (formData.role === 'WHOLESALER') {
-    if (!businessName) return 'Business / Shop Name is required for wholesalers.';
-    if (!businessPhone) return 'Business phone is required for wholesalers.';
-    if (!businessAddress) return 'Business address is required for wholesalers.';
+    if (!formData.businessName.trim()) return 'Business name is required.';
+    if (!formData.businessPhone.trim()) return 'Business phone is required.';
+    if (!formData.businessAddress.trim()) return 'Business address is required.';
   }
-
   return null;
 }
 
@@ -55,10 +46,9 @@ export default function Register() {
   });
   const [successMessage, setSuccessMessage] = useState('');
   const [validationError, setValidationError] = useState('');
-
   const [showOtpVerify, setShowOtpVerify] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [tempVerifyData, setTempVerifyData] = useState(null); // { email, password }
+  const [tempVerifyData, setTempVerifyData] = useState(null);
   const [otpError, setOtpError] = useState('');
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -66,11 +56,8 @@ export default function Register() {
   const navigate = useNavigate();
   const { register, login, isLoading, error } = useAuthStore();
 
-  const handleChange = (event) => {
-    setFormData((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
+  const handleChange = (e) => {
+    setFormData((c) => ({ ...c, [e.target.name]: e.target.value }));
     setSuccessMessage('');
     setValidationError('');
   };
@@ -80,31 +67,20 @@ export default function Register() {
     setSuccessMessage('');
     setValidationError('');
     setOtpError('');
-
     const nextError = validateRegistrationForm(formData);
     if (nextError) {
       setValidationError(nextError);
       return;
     }
-
     try {
-      const response = await register(formData);
+      await register(formData);
       setTempVerifyData({
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
       setOtpCode('');
       setOtpError('');
-
-      if (formData.role === 'WHOLESALER' || response?.applicationSubmitted) {
-        setSuccessMessage(
-          'Application submitted. A verification code has been sent to your email.'
-        );
-      } else {
-        setSuccessMessage(
-          'Verification code sent! Please verify your email to complete registration.'
-        );
-      }
+      setSuccessMessage('Verification code sent to your email.');
       setShowOtpVerify(true);
     } catch (submitError) {
       console.error(submitError);
@@ -114,14 +90,11 @@ export default function Register() {
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
     setOtpError('');
-    setValidationError('');
     setSuccessMessage('');
-
     if (otpCode.length !== 6) {
-      setOtpError('Please enter a 6-digit verification code.');
+      setOtpError('Enter a 6-digit code.');
       return;
     }
-
     setVerifyLoading(true);
     try {
       await apiClient.post('/auth/verify-otp', {
@@ -129,20 +102,13 @@ export default function Register() {
         otp: otpCode,
         purpose: 'VERIFICATION',
       });
-
-      setSuccessMessage('Email verified successfully! Logging you in...');
-
+      setSuccessMessage('Verified! Logging you in...');
       const user = await login(tempVerifyData.email, tempVerifyData.password);
-
-      if (user.role === 'SUPER_ADMIN') {
-        navigate('/admin');
-      } else if (user.role === 'WHOLESALER') {
-        navigate('/wholesaler');
-      } else {
-        navigate('/store');
-      }
+      if (user.role === 'SUPER_ADMIN') navigate('/admin');
+      else if (user.role === 'WHOLESALER') navigate('/wholesaler');
+      else navigate('/store');
     } catch (err) {
-      setOtpError(err.response?.data?.error || 'Verification failed. Please try again.');
+      setOtpError(err.response?.data?.error || 'Verification failed.');
     } finally {
       setVerifyLoading(false);
     }
@@ -150,7 +116,6 @@ export default function Register() {
 
   const handleResendOtp = async () => {
     setOtpError('');
-    setValidationError('');
     setSuccessMessage('');
     setResendLoading(true);
     try {
@@ -158,338 +123,320 @@ export default function Register() {
         email: tempVerifyData.email,
         purpose: 'VERIFICATION',
       });
-      setSuccessMessage('Verification code resent successfully!');
+      setSuccessMessage('Code resent!');
     } catch (err) {
-      setOtpError(err.response?.data?.error || 'Failed to resend verification code.');
+      setOtpError(err.response?.data?.error || 'Failed to resend.');
     } finally {
       setResendLoading(false);
     }
   };
 
+  const inputClass =
+    'w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3.5 text-sm text-[#0f172a] outline-none focus:border-[#4f46e5] focus:ring-4 focus:ring-[#4f46e5]/10 transition-all placeholder:text-[#94a3b8]';
+
   return (
-    <div className="min-h-screen bg-[#f2f0ea] px-4 py-10 text-[#161412]">
-      <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl overflow-hidden rounded-[36px] border border-[#ddd7cc] bg-white shadow-[0_30px_90px_rgba(22,20,18,0.08)] lg:grid-cols-[0.96fr_1.04fr]">
-        <section className="border-b border-[#ddd7cc] bg-[#faf8f4] px-8 py-10 lg:border-b-0 lg:border-r lg:px-12 lg:py-14">
-          <p className="text-sm font-black tracking-[0.24em] text-[#161412]">NEXCART</p>
-          <h1 className="mt-10 text-5xl font-black leading-none tracking-tight text-[#161412]">
-            Join the marketplace on your terms.
-          </h1>
-          <p className="mt-6 max-w-md text-base leading-7 text-[#6b665f]">
-            Customer signup stays instant. Wholesaler signup becomes an application flow with
-            business verification, billing, and premium access options.
-          </p>
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-[#eef2ff] via-[#f8fafc] to-[#f5f3ff]">
+      {/* Single unified card */}
+      <div className="w-full max-w-[920px] rounded-3xl bg-white shadow-2xl shadow-[#0f172a]/8 border border-[#e2e8f0] overflow-hidden grid lg:grid-cols-[0.9fr_1.1fr]">
+        {/* Left - Brand Side */}
+        <div className="bg-gradient-to-br from-[#4f46e5] to-[#7c3aed] p-10 text-white flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute bottom-0 left-0 w-56 h-56 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/3" />
 
-          <div className="mt-10 space-y-4">
-            <RolePreview
-              title="Customer"
-              subtitle="Browse curated arrivals, save addresses, and track orders."
-              active={formData.role === 'CUSTOMER'}
-              icon={ShoppingBag}
-            />
-            <RolePreview
-              title="Wholesaler"
-              subtitle="Apply as a seller, start trial or billing, and unlock operations after review."
-              active={formData.role === 'WHOLESALER'}
-              icon={BriefcaseBusiness}
-            />
-          </div>
-        </section>
-
-        <section className="flex items-center px-6 py-10 sm:px-10">
-          <div className="mx-auto w-full max-w-lg">
-            <div className="inline-flex rounded-full border border-[#ddd7cc] bg-[#f8f6f1] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-              New account
-            </div>
-            <h2 className="mt-6 text-4xl font-black tracking-tight text-[#161412]">
-              Create account
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-[#6b665f]">
-              Choose customer for instant shopping, or wholesaler to submit your seller profile with
-              business details.
+          <div className="relative">
+            <h1 className="text-3xl font-black tracking-tight">NexCart</h1>
+            <p className="mt-3 text-sm text-indigo-100 leading-relaxed max-w-xs">
+              Join as a buyer or seller. One platform, unlimited potential.
             </p>
+          </div>
 
-            <div className="mt-4 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-800 text-[11px] leading-relaxed">
-              <span className="font-bold uppercase tracking-wider block text-amber-900 mb-0.5">
-                B2B Deal Safety Disclaimer
-              </span>
-              NexCart is a technology platform. We are not responsible for any fraud, defaults, or
-              disputes in direct B2B credit or bank transfer deals.
+          {/* Role preview cards */}
+          <div className="relative mt-8 space-y-3">
+            <div
+              className={`rounded-xl border p-4 transition-all duration-300 ${formData.role === 'CUSTOMER' ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${formData.role === 'CUSTOMER' ? 'bg-white text-[#4f46e5]' : 'bg-white/10 text-white'}`}
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">Customer</p>
+                  <p className="text-[10px] text-indigo-200">Shop, track, save wishlists</p>
+                </div>
+                {formData.role === 'CUSTOMER' && <Check className="w-4 h-4 text-indigo-200" />}
+              </div>
             </div>
 
-            {validationError ? (
-              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
-                {validationError}
+            <div
+              className={`rounded-xl border p-4 transition-all duration-300 ${formData.role === 'WHOLESALER' ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${formData.role === 'WHOLESALER' ? 'bg-white text-[#7c3aed]' : 'bg-white/10 text-white'}`}
+                >
+                  <Store className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">Wholesaler</p>
+                  <p className="text-[10px] text-indigo-200">List products, manage orders</p>
+                </div>
+                {formData.role === 'WHOLESALER' && <Check className="w-4 h-4 text-indigo-200" />}
               </div>
-            ) : null}
+            </div>
+          </div>
 
-            {error ? (
-              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
-                {error}
+          {/* Stats */}
+          <div className="relative mt-8 pt-6 border-t border-white/15 flex gap-6">
+            <div>
+              <p className="text-xl font-black">10K+</p>
+              <p className="text-[9px] text-indigo-200 uppercase tracking-wider font-semibold">
+                Products
+              </p>
+            </div>
+            <div>
+              <p className="text-xl font-black">500+</p>
+              <p className="text-[9px] text-indigo-200 uppercase tracking-wider font-semibold">
+                Sellers
+              </p>
+            </div>
+            <div>
+              <p className="text-xl font-black">50K+</p>
+              <p className="text-[9px] text-indigo-200 uppercase tracking-wider font-semibold">
+                Orders
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right - Form Side */}
+        <div className="p-10 flex flex-col justify-center overflow-y-auto max-h-[90vh]">
+          <h2 className="text-2xl font-black tracking-tight text-[#0f172a]">Create account</h2>
+          <p className="mt-1 text-sm text-[#64748b]">Get started in under a minute</p>
+
+          {validationError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+              {validationError}
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+              {error}
+            </div>
+          )}
+          {successMessage && (
+            <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+              {successMessage}
+            </div>
+          )}
+
+          {showOtpVerify ? (
+            <div className="mt-5">
+              {otpError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+                  {otpError}
+                </div>
+              )}
+              <p className="text-sm text-[#64748b] mb-4">
+                Code sent to{' '}
+                <span className="font-bold text-[#0f172a]">{tempVerifyData?.email}</span>
+              </p>
+              <form onSubmit={handleOtpSubmit} className="space-y-4">
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full text-center tracking-[0.5em] font-mono rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4 text-2xl text-[#0f172a] outline-none focus:border-[#4f46e5] focus:ring-4 focus:ring-[#4f46e5]/10"
+                />
+                <button
+                  type="submit"
+                  disabled={verifyLoading}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#4f46e5] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#4338ca] disabled:opacity-50"
+                >
+                  {verifyLoading ? 'Verifying...' : 'Verify & Continue'}
+                  {!verifyLoading && <ArrowRight className="h-4 w-4" />}
+                </button>
+              </form>
+              <div className="mt-4 flex justify-between text-xs">
+                <button
+                  onClick={handleResendOtp}
+                  disabled={resendLoading}
+                  className="font-semibold text-[#4f46e5] disabled:opacity-50"
+                >
+                  {resendLoading ? 'Resending...' : 'Resend code'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowOtpVerify(false);
+                    setSuccessMessage('');
+                    setOtpError('');
+                  }}
+                  className="text-[#64748b] hover:text-[#0f172a]"
+                >
+                  Back
+                </button>
               </div>
-            ) : null}
-
-            {successMessage ? (
-              <div className="mt-6 rounded-3xl border border-[#b8dec7] bg-[#eefaf1] px-4 py-4 text-sm font-medium text-[#22603a]">
-                {successMessage}
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              {/* Role Toggle */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-[#f1f5f9] rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setFormData((c) => ({ ...c, role: 'CUSTOMER' }))}
+                  className={`py-2.5 rounded-lg text-xs font-bold transition-all ${formData.role === 'CUSTOMER' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#64748b]'}`}
+                >
+                  Customer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData((c) => ({ ...c, role: 'WHOLESALER' }))}
+                  className={`py-2.5 rounded-lg text-xs font-bold transition-all ${formData.role === 'WHOLESALER' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#64748b]'}`}
+                >
+                  Wholesaler
+                </button>
               </div>
-            ) : null}
 
-            {showOtpVerify ? (
               <div>
-                {otpError && (
-                  <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
-                    {otpError}
-                  </div>
-                )}
+                <label className="block text-xs font-semibold text-[#374151] mb-1.5">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="John Doe"
+                  className={inputClass}
+                />
+              </div>
 
-                <form className="mt-8 space-y-5" onSubmit={handleOtpSubmit}>
-                  <div className="text-sm text-[#6b665f] leading-relaxed">
-                    We sent a 6-digit verification code to <br />
-                    <strong className="text-[#161412]">{tempVerifyData?.email}</strong>
-                  </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#374151] mb-1.5">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  className={inputClass}
+                />
+              </div>
 
-                  <FormField label="Verification Code">
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="123456"
-                      className="w-full text-center tracking-[0.3em] font-mono rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-lg text-[#161412] outline-none transition focus:border-[#161412]"
-                    />
-                  </FormField>
-
-                  <button
-                    type="submit"
-                    disabled={verifyLoading}
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {verifyLoading ? 'Verifying...' : 'Verify & Sign In'}
-                    {!verifyLoading && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </form>
-
-                <div className="flex flex-col items-center gap-3 mt-6 text-sm font-semibold">
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                    disabled={resendLoading}
-                    className="text-[#8f5d31] hover:underline disabled:opacity-50"
-                  >
-                    {resendLoading ? 'Resending...' : 'Resend verification code'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOtpVerify(false);
-                      setSuccessMessage('');
-                      setOtpError('');
-                    }}
-                    className="text-[#8b857c] hover:text-[#161412] underline"
-                  >
-                    Back to Register
-                  </button>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#374151] mb-1.5">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Min 8 chars"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#374151] mb-1.5">
+                    Confirm
+                  </label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    required
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Repeat"
+                    className={inputClass}
+                  />
                 </div>
               </div>
-            ) : (
-              <>
-                <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <RoleButton
-                      title="Buy Products"
-                      subtitle="Customer"
-                      active={formData.role === 'CUSTOMER'}
-                      onClick={() => setFormData((current) => ({ ...current, role: 'CUSTOMER' }))}
-                    />
-                    <RoleButton
-                      title="Sell Products"
-                      subtitle="Wholesaler"
-                      active={formData.role === 'WHOLESALER'}
-                      onClick={() => setFormData((current) => ({ ...current, role: 'WHOLESALER' }))}
-                    />
-                  </div>
 
-                  <input type="hidden" name="role" value={formData.role} />
+              {/* Password strength */}
+              <div className="flex gap-1">
+                {passwordChecks.map((check, i) => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full transition-all ${check.pattern.test(formData.password) ? 'bg-[#4f46e5]' : 'bg-[#e2e8f0]'}`}
+                  />
+                ))}
+              </div>
 
-                  <FormField label="Full Name">
+              {/* Wholesaler fields */}
+              {formData.role === 'WHOLESALER' && (
+                <div className="space-y-3 rounded-xl border border-[#ddd6fe] bg-[#faf5ff] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#7c3aed]">
+                    Business Details
+                  </p>
+                  <input
+                    type="text"
+                    name="businessName"
+                    required
+                    value={formData.businessName}
+                    onChange={handleChange}
+                    placeholder="Business / Shop Name"
+                    className={inputClass}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
-                      name="name"
+                      name="businessPhone"
                       required
-                      value={formData.name}
+                      value={formData.businessPhone}
                       onChange={handleChange}
-                      placeholder="Your full name"
-                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                      placeholder="Phone"
+                      className={inputClass}
                     />
-                  </FormField>
-
-                  <FormField label="Email">
                     <input
-                      type="email"
-                      name="email"
-                      required
-                      value={formData.email}
+                      type="text"
+                      name="taxId"
+                      value={formData.taxId}
                       onChange={handleChange}
-                      placeholder="you@example.com"
-                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+                      placeholder="GST (optional)"
+                      className={inputClass}
                     />
-                  </FormField>
-
-                  <FormField label="Password">
-                    <input
-                      type="password"
-                      name="password"
-                      required
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Create a strong password"
-                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                    />
-                  </FormField>
-
-                  <FormField label="Confirm Password">
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      required
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      placeholder="Repeat your password"
-                      className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                    />
-                  </FormField>
-
-                  <div className="rounded-2xl border border-[#ddd7cc] bg-[#faf8f4] px-4 py-4 text-sm leading-6 text-[#6b665f]">
-                    Password must be at least 8 characters and include uppercase, lowercase, a
-                    number, and a special character.
                   </div>
+                  <textarea
+                    name="businessAddress"
+                    required
+                    rows={2}
+                    value={formData.businessAddress}
+                    onChange={handleChange}
+                    placeholder="Business address"
+                    className={inputClass + ' resize-none'}
+                  />
+                </div>
+              )}
 
-                  {formData.role === 'WHOLESALER' ? (
-                    <div className="space-y-4 rounded-[28px] border border-[#d2b08a] bg-[#fff8ee] p-5">
-                      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-                        Seller application details
-                      </p>
-                      <FormField label="Business / Shop Name">
-                        <input
-                          type="text"
-                          name="businessName"
-                          required
-                          value={formData.businessName}
-                          onChange={handleChange}
-                          placeholder="Your brand or store name"
-                          className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                        />
-                      </FormField>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField label="Business Phone">
-                          <input
-                            type="text"
-                            name="businessPhone"
-                            required
-                            value={formData.businessPhone}
-                            onChange={handleChange}
-                            placeholder="+91 98xxxxxx"
-                            className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                          />
-                        </FormField>
-                        <FormField label="GST / Tax ID">
-                          <input
-                            type="text"
-                            name="taxId"
-                            value={formData.taxId}
-                            onChange={handleChange}
-                            placeholder="Optional tax identifier"
-                            className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                          />
-                        </FormField>
-                      </div>
-                      <FormField label="Business Address">
-                        <textarea
-                          name="businessAddress"
-                          required
-                          rows={3}
-                          value={formData.businessAddress}
-                          onChange={handleChange}
-                          placeholder="Shop address for review"
-                          className="w-full rounded-2xl border border-[#d2b08a] bg-white px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                        />
-                      </FormField>
-                    </div>
-                  ) : null}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#4f46e5] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#4338ca] disabled:opacity-50 transition-all"
+              >
+                {isLoading
+                  ? 'Creating...'
+                  : formData.role === 'WHOLESALER'
+                    ? 'Submit Application'
+                    : 'Create Account'}
+                {!isLoading && <ArrowRight className="h-4 w-4" />}
+              </button>
+            </form>
+          )}
 
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isLoading
-                      ? 'Creating account...'
-                      : formData.role === 'WHOLESALER'
-                        ? 'Submit application'
-                        : 'Create account'}
-                    {!isLoading && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </form>
-
-                <p className="mt-8 text-sm text-[#6b665f]">
-                  Already have an account?{' '}
-                  <Link
-                    to="/login"
-                    className="font-bold text-[#161412] underline underline-offset-4"
-                  >
-                    Sign in
-                  </Link>
-                </p>
-              </>
-            )}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function FormField({ label, children }) {
-  return (
-    <label className="block">
-      <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">{label}</span>
-      <div className="mt-2">{children}</div>
-    </label>
-  );
-}
-
-function RoleButton({ title, subtitle, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-[24px] border px-4 py-4 text-left transition ${
-        active
-          ? 'border-[#161412] bg-[#161412] text-white'
-          : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
-      }`}
-    >
-      <p className="text-sm font-black tracking-tight">{title}</p>
-      <p className={`mt-1 text-xs ${active ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}>{subtitle}</p>
-    </button>
-  );
-}
-
-function RolePreview({ title, subtitle, icon: Icon, active }) {
-  return (
-    <div
-      className={`rounded-[28px] border px-5 py-5 transition ${
-        active ? 'border-[#161412] bg-white' : 'border-[#ddd7cc] bg-white/60'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="rounded-2xl bg-[#161412] p-3 text-white">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-base font-black tracking-tight text-[#161412]">{title}</p>
-          <p className="mt-1 text-sm text-[#6b665f]">{subtitle}</p>
+          <p className="mt-6 text-sm text-[#64748b] text-center">
+            Already have an account?{' '}
+            <Link to="/login" className="font-bold text-[#4f46e5] hover:text-[#4338ca]">
+              Sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

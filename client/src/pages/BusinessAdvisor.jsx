@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Bot,
   BrainCircuit,
@@ -7,6 +7,11 @@ import {
   RefreshCcw,
   Send,
   TriangleAlert,
+  Clock,
+  Plus,
+  X,
+  MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import apiClient from '../api/axios';
 import aiAdvisorClient from '../api/aiAdvisor';
@@ -43,7 +48,9 @@ export default function BusinessAdvisor() {
   const [historyError, setHistoryError] = useState('');
   const [ingestMessage, setIngestMessage] = useState('');
 
-  const sessionId = useMemo(() => getSessionId(), []);
+  const [sessionId, setSessionId] = useState(() => getSessionId());
+  const [sessions, setSessions] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const fetchBusinessContext = async (active) => {
     try {
@@ -71,6 +78,63 @@ export default function BusinessAdvisor() {
       active.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('nexcart:advisorSessions');
+    if (stored) {
+      try {
+        setSessions(JSON.parse(stored));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    const firstUserMsg = messages.find((m) => m.role === 'user');
+    if (!firstUserMsg) return;
+
+    const stored = localStorage.getItem('nexcart:advisorSessions');
+    let currentSessions = [];
+    if (stored) {
+      try {
+        currentSessions = JSON.parse(stored);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const exists = currentSessions.some((s) => s.id === sessionId);
+    if (!exists) {
+      const title = firstUserMsg.text.slice(0, 45) + (firstUserMsg.text.length > 45 ? '...' : '');
+      const newSession = {
+        id: sessionId,
+        title,
+        timestamp: Date.now(),
+      };
+      const nextSessions = [newSession, ...currentSessions];
+      localStorage.setItem('nexcart:advisorSessions', JSON.stringify(nextSessions));
+      setSessions(nextSessions);
+    }
+  }, [messages, sessionId]);
+
+  const handleNewChat = () => {
+    const nextSessionId = globalThis.crypto?.randomUUID?.() || `advisor-${Date.now()}`;
+    localStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
+    setSessionId(nextSessionId);
+    setMessages([]);
+  };
+
+  const handleDeleteSession = (idToDelete) => {
+    const nextSessions = sessions.filter((s) => s.id !== idToDelete);
+    localStorage.setItem('nexcart:advisorSessions', JSON.stringify(nextSessions));
+    setSessions(nextSessions);
+
+    if (idToDelete === sessionId) {
+      handleNewChat();
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -242,17 +306,99 @@ export default function BusinessAdvisor() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="overflow-hidden rounded-[28px] border border-zinc-800 bg-[#101010] shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+        <div className="relative flex flex-col overflow-hidden rounded-[28px] border border-zinc-800 bg-[#101010] shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+          {/* History Sidebar Drawer */}
+          <div
+            className={`absolute inset-y-0 left-0 z-20 w-72 border-r border-zinc-800 bg-zinc-950/95 backdrop-blur-md transition-transform duration-300 ease-in-out ${
+              showHistory ? 'translate-x-0' : '-translate-x-full'
+            } flex flex-col`}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-800 p-4">
+              <span className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-300">
+                Chat History
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowHistory(false)}
+                className="rounded-full p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+              {sessions.length === 0 ? (
+                <div className="py-8 text-center text-xs text-zinc-500">
+                  No recent conversations
+                </div>
+              ) : (
+                sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className={`group flex items-center justify-between rounded-xl p-3 text-left text-sm transition-all cursor-pointer ${
+                      s.id === sessionId
+                        ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300'
+                        : 'border border-transparent text-zinc-300 hover:bg-zinc-900'
+                    }`}
+                    onClick={() => {
+                      setSessionId(s.id);
+                      localStorage.setItem(SESSION_STORAGE_KEY, s.id);
+                      setShowHistory(false);
+                    }}
+                  >
+                    <div className="flex items-center overflow-hidden pr-2">
+                      <MessageSquare className="mr-2 h-4 w-4 shrink-0 text-zinc-500 group-hover:text-amber-400" />
+                      <span className="truncate font-medium">{s.title}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSession(s.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition-opacity"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Transcript Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-500">
+              <p className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-300">
                 Advisor Transcript
               </p>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-sm text-zinc-300">
                 Session-linked conversation memory stays attached to this browser session.
               </p>
             </div>
-            <Bot className="h-5 w-5 text-amber-400" />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowHistory(!showHistory)}
+                className={`rounded-full p-2 transition ${
+                  showHistory
+                    ? 'bg-amber-400/20 text-amber-300'
+                    : 'text-zinc-400 hover:bg-zinc-850 hover:text-white'
+                }`}
+                title="Conversation History"
+              >
+                <Clock className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNewChat}
+                className="rounded-full p-2 text-zinc-400 transition hover:bg-zinc-850 hover:text-white"
+                title="New Chat"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+              <span className="w-px h-5 bg-zinc-800 mx-1" />
+              <Bot className="h-5 w-5 text-amber-400" />
+            </div>
           </div>
 
           <AdvisorTranscript
@@ -262,38 +408,49 @@ export default function BusinessAdvisor() {
             historyError={historyError}
           />
 
-          <form onSubmit={handleSubmit} className="border-t border-zinc-800 bg-black/40 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row">
+          <form onSubmit={handleSubmit} className="border-t border-zinc-800 bg-zinc-950/30 p-4">
+            <div className="relative flex flex-col rounded-[22px] border border-zinc-800 bg-zinc-950/80 p-2.5 focus-within:border-amber-500/40 transition-all">
               <textarea
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 rows={3}
                 placeholder="Ask about inventory pressure, retention risk, performance, or strategy..."
-                className="min-h-[104px] flex-1 rounded-[22px] border border-zinc-700 bg-zinc-950/90 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-amber-400/50"
+                className="w-full resize-none bg-transparent px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:ring-0"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
               />
-              <button
-                type="submit"
-                disabled={isSending || isLoadingContext || !query.trim() || !businessContext}
-                className="inline-flex items-center justify-center rounded-[22px] bg-amber-400 px-5 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-40"
-              >
-                <Send className="mr-2 h-4 w-4" />
-                Send
-              </button>
+              <div className="flex items-center justify-between border-t border-zinc-900/60 pt-2 px-1">
+                <span className="text-[11px] text-zinc-500 select-none">
+                  Press Enter to send, Shift+Enter for new line
+                </span>
+                <button
+                  type="submit"
+                  disabled={isSending || isLoadingContext || !query.trim() || !businessContext}
+                  className="inline-flex h-8 items-center justify-center rounded-full bg-amber-400 px-4 py-1 text-xs font-bold text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Send
+                </button>
+              </div>
             </div>
           </form>
         </div>
 
         <aside className="space-y-6">
-          <div className="rounded-[28px] border border-zinc-800 bg-[#141414] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
-            <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-500">
+          <div className="rounded-[28px] border border-zinc-700 bg-[#141414] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
+            <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-300">
               Metric Snapshot
             </p>
-            <p className="mt-3 text-sm leading-6 text-zinc-300">
+            <p className="mt-3 text-sm leading-6 text-zinc-200">
               {businessContext?.generatedAt
                 ? `Metrics were generated at ${new Date(businessContext.generatedAt).toLocaleString()}.`
                 : 'Metrics will appear here once the advisor context loads.'}
             </p>
-            <div className="mt-4 rounded-[20px] border border-zinc-800 bg-black/25 p-4 text-sm text-zinc-400">
+            <div className="mt-4 rounded-[20px] border border-zinc-700 bg-zinc-900/50 p-4 text-sm text-zinc-300">
               The advisor prioritizes live business metrics first, rule-based insights second, and
               document knowledge only when the question needs it.
             </div>
@@ -301,17 +458,31 @@ export default function BusinessAdvisor() {
 
           <PromptSelector onSelectPrompt={(prompt) => setQuery(prompt)} />
 
-          <div className="rounded-[28px] border border-red-500/20 bg-red-500/10 p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
-            <div className="flex items-start">
-              <TriangleAlert className="mt-0.5 h-5 w-5 text-red-300" />
-              <div className="ml-3">
-                <p className="text-xs font-bold uppercase tracking-[0.32em] text-red-200">
-                  Guardrails
-                </p>
-                <p className="mt-3 text-sm leading-6 text-red-100/90">
-                  The advisor will refuse to invent unavailable revenue, inventory, customer, or
-                  document facts. If the knowledge base is weak or missing, it will say so directly.
-                </p>
+          <div className="rounded-[28px] border border-zinc-700 bg-[#141414] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10">
+                <TriangleAlert className="h-4 w-4 text-amber-400" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-200">
+                Guardrails
+              </p>
+            </div>
+            <p className="mt-4 text-sm leading-7 text-zinc-300">
+              The advisor will not fabricate data. If revenue, inventory, customer, or document
+              facts are unavailable, it says so directly rather than guessing.
+            </p>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Grounded in live metrics first
+              </div>
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Knowledge base used only when needed
+              </div>
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Refuses to hallucinate missing data
               </div>
             </div>
           </div>

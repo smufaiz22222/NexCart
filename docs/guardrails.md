@@ -269,3 +269,97 @@ This document defines strict architectural, security, database, and frontend gua
 
 - **Rule**: Avoid hardcoding device execution limits (e.g., always CPU). Dynamically inspect capabilities (CUDA/MPS/CPU) and utilize lifespan startup events to warm-call deep learning models.
 - **Backlog Context**: `[BACKLOG-026] AI Service Performance: Hardcoded CPU Devices & Startup Cold-Starts`
+
+---
+
+## 5. Database Migration & Data Safety Guardrails
+
+### 5.1 Never Use Destructive Commands on Production
+
+- **Rule**: `prisma migrate reset`, `prisma db push --force-reset`, and `DROP DATABASE` must NEVER be run against production or any environment with real user data.
+- **Safe Commands by Environment**:
+  - **Development**: `prisma migrate dev`, `prisma db push`, `prisma migrate reset` (only when you accept all data loss)
+  - **Production**: `prisma migrate deploy` ONLY — applies pending migrations without dropping data.
+- **Bad Pattern**:
+  ```bash
+  # DANGER: Drops all data, recreates from migrations, then seeds
+  prisma migrate reset --force
+  ```
+- **Good Pattern**:
+  ```bash
+  # Safe: Only applies unapplied migrations
+  prisma migrate deploy
+  ```
+
+### 5.2 Prefer Additive, Non-Destructive Schema Changes
+
+- **Rule**: When modifying the database schema, prefer adding nullable columns (`String?`), optional fields, or new tables. Never drop columns or change types without a data migration plan.
+- **Good Pattern**:
+  ```prisma
+  // Adding a new optional field — safe, no data loss
+  model Product {
+    subcategory String?
+  }
+  ```
+- **Bad Pattern**:
+  ```prisma
+  // Changing a column type or making a nullable column required — can lose data
+  model Product {
+    category Int  // was String before
+  }
+  ```
+
+### 5.3 Always Backup Before Schema Changes
+
+- **Rule**: Before running any migration in staging or production, take a database backup.
+- **Good Pattern**:
+  ```bash
+  # Backup before migrating
+  pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME > backup_$(date +%Y%m%d_%H%M%S).sql
+
+  # Then apply migration
+  prisma migrate deploy
+
+  # Restore if something goes wrong
+  psql -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME < backup_20250101_120000.sql
+  ```
+
+### 5.4 Seed Script Must Never Run in Production
+
+- **Rule**: The database seed script wipes all existing data and replaces it with demo data. It must be blocked from running in production.
+- **Good Pattern** (add to top of `prisma/seed.js`):
+  ```javascript
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ FATAL: Seed script cannot run in production!');
+    process.exit(1);
+  }
+  ```
+
+### 5.5 Use `prisma db push` for Dev Schema Sync Without Data Loss
+
+- **Rule**: When you need to sync schema changes in development without losing data, use `prisma db push` instead of `prisma migrate reset`.
+- **Key Difference**:
+  - `prisma db push` — applies schema diff to the DB directly, keeps existing data
+  - `prisma migrate reset` — drops DB, re-runs all migrations, seeds from scratch (ALL DATA LOST)
+- **When to use which**:
+  - Adding a field: `prisma db push` ✓
+  - Fixing drift after manual DB edits: `prisma db push` ✓
+  - Starting completely fresh (no important data): `prisma migrate reset` ✓
+
+### 5.6 Backfill Data Instead of Reseed
+
+- **Rule**: When adding a new field that existing records need populated, write a backfill script instead of reseeding.
+- **Good Pattern**:
+  ```javascript
+  // scripts/backfill-subcategories.js
+  import { prisma } from '../src/config/db.js';
+
+  const products = await prisma.product.findMany({ where: { subcategory: null } });
+  for (const product of products) {
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { subcategory: assignSubcategory(product.category, product.name) },
+    });
+  }
+  ```
+- **Bad Pattern**: Running `prisma migrate reset` + `prisma db seed` to populate the new field (destroys all real data).

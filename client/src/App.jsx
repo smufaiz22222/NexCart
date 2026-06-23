@@ -31,9 +31,14 @@ const AiKhatta = lazy(() => import('./pages/AiKhatta'));
 const BusinessAdvisor = lazy(() => import('./pages/BusinessAdvisor'));
 const SellerProductDetails = lazy(() => import('./pages/SellerProductDetails'));
 const Storefront = lazy(() => import('./pages/Storefront'));
+const TrendingProducts = lazy(() => import('./pages/TrendingProducts'));
+const NewArrivals = lazy(() => import('./pages/NewArrivals'));
 const Cart = lazy(() => import('./pages/Cart'));
 const ProductDetails = lazy(() => import('./pages/ProductDetails'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
+const AdminOverview = lazy(() => import('./pages/AdminOverview'));
+const AdminWholesalers = lazy(() => import('./pages/AdminWholesalers'));
+const AdminOrders = lazy(() => import('./pages/AdminOrders'));
 const SuperAdminSubscriptions = lazy(() => import('./pages/SuperAdminSubscriptions'));
 const WholesalerBilling = lazy(() => import('./pages/WholesalerBilling'));
 const EcommerceAccounting = lazy(() => import('./pages/EcommerceAccounting'));
@@ -163,6 +168,8 @@ function App() {
 
               <Route path="/store/*" element={<CustomerLayout />}>
                 <Route index element={<Storefront />} />
+                <Route path="trending" element={<TrendingProducts />} />
+                <Route path="new-arrivals" element={<NewArrivals />} />
                 <Route path="cart" element={<Cart />} />
                 <Route path="product/:id" element={<ProductDetails />} />
                 <Route
@@ -335,7 +342,9 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<SuperAdminDashboard />} />
+                <Route index element={<AdminOverview />} />
+                <Route path="wholesalers" element={<AdminWholesalers />} />
+                <Route path="orders" element={<AdminOrders />} />
                 <Route path="subscriptions" element={<SuperAdminSubscriptions />} />
                 <Route path="payouts" element={<AdminPayouts />} />
               </Route>

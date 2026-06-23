@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
-  ArrowDownRight,
   BrainCircuit,
   Camera,
   CreditCard,
@@ -79,9 +78,7 @@ export default function WholesalerBilling() {
       setPlans(loadedPlans);
       setSummary(loadedSummary);
       setPayments(paymentsResponse.data.payments || []);
-      setSupportContact(
-        plansResponse.data.supportContact || loadedSummary.supportContact || null
-      );
+      setSupportContact(plansResponse.data.supportContact || loadedSummary.supportContact || null);
       setSelectedDurations((current) => {
         const next = { ...current };
         loadedPlans.forEach((plan) => {
@@ -335,7 +332,8 @@ export default function WholesalerBilling() {
   };
 
   return (
-    <div className="space-y-6 text-white">
+    <div className="space-y-8 text-white">
+      {/* Page Hero */}
       <section className="overflow-hidden rounded-[30px] border border-zinc-800 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_28%),linear-gradient(135deg,_#171717,_#09090b)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -351,7 +349,7 @@ export default function WholesalerBilling() {
             </p>
           </div>
           <div
-            className={`rounded-[24px] border px-5 py-4 ${statusTone[summary?.onboardingStatus || user?.wholesalerProfile?.onboardingStatus] || statusTone.APPLIED}`}
+            className={`shrink-0 rounded-[24px] border px-5 py-4 ${statusTone[summary?.onboardingStatus || user?.wholesalerProfile?.onboardingStatus] || statusTone.APPLIED}`}
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">
               Current seller state
@@ -374,49 +372,70 @@ export default function WholesalerBilling() {
         </div>
       ) : null}
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Object.entries(featureMeta).map(([key, meta]) => {
-          const Icon = meta.icon;
-          const enabled = Boolean(currentFeatures[key]);
-          return (
-            <div
-              key={key}
-              className={`rounded-[24px] border p-5 ${enabled ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-zinc-800 bg-[#171717]'}`}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
-                    {meta.label}
-                  </p>
-                  <p
-                    className={`mt-3 text-lg font-black ${enabled ? 'text-emerald-200' : 'text-white'}`}
+      {/* ─── SECTION: Feature Access ─── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Feature Access
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {Object.entries(featureMeta).map(([key, meta]) => {
+            const Icon = meta.icon;
+            const enabled = Boolean(currentFeatures[key]);
+            return (
+              <div
+                key={key}
+                className={`rounded-[24px] border p-5 ${enabled ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-zinc-800 bg-[#171717]'}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
+                      {meta.label}
+                    </p>
+                    <p
+                      className={`mt-3 text-lg font-black ${enabled ? 'text-emerald-200' : 'text-white'}`}
+                    >
+                      {enabled ? 'Unlocked' : 'Locked'}
+                    </p>
+                  </div>
+                  <div
+                    className={`rounded-2xl border p-3 ${enabled ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400'}`}
                   >
-                    {enabled ? 'Unlocked' : 'Locked'}
-                  </p>
-                </div>
-                <div
-                  className={`rounded-2xl border p-3 ${enabled ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400'}`}
-                >
-                  <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5" />
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="space-y-4">
-          {trialPlan ? (
+      {/* ─── SECTION: Plans & Billing ─── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Plans &amp; Billing
+          </h2>
+        </div>
+
+        {/* Single grid: Left = Trial + Plan Catalog, Right = Upgrade + Coupon + Sub + Support + History */}
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr] items-start">
+          {/* ── Left Column ── */}
+          <div className="space-y-6">
+            {/* Trial Card */}
+            {trialPlan ? (
             <div className="rounded-[28px] border border-emerald-500/20 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.22),_transparent_28%),linear-gradient(135deg,_#121a17,_#080b09)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
+              <div>
+                <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-emerald-300/70">
                     Free trial
                   </p>
-                  <h2 className="mt-2 text-2xl font-black text-white">{trialPlan.name}</h2>
-                  <p className="mt-3 text-sm leading-6 text-zinc-300">{trialPlan.description}</p>
-                  <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
+                  <h2 className="mt-2 text-xl font-black text-white">{trialPlan.name}</h2>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{trialPlan.description}</p>
+                  <div className="mt-4 space-y-1.5 text-sm text-zinc-300">
                     <PriceRow label="Duration" value="2 days" />
                     <PriceRow
                       label="Status"
@@ -432,8 +451,8 @@ export default function WholesalerBilling() {
                     <PriceRow label="Valid Until" value={formatDateTime(trialMeta?.endsAt)} />
                   </div>
                 </div>
-                <div className="w-full max-w-sm rounded-[24px] border border-emerald-400/15 bg-black/20 p-4">
-                  <div className="space-y-2 text-sm">
+                <div className="mt-4 rounded-[18px] border border-emerald-400/15 bg-black/20 p-4">
+                  <div className="grid gap-2 text-sm sm:grid-cols-2">
                     {Object.entries(trialPlan.features || {}).map(([key, enabled]) => (
                       <div
                         key={key}
@@ -452,7 +471,7 @@ export default function WholesalerBilling() {
                     disabled={Boolean(
                       trialMeta?.used || trialMeta?.active || busyAction === 'trial:start'
                     )}
-                    className="mt-4 flex w-full items-center justify-center rounded-full bg-emerald-400 px-4 py-3 text-sm font-black text-[#111111] transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4 flex w-full items-center justify-center rounded-full bg-emerald-400 px-4 py-2.5 text-sm font-black text-[#111111] transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {trialMeta?.active
                       ? 'Trial active'
@@ -467,53 +486,7 @@ export default function WholesalerBilling() {
             </div>
           ) : null}
 
-          {upgradeDetails && upgradeDetails.isEligible ? (
-            <div className="rounded-[28px] border border-amber-500/30 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_32%),linear-gradient(135deg,_#1c140e,_#0a0806)] p-6 shadow-[0_20px_50px_rgba(188,108,37,0.15)] animate-fadeIn">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400">
-                    Premium Upgrade Available
-                  </p>
-                  <h2 className="mt-2 text-2xl font-black text-white">
-                    Upgrade to {upgradeDetails.targetPlan.name}
-                  </h2>
-                  <p className="mt-3 text-sm leading-6 text-zinc-300">
-                    Unlock full seller intelligence stack, AI Business Advisor, and AI Khatta support instantly. You will only be charged the prorated difference for your remaining days.
-                  </p>
-                  <div className="mt-5 grid gap-3 text-sm text-zinc-300 sm:grid-cols-2">
-                    <PriceRow label="Current Plan" value={upgradeDetails.currentPlan.name} />
-                    <PriceRow label="Target Plan" value={upgradeDetails.targetPlan.name} />
-                    <PriceRow label="Remaining Period" value={`${upgradeDetails.remainingDays} days`} />
-                    <PriceRow label="Upgrade Cost" value={`₹${Number(upgradeDetails.diffAmount).toLocaleString()}`} highlight />
-                  </div>
-                </div>
-                <div className="w-full max-w-sm rounded-[24px] border border-amber-500/10 bg-black/40 p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 block">
-                      Upgrade Difference
-                    </span>
-                    <span className="mt-2 text-4xl font-black text-amber-300 block">
-                      ₹{Number(upgradeDetails.diffAmount).toLocaleString()}
-                    </span>
-                    <span className="text-xs text-zinc-500 block mt-1">
-                      Prorated for {upgradeDetails.remainingDays} days
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleUpgradePurchase}
-                    disabled={busyAction === 'upgrade:checkout'}
-                    className="mt-6 flex w-full items-center justify-center rounded-full bg-amber-400 px-4 py-3 text-sm font-black text-[#111111] transition hover:bg-amber-300 disabled:opacity-50"
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    {busyAction === 'upgrade:checkout' ? 'Opening Checkout...' : 'Upgrade Now'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
+          {/* Plan Catalog */}
           <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
             <div className="flex items-center justify-between">
               <div>
@@ -536,31 +509,31 @@ export default function WholesalerBilling() {
                 return (
                   <div
                     key={plan.id}
-                    className={`rounded-[24px] border p-5 ${isCurrent ? 'border-amber-500/25 bg-amber-500/10' : 'border-zinc-800 bg-[#101010]'}`}
+                    className={`rounded-[24px] border p-4 ${isCurrent ? 'border-amber-500/25 bg-amber-500/10' : 'border-zinc-800 bg-[#101010]'}`}
                   >
                     <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
                       {plan.code}
                     </p>
-                    <h3 className="mt-2 text-2xl font-black text-white">{plan.name}</h3>
-                    <p className="mt-3 text-sm leading-6 text-zinc-400">{plan.description}</p>
-                    <div className="mt-4 text-3xl font-black text-white">
+                    <h3 className="mt-1.5 text-xl font-black text-white">{plan.name}</h3>
+                    <p className="mt-2 text-xs leading-5 text-zinc-400">{plan.description}</p>
+                    <div className="mt-3 text-2xl font-black text-white">
                       ₹{Number(selectedOption?.finalAmount || plan.price || 0).toLocaleString()}
                     </div>
-                    <p className="mt-1 text-xs uppercase tracking-[0.2em] text-zinc-500">
+                    <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
                       {selectedOption?.label || '1 month'}
                       {selectedOption?.discountPercent
                         ? ` · ${selectedOption.discountPercent}% off`
                         : ''}
                     </p>
 
-                    <div className="mt-5 rounded-[22px] border border-zinc-800 bg-black/20 p-3">
+                    <div className="mt-4 rounded-[18px] border border-zinc-800 bg-black/20 p-3">
                       <label className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
                         Duration
                       </label>
                       <select
                         value={selectedDurations[plan.id] || selectedOption?.months || 1}
                         onChange={(event) => handleDurationChange(plan.id, event.target.value)}
-                        className="mt-2 h-11 w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-white outline-none"
+                        className="mt-1.5 h-10 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-white outline-none"
                       >
                         {(plan.purchaseOptions || []).map((option) => (
                           <option key={`${plan.id}-${option.months}`} value={option.months}>
@@ -586,28 +559,28 @@ export default function WholesalerBilling() {
                       </div>
                     </div>
 
-                    <div className="mt-5 space-y-2">
+                    <div className="mt-4 space-y-1.5">
                       {Object.entries(plan.features || {}).map(([key, enabled]) => (
                         <div
                           key={key}
-                          className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-black/20 px-3 py-2 text-sm"
+                          className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 px-3 py-1.5 text-xs"
                         >
                           <span className="text-zinc-300">{featureMeta[key]?.label || key}</span>
                           <span className={enabled ? 'text-emerald-300' : 'text-zinc-500'}>
-                            {enabled ? 'Included' : 'No'}
+                            {enabled ? '✓' : '—'}
                           </span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-5 space-y-3">
+                    <div className="mt-4 space-y-2">
                       <button
                         type="button"
                         onClick={() => handleRazorpayPurchase(plan)}
                         disabled={busyAction === `razorpay:${plan.id}` || isCurrent}
-                        className="flex w-full items-center justify-center rounded-full bg-white px-4 py-3 text-sm font-black text-[#111111] transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="flex w-full items-center justify-center rounded-full bg-white px-4 py-2.5 text-xs font-black text-[#111111] transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <CreditCard className="mr-2 h-4 w-4" />
+                        <CreditCard className="mr-2 h-3.5 w-3.5" />
                         {isCurrent
                           ? 'Current plan'
                           : busyAction === `razorpay:${plan.id}`
@@ -618,27 +591,27 @@ export default function WholesalerBilling() {
                       <button
                         type="button"
                         onClick={handleSupportRequest}
-                        className="flex w-full items-center justify-center rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-3 text-sm font-black text-sky-100 transition hover:bg-sky-400/15"
+                        className="flex w-full items-center justify-center rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-2.5 text-xs font-black text-sky-100 transition hover:bg-sky-400/15"
                       >
-                        <Mail className="mr-2 h-4 w-4" />
+                        <Mail className="mr-2 h-3.5 w-3.5" />
                         Pay via Support
                       </button>
 
                       {supportContact ? (
-                        <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center gap-2">
                           <a
                             href={`mailto:${supportContact.email}`}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-sky-400/25 bg-sky-400/10 text-sky-200 transition hover:-translate-y-0.5 hover:bg-sky-400/15"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-400/25 bg-sky-400/10 text-sky-200 transition hover:-translate-y-0.5 hover:bg-sky-400/15"
                             aria-label="Email support"
                           >
-                            <Mail className="h-4 w-4" />
+                            <Mail className="h-3.5 w-3.5" />
                           </a>
                           <a
                             href={`tel:${supportContact.phone.replace(/\s+/g, '')}`}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/10 text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/15"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/10 text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/15"
                             aria-label="Call support"
                           >
-                            <Phone className="h-4 w-4" />
+                            <Phone className="h-3.5 w-3.5" />
                           </a>
                         </div>
                       ) : null}
@@ -648,11 +621,44 @@ export default function WholesalerBilling() {
               })}
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="space-y-6">
-          {/* Coupon Redemption Card */}
-          <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+          {/* ── Right Column ── */}
+          <div className="space-y-6">
+            {/* Upgrade Card (compact) */}
+            {upgradeDetails && upgradeDetails.isEligible ? (
+              <div className="rounded-[28px] border border-amber-500/30 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_32%),linear-gradient(135deg,_#1c140e,_#0a0806)] p-5 shadow-[0_18px_40px_rgba(188,108,37,0.12)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400">
+                  Upgrade Available
+                </p>
+                <h3 className="mt-2 text-xl font-black text-white">
+                  {upgradeDetails.targetPlan.name}
+                </h3>
+                <p className="mt-2 text-xs leading-5 text-zinc-400">
+                  Pay the prorated difference for {upgradeDetails.remainingDays} remaining days.
+                </p>
+                <div className="mt-4 flex items-end justify-between">
+                  <div>
+                    <span className="text-2xl font-black text-amber-300">
+                      ₹{Number(upgradeDetails.diffAmount).toLocaleString()}
+                    </span>
+                    <span className="ml-2 text-xs text-zinc-500">prorated</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUpgradePurchase}
+                    disabled={busyAction === 'upgrade:checkout'}
+                    className="rounded-full bg-amber-400 px-4 py-2.5 text-xs font-black text-[#111111] transition hover:bg-amber-300 disabled:opacity-50"
+                  >
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5 inline" />
+                    {busyAction === 'upgrade:checkout' ? 'Processing...' : 'Upgrade'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Coupon Redemption Card */}
+            <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
             <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
               <Ticket className="h-5 w-5 text-amber-400" />
               Redeem Coupon
@@ -714,7 +720,8 @@ export default function WholesalerBilling() {
                     </div>
                     {validatedCoupon.isUpgrade && (
                       <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-2.5 text-xs text-amber-200 mt-2">
-                        <span className="font-bold">Upgrade Promocode:</span> This coupon will upgrade your active Standard subscription to Premium for free.
+                        <span className="font-bold">Upgrade Promocode:</span> This coupon will
+                        upgrade your active Standard subscription to Premium for free.
                       </div>
                     )}
                   </div>
@@ -760,83 +767,55 @@ export default function WholesalerBilling() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
-            <div
-              ref={supportCardRef}
-              className={`rounded-[26px] border p-5 transition-all duration-300 ${
-                showSupportContact
-                  ? 'border-sky-400/25 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(135deg,_rgba(10,18,28,0.95),_rgba(8,12,18,0.92))] shadow-[0_20px_45px_rgba(8,47,73,0.28)]'
-                  : 'border-zinc-800 bg-black/20'
-              }`}
-            >
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.26em] text-sky-200/80">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Payment Support
-                  </div>
-                  <h2 className="mt-4 text-2xl font-black tracking-tight text-white">
-                    Support payment card
-                  </h2>
-                  <p className="mt-3 text-sm leading-7 text-zinc-300">
-                    Reach support when you want to pay the super admin directly. No backend request
-                    is created here. After payment confirmation, your subscription is activated
-                    manually from the admin dashboard.
-                  </p>
-                  {showSupportContact ? (
-                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-sky-200">
-                      <ArrowDownRight className="h-3.5 w-3.5" />
-                      Support details opened below
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">
-                      Click any plan&apos;s support button to jump here
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid w-full gap-3 lg:max-w-sm">
-                  <SupportContactCard
-                    icon={Phone}
-                    label="Call support"
-                    value={supportContact?.phone || 'Not available'}
-                    href={
-                      supportContact?.phone
-                        ? `tel:${supportContact.phone.replace(/\s+/g, '')}`
-                        : null
-                    }
-                    tone="emerald"
-                  />
-                  <SupportContactCard
-                    icon={Mail}
-                    label="Email support"
-                    value={supportContact?.email || 'Not available'}
-                    href={supportContact?.email ? `mailto:${supportContact.email}` : null}
-                    tone="sky"
-                  />
-                </div>
+          <div
+            ref={supportCardRef}
+            className={`rounded-[28px] border p-5 transition-all duration-300 shadow-[0_18px_50px_rgba(0,0,0,0.24)] ${
+              showSupportContact
+                ? 'border-sky-400/25 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_40%),#171717]'
+                : 'border-zinc-800 bg-[#171717]'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-2">
+                <ShieldCheck className="h-4 w-4 text-sky-300" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Payment Support</h3>
+                <p className="text-xs text-zinc-500">Pay admin directly for offline activation</p>
               </div>
             </div>
 
-            <div className="mt-6">
-              <h2 className="text-xl font-black tracking-tight text-white">
-                Support payment route
-              </h2>
-              <div className="mt-5 space-y-3">
-                <InfoRow label="Phone" value={supportContact?.phone || 'Not available'} />
-                <InfoRow label="Email" value={supportContact?.email || 'Not available'} />
-                <div className="rounded-[20px] border border-zinc-800 bg-black/20 p-4 text-sm text-zinc-400">
-                  Use this option when you want to pay the super admin directly. Clicking `Pay via
-                  Support` stays on this page and jumps to this card, while the round buttons give
-                  you direct email and call actions.
+            <div className="space-y-2.5">
+              <a
+                href={supportContact?.phone ? `tel:${supportContact.phone.replace(/\s+/g, '')}` : undefined}
+                className="flex items-center justify-between rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 transition hover:-translate-y-0.5"
+              >
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-emerald-300" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-200/70">Call</span>
                 </div>
-              </div>
+                <span className="text-sm font-semibold text-white">{supportContact?.phone || 'Not available'}</span>
+              </a>
+              <a
+                href={supportContact?.email ? `mailto:${supportContact.email}` : undefined}
+                className="flex items-center justify-between rounded-xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 transition hover:-translate-y-0.5"
+              >
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-sky-300" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-sky-200/70">Email</span>
+                </div>
+                <span className="text-sm font-semibold text-white break-all">{supportContact?.email || 'Not available'}</span>
+              </a>
             </div>
+
+            <p className="mt-4 text-xs text-zinc-500 leading-5">
+              Click &quot;Pay via Support&quot; on any plan to scroll here. After payment confirmation, your subscription is activated from the admin dashboard.
+            </p>
           </div>
 
           <div className="rounded-[28px] border border-zinc-800 bg-[#171717] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
             <h2 className="text-xl font-black tracking-tight text-white">Billing history</h2>
-            <div className="mt-5 space-y-3">
+            <div className="mt-4 max-h-[320px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
               {payments.length > 0 ? (
                 payments.map((payment) => (
                   <div
@@ -898,6 +877,7 @@ export default function WholesalerBilling() {
               )}
             </div>
           </div>
+          </div>
         </div>
       </section>
     </div>
@@ -915,41 +895,13 @@ function InfoRow({ label, value }) {
 
 function PriceRow({ label, value, highlight = false }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-zinc-400">{label}</span>
-      <span className={highlight ? 'font-black text-amber-300' : 'font-semibold text-white'}>
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-zinc-400 shrink-0">{label}</span>
+      <span className={`text-right ${highlight ? 'font-black text-amber-300' : 'font-semibold text-white'}`}>
         {value}
       </span>
     </div>
   );
 }
 
-function SupportContactCard({ icon: Icon, label, value, href, tone }) {
-  const tones = {
-    emerald: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
-    sky: 'border-sky-400/20 bg-sky-400/10 text-sky-200',
-  };
 
-  const content = (
-    <div
-      className={`rounded-[22px] border p-4 transition ${tones[tone]} ${href ? 'hover:-translate-y-0.5' : ''}`}
-    >
-      <div className="flex items-start gap-3">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60">{label}</p>
-          <p className="mt-2 break-all text-sm font-semibold text-white">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!href) return content;
-  return (
-    <a href={href} className="block">
-      {content}
-    </a>
-  );
-}

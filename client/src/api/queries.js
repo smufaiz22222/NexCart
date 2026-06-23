@@ -95,6 +95,19 @@ export const useTrendingProducts = () => {
   });
 };
 
+export const fetchDailyDeals = async () => {
+  const response = await apiClient.get('/deals/daily');
+  return response.data;
+};
+
+export const useDailyDeals = () => {
+  return useQuery({
+    queryKey: ['deals', 'daily'],
+    queryFn: fetchDailyDeals,
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
+};
+
 export const fetchUserRecommendations = async () => {
   const response = await apiClient.get('/recommendations/user?limit=8');
   return response.data;

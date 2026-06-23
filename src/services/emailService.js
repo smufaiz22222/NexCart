@@ -465,7 +465,39 @@ export const sendPasswordResetOtp = async (email, otp) => {
 };
 
 /**
- * 5. Sends order confirmation details to customer.
+ * 5. Sends email change OTP to either the old or new email address.
+ */
+export const sendEmailChangeOtp = async (email, otp, isOldEmail = true) => {
+  const subject = isOldEmail
+    ? 'Confirm Email Change Request - NexCart'
+    : 'Verify Your New Email Address - NexCart';
+
+  const description = isOldEmail
+    ? 'We received a request to change the email address associated with your NexCart account. Please use the following OTP to confirm this action:'
+    : 'Please use the following OTP to verify your new email address for your NexCart account:';
+
+  const htmlContent = getEmailTemplateFrame(
+    subject,
+    `
+    <p>${description}</p>
+    <div class="otp-display">${otp}</div>
+    <p>This code will expire in <strong>5 minutes</strong>. If you did not request this change, please secure your account immediately by changing your password.</p>
+    `
+  );
+
+  const purpose = isOldEmail ? 'EMAIL_CHANGE_OLD' : 'EMAIL_CHANGE_NEW';
+  logSecurityAudit('OTP_SENT', { email, purpose });
+
+  return sendEmail({
+    to: email,
+    subject,
+    htmlContent,
+    textContent: `Your NexCart email change verification code is: ${otp}. This code expires in 5 minutes.`,
+  });
+};
+
+/**
+ * 6. Sends order confirmation details to customer.
  */
 export const sendOrderConfirmation = async (orderId) => {
   try {
@@ -567,6 +599,8 @@ export const sendOrderStatusUpdate = async (orderId, status) => {
       where: { id: orderId },
       include: {
         buyer: { select: { name: true, email: true } },
+        seller: { select: { businessName: true } },
+        items: { include: { product: { select: { name: true } } } },
       },
     });
 
@@ -576,7 +610,11 @@ export const sendOrderStatusUpdate = async (orderId, status) => {
     let statusIcon = '📦';
     let subject = `Order Status Update: #${orderId.substring(0, 8).toUpperCase()}`;
 
-    if (status === 'SHIPPED') {
+    if (status === 'PROCESSING') {
+      statusText = 'has been accepted by the seller and is now being processed!';
+      statusIcon = '✅';
+      subject = `Order Confirmed: #${orderId.substring(0, 8).toUpperCase()} - Seller Accepted`;
+    } else if (status === 'SHIPPED') {
       statusText = 'has been shipped and is on its way!';
       statusIcon = '🚚';
       subject = `Your order #${orderId.substring(0, 8).toUpperCase()} has been shipped!`;
@@ -598,7 +636,25 @@ export const sendOrderStatusUpdate = async (orderId, status) => {
 
     const htmlContent = getEmailTemplateFrame(
       subject,
+      status === 'PROCESSING'
+        ? `
+      <p>Hi ${order.buyer.name},</p>
+      <div class="card" style="text-align: center; padding: 32px 16px;">
+        <div style="font-size: 48px; margin-bottom: 16px;">${statusIcon}</div>
+        <h2 style="margin: 0; font-size: 20px;">Order #${orderId.substring(0, 8).toUpperCase()} ${statusText}</h2>
+      </div>
+      <div class="card">
+        <h2>Order Details</h2>
+        <p style="margin-bottom: 8px;"><strong>Seller:</strong> ${order.seller?.businessName || 'Seller'}</p>
+        <p style="margin-bottom: 8px;"><strong>Items:</strong> ${order.items?.map((i) => i.product?.name || 'Product').join(', ')}</p>
+        <p style="margin-bottom: 0;"><strong>Total:</strong> ${Number(order.totalAmount).toFixed(2)} INR</p>
+      </div>
+      <p>The seller is now preparing your order for shipment. You will receive another update once your order has been shipped.</p>
+      <div class="btn-container">
+        <a href="http://localhost:5173/orders" class="btn">Track Order Details</a>
+      </div>
       `
+        : `
       <p>Hi ${order.buyer.name},</p>
       <div class="card" style="text-align: center; padding: 32px 16px;">
         <div style="font-size: 48px; margin-bottom: 16px;">${statusIcon}</div>

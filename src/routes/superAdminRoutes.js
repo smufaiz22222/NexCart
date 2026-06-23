@@ -3,6 +3,7 @@ import {
   approveWholesalerApplication,
   getAllWholesalers,
   getAdminSubscriptionPlans,
+  getAdminOrders,
   getTenantData,
   getGlobalStats,
   getPendingWholesalerApplications,
@@ -27,6 +28,7 @@ router.post('/wholesalers/:wholesalerId/approve', approveWholesalerApplication);
 router.post('/wholesalers/:wholesalerId/reject', rejectWholesalerApplication);
 router.post('/wholesalers/:wholesalerId/lifecycle', updateWholesalerLifecycle);
 router.get('/subscriptions/plans', getAdminSubscriptionPlans);
+router.get('/orders', getAdminOrders);
 
 router.get('/coupons', getCoupons);
 router.post('/coupons', createCoupon);

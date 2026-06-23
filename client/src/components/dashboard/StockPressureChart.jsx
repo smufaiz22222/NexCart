@@ -4,25 +4,29 @@ export default function StockPressureChart({ chartData }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={chartData}>
-        <CartesianGrid stroke="#27272a" vertical={false} strokeDasharray="3 3" />
+        <CartesianGrid stroke="var(--border-subtle)" vertical={false} strokeDasharray="3 3" />
         <XAxis
           dataKey="name"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#a1a1aa', fontSize: 12 }}
+          tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
         />
-        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+        <YAxis
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+        />
         <Tooltip
-          cursor={{ fill: '#18181b', opacity: 0.4 }}
+          cursor={{ fill: 'var(--bg-card-hover)', opacity: 0.4 }}
           contentStyle={{
-            backgroundColor: '#09090b',
-            border: '1px solid #27272a',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
-            color: '#fff',
+            color: 'var(--text-title)',
           }}
         />
-        <Bar dataKey="stock" fill="#d4d4d8" radius={[4, 4, 0, 0]} name="Units in stock" />
-        <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Value (₹)" />
+        <Bar dataKey="stock" fill="var(--text-muted)" radius={[4, 4, 0, 0]} name="Units in stock" />
+        <Bar dataKey="value" fill="var(--brand-accent)" radius={[4, 4, 0, 0]} name="Value (₹)" />
       </BarChart>
     </ResponsiveContainer>
   );

@@ -83,7 +83,7 @@ export default function Products() {
           const product = row.original;
           return (
             <div className="flex items-start min-w-0">
-              <div className="flex-shrink-0 h-12 w-12 bg-[#F5F5F0] rounded-md overflow-hidden flex items-center justify-center border border-zinc-700 group-hover:border-amber-500/30 transition-colors">
+              <div className="flex-shrink-0 h-12 w-12 bg-white rounded-md overflow-hidden flex items-center justify-center border border-slate-200 group-hover:border-brand-accent/30 transition-colors">
                 {product.imageUrl ? (
                   <img
                     src={product.imageUrl}
@@ -91,16 +91,16 @@ export default function Products() {
                     className="h-full w-full object-contain mix-blend-multiply p-1"
                   />
                 ) : (
-                  <span className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">
+                  <span className="text-text-muted text-[9px] font-bold uppercase tracking-widest">
                     No Img
                   </span>
                 )}
               </div>
               <div className="ml-4 min-w-0">
-                <div className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors break-words leading-5">
+                <div className="text-sm font-semibold text-text-title group-hover:text-brand-accent transition-colors break-words leading-5">
                   {product.name}
                 </div>
-                <div className="mt-0.5 max-w-[280px] text-xs leading-5 text-zinc-500 break-words line-clamp-2">
+                <div className="mt-0.5 max-w-[280px] text-xs leading-5 text-text-muted break-words line-clamp-2">
                   {product.description || 'No description'}
                 </div>
               </div>
@@ -112,7 +112,7 @@ export default function Products() {
         accessorKey: 'sku',
         header: 'SKU',
         cell: ({ getValue }) => (
-          <span className="font-mono text-zinc-400 break-all">{getValue()}</span>
+          <span className="font-mono text-text-muted break-all">{getValue()}</span>
         ),
       },
       {
@@ -121,11 +121,11 @@ export default function Products() {
         cell: ({ getValue }) => {
           const category = getValue();
           return category ? (
-            <span className="inline-flex max-w-[180px] break-words bg-zinc-800 px-2 py-1 rounded text-xs text-zinc-300 border border-zinc-700">
+            <span className="inline-flex max-w-[180px] break-words bg-bg-main px-2.5 py-0.5 rounded-sm text-xs text-text-body border border-border-subtle font-medium">
               {category}
             </span>
           ) : (
-            <span className="text-zinc-600 text-xs italic">Uncategorized</span>
+            <span className="text-text-muted text-xs italic">Uncategorized</span>
           );
         },
       },
@@ -134,7 +134,7 @@ export default function Products() {
         header: 'Price (₹)',
         cell: ({ getValue }) => {
           const val = parseFloat(getValue());
-          return <span className="font-bold text-amber-500">₹{val.toFixed(2)}</span>;
+          return <span className="font-mono font-semibold text-text-title">₹{val.toFixed(2)}</span>;
         },
       },
       {
@@ -147,12 +147,12 @@ export default function Products() {
           return (
             <span
               className={cn(
-                'px-2.5 py-1 inline-flex text-[11px] leading-5 font-bold uppercase tracking-wide rounded-sm border',
+                'px-2.5 py-0.5 inline-flex text-[11px] leading-5 font-bold uppercase tracking-wide rounded-sm border',
                 !isLow
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                   : !isOut
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                    : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
               )}
             >
               {product.currentStock} in stock
@@ -185,23 +185,23 @@ export default function Products() {
   };
 
   return (
-    <div className="space-y-6 font-sans selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="space-y-6 font-sans selection:bg-brand-accent/30 selection:text-text-title">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-text-title tracking-wide flex items-center gap-2">
             Products Management
             {isFetching && !isLoading && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-accent/10 text-brand-accent border border-brand-accent/20 animate-pulse">
                 Syncing...
               </span>
             )}
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">Add and manage your inventory catalog.</p>
+          <p className="text-sm text-text-muted mt-1">Add and manage your inventory catalog.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center px-4 py-2.5 bg-amber-500 text-[#0a0a0a] font-bold rounded-md hover:bg-amber-400 transition-all duration-300 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+          className="flex items-center justify-center px-4 py-2.5 bg-brand-primary text-white font-semibold rounded-md hover:bg-brand-primary-hover transition-colors shadow-sm"
         >
           <Plus className="h-5 w-5 mr-2" />
           Add Product
@@ -210,30 +210,32 @@ export default function Products() {
 
       {/* Products Table Area */}
       {isError ? (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-red-500/20 p-12 flex flex-col items-center justify-center text-center">
-          <p className="text-red-400 text-sm font-semibold mb-4">
+        <div className="bg-bg-card rounded-lg shadow-sm border border-semantic-danger/20 p-12 flex flex-col items-center justify-center text-center">
+          <p className="text-semantic-danger text-sm font-semibold mb-4">
             Failed to load products:{' '}
             {error?.response?.data?.error || error?.message || 'Unknown error'}
           </p>
           <button
             onClick={() => refetch()}
-            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
+            className="px-5 py-2 bg-semantic-danger hover:bg-semantic-danger/90 text-white font-semibold rounded-md transition-colors"
           >
             Retry Loading
           </button>
         </div>
       ) : isLoading ? (
-        <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
+        <div className="flex flex-col items-center justify-center py-32 text-brand-accent space-y-4">
           <Package className="h-8 w-8 animate-pulse" />
-          <p className="font-medium tracking-widest uppercase text-sm">Loading products...</p>
+          <p className="font-semibold tracking-wider uppercase text-xs text-text-muted">
+            Loading products...
+          </p>
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-dashed border-zinc-700 p-12 flex flex-col items-center justify-center text-center">
-          <div className="bg-[#0a0a0a] p-5 rounded-full mb-5 border border-zinc-800">
-            <PackageSearch className="h-10 w-10 text-amber-500" />
+        <div className="bg-bg-card rounded-lg shadow-sm border border-dashed border-border-subtle p-12 flex flex-col items-center justify-center text-center">
+          <div className="bg-bg-main p-5 rounded-full mb-5 border border-border-subtle">
+            <PackageSearch className="h-10 w-10 text-brand-accent" />
           </div>
-          <h3 className="text-lg font-semibold text-white tracking-wide">No products found</h3>
-          <p className="mt-2 text-zinc-400 max-w-sm">
+          <h3 className="text-lg font-bold text-text-title tracking-wide">No products found</h3>
+          <p className="mt-2 text-text-muted max-w-sm text-sm">
             You haven't added any products to your catalog yet. Click "Add Product" to get started.
           </p>
         </div>
@@ -260,27 +262,27 @@ export default function Products() {
 
       {/* Add Product Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1c1c1c] rounded-[32px] shadow-2xl border border-zinc-800 w-full max-w-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
-            <div className="px-8 py-6 border-b border-zinc-800 bg-[#0a0a0a] flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-bg-card rounded-lg shadow-2xl border border-border-subtle w-full max-w-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
+            <div className="px-8 py-5 border-b border-border-subtle bg-bg-main flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-white tracking-tight flex items-center">
-                  <Plus className="h-5 w-5 mr-2 text-amber-500" />
+                <h3 className="text-lg font-bold text-text-title tracking-tight flex items-center">
+                  <Plus className="h-5 w-5 mr-2 text-brand-accent" />
                   Add New Product
                 </h3>
-                <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest font-bold">
+                <p className="text-[10px] text-text-muted mt-1 uppercase tracking-wider font-bold">
                   Catalog Entry System
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-full p-2 text-zinc-500 hover:bg-zinc-800 hover:text-white transition-all"
+                className="rounded-full p-2 text-text-muted hover:bg-bg-card-hover hover:text-text-title transition-all"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="overflow-y-auto custom-scrollbar p-8">
+            <div className="overflow-y-auto custom-scrollbar p-8 bg-bg-card">
               <ProductForm onSubmit={handleCreateProduct} onCancel={() => setIsModalOpen(false)} />
             </div>
           </div>

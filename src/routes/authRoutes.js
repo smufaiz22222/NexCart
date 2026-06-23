@@ -10,6 +10,9 @@ import {
   forgotPasswordSendOtp,
   forgotPasswordVerifyOtp,
   resetPassword,
+  requestEmailChange,
+  verifyOldEmailOtp,
+  verifyNewEmailOtp,
 } from '../controllers/authController.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 import { authLimiter } from '../middlewares/rateLimiter.js';
@@ -27,5 +30,10 @@ router.post('/verify-otp', authLimiter, verifyOtp);
 router.post('/forgot-password-send-otp', authLimiter, forgotPasswordSendOtp);
 router.post('/forgot-password-verify-otp', authLimiter, forgotPasswordVerifyOtp);
 router.post('/reset-password', authLimiter, resetPassword);
+
+// Email change with dual OTP verification
+router.post('/request-email-change', authenticate, authLimiter, requestEmailChange);
+router.post('/verify-old-email-otp', authenticate, authLimiter, verifyOldEmailOtp);
+router.post('/verify-new-email-otp', authenticate, authLimiter, verifyNewEmailOtp);
 
 export default router;

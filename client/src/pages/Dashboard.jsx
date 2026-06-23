@@ -5,11 +5,16 @@ import {
   AlertCircle,
   ArrowRight,
   Boxes,
+  ChevronDown,
+  ChevronUp,
   Hourglass,
   PackageCheck,
   RotateCcw,
   Truck,
   Wallet,
+  Settings,
+  Landmark,
+  Package as PackageIcon,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDashboardData } from '../api/queries';
@@ -36,6 +41,7 @@ export default function Dashboard() {
   });
   const [isSavingBank, setIsSavingBank] = useState(false);
   const [isSavingDelivery, setIsSavingDelivery] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (data?.wholesalerProfile) {
@@ -61,6 +67,7 @@ export default function Dashboard() {
         const element = document.getElementById('bank-settings');
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' });
+          setSettingsOpen(true);
         }
       }, 100);
     }
@@ -169,8 +176,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 text-white">
-      {/* Platform Disclaimer Warning Banner */}
+    <div className="space-y-8 text-white">
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 1: Platform Disclaimer
+      ───────────────────────────────────────────────────────────────────────── */}
       <div className="rounded-[18px] border border-amber-500/20 bg-amber-500/10 p-4 flex gap-3 text-amber-200">
         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
         <div className="text-xs">
@@ -182,6 +191,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 2: Operations Hero + Analytics CTA
+      ───────────────────────────────────────────────────────────────────────── */}
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[28px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.35)]">
           <p className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-500/80">
@@ -191,26 +203,25 @@ export default function Dashboard() {
             Daily execution up front, deeper analytics one click away.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400">
-            Use this screen to monitor stock pressure, collections, and marketplace movement. When
-            you need profit, retention, slow movers, or recommendation performance, jump to the
-            analytics workspace.
+            Monitor stock pressure, collections, and marketplace movement. Jump to analytics for
+            profit, retention, slow movers, and recommendation performance.
           </p>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <QuickStrip
               label="Pending Orders"
               value={pendingOrders}
-              detail="New orders waiting for acceptance or packing"
+              detail="Waiting for acceptance or packing"
             />
             <QuickStrip
               label="Return Requests"
               value={returnRequests}
-              detail="Customer returns currently waiting on a decision"
+              detail="Customer returns awaiting decision"
             />
             <QuickStrip
               label="Refund Exceptions"
               value={refundExceptions}
-              detail="Refund failures or pending item-level follow-ups"
+              detail="Refund failures needing follow-up"
             />
           </div>
         </div>
@@ -229,347 +240,425 @@ export default function Dashboard() {
               </h2>
               <p className="mt-3 max-w-md text-sm leading-7 text-zinc-400">
                 Review net profit, margins, best-selling SKUs, slow inventory, customer lifetime
-                value, churn risk, and recommendation performance in one place.
+                value, churn risk, and recommendation performance.
               </p>
             </div>
             <div className="rounded-full border border-amber-500/20 bg-amber-500/10 p-3 text-amber-300 transition group-hover:translate-x-1">
               <ArrowRight className="h-5 w-5" />
             </div>
           </div>
-
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <InfoTile
               label="Top Category"
               value={advisorContext?.topSellingCategory || 'N/A'}
-              detail="Still useful, but the full sales mix lives in analytics"
+              detail="Full sales mix lives in analytics"
             />
             <InfoTile
               label="Unsold Inventory"
               value={advisorContext?.unsoldInventory || 0}
-              detail="Products with no historical order items"
+              detail="Products with no historical orders"
             />
           </div>
         </Link>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Market Debt"
-          value={`₹${Number(ledgerStats.totalDebt || 0).toLocaleString()}`}
-          icon={AlertCircle}
-          tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
-          desc="Money currently owed to you"
-        />
-        <StatCard
-          title="Total Collection"
-          value={`₹${Number(ledgerStats.totalCollection || 0).toLocaleString()}`}
-          icon={Wallet}
-          tone="text-emerald-300 border-emerald-500/20 bg-emerald-500/10"
-          desc="Cash received through the marketplace"
-        />
-        <StatCard
-          title="Orders In Progress"
-          value={(processingOrders + shippedOrders).toLocaleString()}
-          icon={Truck}
-          tone="text-sky-300 border-sky-500/20 bg-sky-500/10"
-          desc={`${processingOrders} processing and ${shippedOrders} shipped`}
-        />
-        <StatCard
-          title="Total Units In Stock"
-          value={totalUnitsInStock.toLocaleString()}
-          icon={Boxes}
-          tone="text-zinc-200 border-zinc-700 bg-zinc-800/70"
-          desc={`${totalProducts} active catalog products`}
-        />
-        <StatCard
-          title="Low / Out Of Stock"
-          value={`${lowStockProducts.length} / ${outOfStockProducts.length}`}
-          icon={PackageCheck}
-          tone="text-amber-300 border-amber-500/20 bg-amber-500/10"
-          desc="Low stock first, out of stock second"
-        />
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-          <div className="mb-5">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
-              Inventory Snapshot
-            </p>
-            <h2 className="mt-2 text-lg font-black text-white">Stock asset pressure</h2>
-          </div>
-          <div className="h-80">
-            <StockPressureChart chartData={chartData} />
-          </div>
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 3: Key Metrics (5 stat cards in a responsive grid)
+      ───────────────────────────────────────────────────────────────────────── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Key Metrics
+          </h2>
         </div>
-
-        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-          <div className="mb-5">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
-              Operational Alerts
-            </p>
-            <h2 className="mt-2 text-lg font-black text-white">What needs attention</h2>
-          </div>
-
-          <div className="grid gap-3">
-            <AlertRow
-              icon={Hourglass}
-              label="Pending queue"
-              value={pendingOrders}
-              detail="Orders waiting for your first operational action"
-              tone="text-orange-300 border-orange-500/20 bg-orange-500/10"
-            />
-            <AlertRow
-              icon={RotateCcw}
-              label="Return requests"
-              value={returnRequests}
-              detail="Items blocked until you approve or reject the return"
-              tone="text-violet-300 border-violet-500/20 bg-violet-500/10"
-            />
-            <AlertRow
-              icon={AlertCircle}
-              label="Refund exceptions"
-              value={refundExceptions}
-              detail="Items where refund recovery still needs attention"
-              tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
-            />
-          </div>
-
-          <div className="mt-5 rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
-              Immediate next step
-            </p>
-            <p className="mt-3 text-sm leading-7 text-zinc-400">
-              Review the analytics page for the profit view, slow movers by value, customer risk,
-              and deeper recommendation performance before deciding what to restock or promote.
-            </p>
-            <Link
-              to="/wholesaler/analytics"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-amber-400"
-            >
-              Open Analytics
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard
+            title="Market Debt"
+            value={`₹${Number(ledgerStats.totalDebt || 0).toLocaleString()}`}
+            icon={AlertCircle}
+            tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
+            desc="Money owed to you"
+          />
+          <StatCard
+            title="Collection"
+            value={`₹${Number(ledgerStats.totalCollection || 0).toLocaleString()}`}
+            icon={Wallet}
+            tone="text-emerald-300 border-emerald-500/20 bg-emerald-500/10"
+            desc="Cash received via marketplace"
+          />
+          <StatCard
+            title="In Progress"
+            value={(processingOrders + shippedOrders).toLocaleString()}
+            icon={Truck}
+            tone="text-sky-300 border-sky-500/20 bg-sky-500/10"
+            desc={`${processingOrders} processing · ${shippedOrders} shipped`}
+          />
+          <StatCard
+            title="Units In Stock"
+            value={totalUnitsInStock.toLocaleString()}
+            icon={Boxes}
+            tone="text-zinc-200 border-zinc-700 bg-zinc-800/70"
+            desc={`${totalProducts} catalog products`}
+          />
+          <StatCard
+            title="Low / Out"
+            value={`${lowStockProducts.length} / ${outOfStockProducts.length}`}
+            icon={PackageCheck}
+            tone="text-amber-300 border-amber-500/20 bg-amber-500/10"
+            desc="Low stock / out of stock"
+          />
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-          <div className="mb-5">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
-              Catalog Watchlist
-            </p>
-            <h2 className="mt-2 text-lg font-black text-white">Restock and dormancy scan</h2>
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 4: Inventory Chart + Operational Alerts (side by side)
+      ───────────────────────────────────────────────────────────────────────── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Inventory &amp; Alerts
+          </h2>
+        </div>
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            <div className="mb-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+                Inventory Snapshot
+              </p>
+              <h3 className="mt-2 text-lg font-black text-white">Stock asset pressure</h3>
+            </div>
+            <div className="h-72">
+              <StockPressureChart chartData={chartData} />
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {outOfStockProducts.slice(0, 3).map((product) => (
-              <WatchRow
-                key={`out-${product.id}`}
-                name={product.name}
-                meta="Out of stock"
-                detail="Unavailable for sale until restocked"
+          <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            <div className="mb-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
+                Operational Alerts
+              </p>
+              <h3 className="mt-2 text-lg font-black text-white">What needs attention</h3>
+            </div>
+
+            <div className="grid gap-3">
+              <AlertRow
+                icon={Hourglass}
+                label="Pending queue"
+                value={pendingOrders}
+                detail="Orders waiting for your first action"
+                tone="text-orange-300 border-orange-500/20 bg-orange-500/10"
+              />
+              <AlertRow
+                icon={RotateCcw}
+                label="Return requests"
+                value={returnRequests}
+                detail="Approve or reject pending returns"
+                tone="text-violet-300 border-violet-500/20 bg-violet-500/10"
+              />
+              <AlertRow
+                icon={AlertCircle}
+                label="Refund exceptions"
+                value={refundExceptions}
+                detail="Refund recovery needs attention"
                 tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
               />
-            ))}
-            {lowStockProducts.slice(0, 3).map((product) => (
-              <WatchRow
-                key={`low-${product.id}`}
-                name={product.name}
-                meta={`${product.currentStock} left`}
-                detail="Reorder soon to avoid availability gaps"
-                tone="text-amber-300 border-amber-500/20 bg-amber-500/10"
-              />
-            ))}
-            {outOfStockProducts.length === 0 && lowStockProducts.length === 0 && (
-              <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 px-4 py-5 text-sm text-emerald-100">
-                No immediate stock pressure. The catalog is currently clear of low-stock and
-                out-of-stock alerts.
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-          <div className="mb-5">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500">
-              Recent Orders
-            </p>
-            <h2 className="mt-2 text-lg font-black text-white">Latest marketplace movement</h2>
-          </div>
-
-          <div className="space-y-3">
-            {recentOrders.length > 0 ? (
-              recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-white">
-                        {order.buyer?.name || order.buyer?.email || 'Customer'}
-                      </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        {order.id.slice(0, 8).toUpperCase()}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-zinc-800 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300">
-                      {order.status}
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <MiniMetric
-                      label="Placed"
-                      value={new Date(order.createdAt).toLocaleDateString()}
-                    />
-                    <MiniMetric label="Items" value={order.items?.length || 0} />
-                    <MiniMetric
-                      label="Order Total"
-                      value={`₹${Number(order.totalAmount || 0).toLocaleString()}`}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] px-4 py-6 text-sm text-zinc-500">
-                No recent orders yet.
-              </div>
-            )}
+            <div className="mt-5 rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                Next step
+              </p>
+              <p className="mt-3 text-sm leading-7 text-zinc-400">
+                Check the analytics page for profit view, slow movers, customer risk, and
+                recommendation performance.
+              </p>
+              <Link
+                to="/wholesaler/analytics"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-amber-400"
+              >
+                Open Analytics
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* B2B GST Bank & UPI Settings Card */}
-      <section id="bank-settings" className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-        <div className="mb-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-500">
-            B2B GST Bank & UPI Settings
-          </p>
-          <h2 className="mt-2 text-lg font-black text-white">
-            Configure your direct settlement credentials
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 5: Catalog Watchlist + Recent Orders (side by side)
+      ───────────────────────────────────────────────────────────────────────── */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-1 w-6 rounded-full bg-amber-500/60" />
+          <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+            Catalog &amp; Orders
           </h2>
-          <p className="text-xs text-zinc-500 mt-1">
-            These details are shown to verified B2B buyers when they pay via Bank Transfer / UPI.
-          </p>
         </div>
+        <div className="grid gap-6 xl:grid-cols-2">
+          {/* Catalog Watchlist */}
+          <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2">
+                <PackageIcon className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Restock Watchlist</h3>
+                <p className="text-xs text-zinc-500">Products needing reorder attention</p>
+              </div>
+            </div>
 
-        <form onSubmit={handleSaveBankDetails} className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              Bank Name
-            </label>
-            <input
-              type="text"
-              value={bankDetails.bankName}
-              onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-              placeholder="e.g. State Bank of India"
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-            />
+            <div className="space-y-3">
+              {outOfStockProducts.slice(0, 3).map((product) => (
+                <WatchRow
+                  key={`out-${product.id}`}
+                  name={product.name}
+                  meta="Out of stock"
+                  detail="Unavailable for sale until restocked"
+                  tone="text-rose-300 border-rose-500/20 bg-rose-500/10"
+                />
+              ))}
+              {lowStockProducts.slice(0, 3).map((product) => (
+                <WatchRow
+                  key={`low-${product.id}`}
+                  name={product.name}
+                  meta={`${product.currentStock} left`}
+                  detail="Reorder soon to avoid gaps"
+                  tone="text-amber-300 border-amber-500/20 bg-amber-500/10"
+                />
+              ))}
+              {outOfStockProducts.length === 0 && lowStockProducts.length === 0 && (
+                <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 px-4 py-5 text-sm text-emerald-100">
+                  No stock pressure. Catalog is clear of alerts.
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              Account Number
-            </label>
-            <input
-              type="text"
-              value={bankDetails.bankAccountNo}
-              onChange={(e) => setBankDetails({ ...bankDetails, bankAccountNo: e.target.value })}
-              placeholder="e.g. 123456789012"
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-            />
+
+          {/* Recent Orders */}
+          <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-2">
+                <Truck className="h-4 w-4 text-sky-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">Recent Orders</h3>
+                <p className="text-xs text-zinc-500">Latest marketplace activity</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {recentOrders.length > 0 ? (
+                recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-white">
+                          {order.buyer?.name || order.buyer?.email || 'Customer'}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+                          {order.id.slice(0, 8).toUpperCase()}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-zinc-800 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300">
+                        {order.status}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <MiniMetric
+                        label="Placed"
+                        value={new Date(order.createdAt).toLocaleDateString()}
+                      />
+                      <MiniMetric label="Items" value={order.items?.length || 0} />
+                      <MiniMetric
+                        label="Total"
+                        value={`₹${Number(order.totalAmount || 0).toLocaleString()}`}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] px-4 py-6 text-sm text-zinc-500">
+                  No recent orders yet.
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              IFSC Code
-            </label>
-            <input
-              type="text"
-              value={bankDetails.bankIfsc}
-              onChange={(e) => setBankDetails({ ...bankDetails, bankIfsc: e.target.value })}
-              placeholder="e.g. SBIN0001234"
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              UPI ID
-            </label>
-            <input
-              type="text"
-              value={bankDetails.upiId}
-              onChange={(e) => setBankDetails({ ...bankDetails, upiId: e.target.value })}
-              placeholder="e.g. company@ybl"
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-            />
-          </div>
-          <div className="sm:col-span-2 flex justify-end mt-2">
-            <button
-              type="submit"
-              disabled={isSavingBank}
-              className="rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 px-6 py-2.5 text-xs font-bold text-[#0a0a0a] transition"
-            >
-              {isSavingBank ? 'Saving settings...' : 'Save Bank Credentials'}
-            </button>
-          </div>
-        </form>
+        </div>
       </section>
 
-      {/* Delivery & Shipping Settings Card */}
-      <section className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)] mt-6">
-        <div className="mb-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-500">
-            Delivery & Shipping Settings
-          </p>
-          <h2 className="mt-2 text-lg font-black text-white">Configure your delivery charges</h2>
-          <p className="text-xs text-zinc-500 mt-1">
-            These rules apply to retail (B2C) customer orders placed from your store catalog.
-          </p>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 6: Settings (Collapsible)
+          Bank & Delivery settings grouped together with a toggle
+      ───────────────────────────────────────────────────────────────────────── */}
+      <section id="bank-settings">
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          className="w-full flex items-center justify-between rounded-[18px] border border-zinc-800 bg-[#111111] px-6 py-4 transition hover:border-zinc-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2">
+              <Settings className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="text-left">
+              <h3 className="text-base font-black text-white">Business Settings</h3>
+              <p className="text-xs text-zinc-500">
+                Bank details, UPI credentials, and delivery configuration
+              </p>
+            </div>
+          </div>
+          {settingsOpen ? (
+            <ChevronUp className="h-5 w-5 text-zinc-400" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-zinc-400" />
+          )}
+        </button>
 
-        <form onSubmit={handleSaveDeliveryDetails} className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              Flat Delivery Fee (₹)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={bankDetails.deliveryFee}
-              onChange={(e) => setBankDetails({ ...bankDetails, deliveryFee: e.target.value })}
-              placeholder="e.g. 50.00"
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-              required
-            />
+        {settingsOpen && (
+          <div className="mt-4 grid gap-6 lg:grid-cols-2">
+            {/* Bank & UPI Settings */}
+            <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2">
+                  <Landmark className="h-4 w-4 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">B2B Bank &amp; UPI</h3>
+                  <p className="text-xs text-zinc-500">
+                    Shown to verified B2B buyers for bank transfer / UPI payments
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveBankDetails} className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={bankDetails.bankName}
+                    onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                    placeholder="e.g. State Bank of India"
+                    className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                    Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={bankDetails.bankAccountNo}
+                    onChange={(e) =>
+                      setBankDetails({ ...bankDetails, bankAccountNo: e.target.value })
+                    }
+                    placeholder="e.g. 123456789012"
+                    className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                    IFSC Code
+                  </label>
+                  <input
+                    type="text"
+                    value={bankDetails.bankIfsc}
+                    onChange={(e) => setBankDetails({ ...bankDetails, bankIfsc: e.target.value })}
+                    placeholder="e.g. SBIN0001234"
+                    className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                    UPI ID
+                  </label>
+                  <input
+                    type="text"
+                    value={bankDetails.upiId}
+                    onChange={(e) => setBankDetails({ ...bankDetails, upiId: e.target.value })}
+                    placeholder="e.g. company@ybl"
+                    className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div className="sm:col-span-2 flex justify-end mt-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingBank}
+                    className="rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 px-6 py-2.5 text-xs font-bold text-[#0a0a0a] transition"
+                  >
+                    {isSavingBank ? 'Saving...' : 'Save Bank Credentials'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Delivery Settings */}
+            <div className="rounded-[24px] border border-zinc-800 bg-[#111111] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-2">
+                  <Truck className="h-4 w-4 text-sky-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Delivery &amp; Shipping</h3>
+                  <p className="text-xs text-zinc-500">
+                    Delivery fee rules for retail (B2C) customer orders
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveDeliveryDetails} className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                    Flat Delivery Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={bankDetails.deliveryFee}
+                    onChange={(e) =>
+                      setBankDetails({ ...bankDetails, deliveryFee: e.target.value })
+                    }
+                    placeholder="e.g. 50.00"
+                    className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                    Free Delivery Threshold (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={bankDetails.freeDeliveryThreshold}
+                    onChange={(e) =>
+                      setBankDetails({ ...bankDetails, freeDeliveryThreshold: e.target.value })
+                    }
+                    placeholder="e.g. 1000 (empty = flat rate always)"
+                    className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div className="sm:col-span-2 flex justify-end mt-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingDelivery}
+                    className="rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 px-6 py-2.5 text-xs font-bold text-[#0a0a0a] transition"
+                  >
+                    {isSavingDelivery ? 'Saving...' : 'Save Delivery Settings'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              Free Delivery Threshold (₹)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={bankDetails.freeDeliveryThreshold}
-              onChange={(e) =>
-                setBankDetails({ ...bankDetails, freeDeliveryThreshold: e.target.value })
-              }
-              placeholder="e.g. 1000.00 (leave empty for flat rate always)"
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-            />
-          </div>
-          <div className="sm:col-span-2 flex justify-end mt-2">
-            <button
-              type="submit"
-              disabled={isSavingDelivery}
-              className="rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 px-6 py-2.5 text-xs font-bold text-[#0a0a0a] transition"
-            >
-              {isSavingDelivery ? 'Saving settings...' : 'Save Delivery Settings'}
-            </button>
-          </div>
-        </form>
+        )}
       </section>
     </div>
   );

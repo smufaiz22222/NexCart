@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LogOut,
@@ -15,6 +15,8 @@ import {
   Heart,
   RotateCcw,
   FileText,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
@@ -22,6 +24,7 @@ import useB2BCartStore from '../store/b2bCartStore';
 import AuthModal from '../components/AuthModal';
 import ProfileDropdown from '../components/ProfileDropdown';
 import NotificationBell from '../components/NotificationBell';
+import categoryData from '../data/categoryData';
 
 export default function CustomerLayout() {
   const { logout, isAuthenticated, user } = useAuthStore();
@@ -107,14 +110,14 @@ export default function CustomerLayout() {
   const showSidebar = showB2BSidebar || showB2CSidebar;
 
   if (showSidebar) {
-    const sidebarAccent = showB2BSidebar ? '#8f5d31' : '#0047AB';
+    const sidebarAccent = showB2BSidebar ? '#f97316' : '#4f46e5';
     const sidebarLabel = showB2BSidebar ? 'B2B' : 'B2C';
 
     return (
-      <div className="min-h-screen bg-[#f2f0ea] flex font-sans selection:bg-[#161412] selection:text-[#f2f0ea]">
+      <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-[#4f46e5] selection:text-white">
         {/* Desktop Left Sidebar */}
-        <aside className="hidden md:flex w-72 flex-col bg-[#161412] text-[#f2f0ea] border-r border-[#2d2926] z-20 shrink-0">
-          <div className="h-20 flex items-center justify-between px-8 border-b border-[#2d2926]">
+        <aside className="hidden md:flex w-72 flex-col bg-[#1e1b4b] text-[#e0e7ff] border-r border-[#312e81] z-20 shrink-0">
+          <div className="h-20 flex items-center justify-between px-8 border-b border-[#312e81]">
             <button
               onClick={() => navigate('/store')}
               className="text-2xl font-black tracking-tight text-white flex items-center gap-2"
@@ -144,18 +147,18 @@ export default function CustomerLayout() {
                   to={item.href}
                   className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 relative ${
                     isActive
-                      ? 'text-white bg-[#2c2926]'
-                      : 'text-[#c8c1b4] hover:bg-[#2c2926]/50 hover:text-white'
+                      ? 'text-white bg-[#312e81]'
+                      : 'text-[#a5b4fc] hover:bg-[#312e81]/50 hover:text-white'
                   }`}
                 >
                   <div className="flex items-center">
                     <Icon
-                      className={`h-5 w-5 mr-3 transition-transform duration-300 ${isActive ? 'scale-110 text-[#8f5d31]' : 'text-[#8f877b]'}`}
+                      className={`h-5 w-5 mr-3 transition-transform duration-300 ${isActive ? 'scale-110 text-[#a5b4fc]' : 'text-[#6366f1]'}`}
                     />
                     {item.name}
                   </div>
                   {item.badge && item.badge > 0 ? (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#8f5d31] px-1 text-[10px] font-black text-white">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#f97316] px-1 text-[10px] font-black text-white">
                       {item.badge}
                     </span>
                   ) : null}
@@ -165,13 +168,13 @@ export default function CustomerLayout() {
           </nav>
 
           {/* Sidebar Footer / Static Links & User Info */}
-          <div className="p-4 border-t border-[#2d2926] bg-[#1c1a18]">
+          <div className="p-4 border-t border-[#312e81] bg-[#1a1745]">
             {/* Switch between B2B/B2C */}
             {hasApprovedB2BAccess && (
               <div className="mb-4">
                 <Link
                   to={showB2BSidebar ? '/store/dashboard' : '/store/dashboard/b2b'}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2d2926] hover:border-[#8f877b] px-3.5 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#c8c1b4] hover:text-white transition-all duration-300"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#312e81] hover:border-[#6366f1] px-3.5 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#a5b4fc] hover:text-white transition-all duration-300"
                 >
                   {showB2BSidebar ? (
                     <>
@@ -188,7 +191,7 @@ export default function CustomerLayout() {
               </div>
             )}
             {/* Static Pages Links */}
-            <div className="grid grid-cols-2 gap-2 mb-4 text-[10px] font-bold uppercase tracking-wider text-[#8b8276] px-2">
+            <div className="grid grid-cols-2 gap-2 mb-4 text-[10px] font-bold uppercase tracking-wider text-[#6366f1] px-2">
               <Link to="/store/about" className="hover:text-white transition">
                 About
               </Link>
@@ -203,12 +206,12 @@ export default function CustomerLayout() {
               </Link>
             </div>
 
-            <div className="border-t border-[#2d2926]/60 pt-4">
+            <div className="border-t border-[#312e81]/60 pt-4">
               {isAuthenticated ? (
                 <div className="space-y-3">
                   <div className="px-2">
                     <p className="text-xs font-bold text-white truncate">{user?.name}</p>
-                    <p className="text-[10px] text-[#8f877b] truncate mt-0.5">{user?.email}</p>
+                    <p className="text-[10px] text-[#a5b4fc] truncate mt-0.5">{user?.email}</p>
                   </div>
                   <button
                     onClick={handleLogout}
@@ -221,7 +224,7 @@ export default function CustomerLayout() {
               ) : (
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#8f5d31] hover:bg-[#a06a3a] px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-300"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#4f46e5] hover:bg-[#4338ca] px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-300"
                 >
                   <LogIn className="h-4 w-4" />
                   Login / Register
@@ -232,12 +235,12 @@ export default function CustomerLayout() {
         </aside>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#f2f0ea]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc]">
           {/* Mobile Header */}
-          <header className="md:hidden h-16 bg-[#161412] text-white flex items-center justify-between px-4 sticky top-0 z-30 shadow-md">
+          <header className="md:hidden h-16 bg-[#1e1b4b] text-white flex items-center justify-between px-4 sticky top-0 z-30 shadow-md">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-zinc-400 hover:text-white focus:outline-none transition-colors p-2"
+              className="text-indigo-300 hover:text-white focus:outline-none transition-colors p-2"
             >
               {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -246,7 +249,7 @@ export default function CustomerLayout() {
               onClick={() => navigate('/store')}
               className="text-xl font-black tracking-tight text-white"
             >
-              Nex<span className="text-[#8f5d31]">Cart</span>
+              Nex<span className="text-[#a5b4fc]">Cart</span>
             </button>
 
             <div className="flex items-center gap-2">
@@ -254,7 +257,7 @@ export default function CustomerLayout() {
               <button onClick={() => navigate('/store/cart')} className="relative p-2">
                 <ShoppingBag className="h-5 w-5 text-white" />
                 {totalItems > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8f5d31] px-1 text-[9px] font-bold text-white">
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#f97316] px-1 text-[9px] font-bold text-white">
                     {totalItems}
                   </span>
                 )}
@@ -264,7 +267,7 @@ export default function CustomerLayout() {
 
           {/* Mobile Navigation Drawer */}
           {isMobileMenuOpen && (
-            <nav className="md:hidden bg-[#161412] text-white border-b border-[#2d2926] shadow-2xl absolute w-full z-20">
+            <nav className="md:hidden bg-[#1e1b4b] text-white border-b border-[#312e81] shadow-2xl absolute w-full z-20">
               <div className="px-4 pt-2 pb-4 space-y-1">
                 {sidebarNavigation.map((item) => {
                   const isActive = location.pathname === item.href;
@@ -276,23 +279,23 @@ export default function CustomerLayout() {
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={`flex items-center justify-between px-4 py-3 text-sm font-bold tracking-wide rounded-xl transition-all ${
                         isActive
-                          ? 'bg-[#2c2926] text-white'
-                          : 'text-[#c8c1b4] hover:bg-[#2c2926]/50'
+                          ? 'bg-[#312e81] text-white'
+                          : 'text-[#a5b4fc] hover:bg-[#312e81]/50'
                       }`}
                     >
                       <div className="flex items-center">
-                        <Icon className="h-5 w-5 mr-3 text-[#8f877b]" />
+                        <Icon className="h-5 w-5 mr-3 text-[#6366f1]" />
                         {item.name}
                       </div>
                       {item.badge && item.badge > 0 ? (
-                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8f5d31] px-1 text-[9px] font-bold text-white">
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#f97316] px-1 text-[9px] font-bold text-white">
                           {item.badge}
                         </span>
                       ) : null}
                     </Link>
                   );
                 })}
-                <div className="pt-4 border-t border-[#2d2926] mt-4 flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[#8b8276] px-2">
+                <div className="pt-4 border-t border-[#312e81] mt-4 flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[#6366f1] px-2">
                   <Link to="/store/about" onClick={() => setIsMobileMenuOpen(false)}>
                     About
                   </Link>
@@ -323,7 +326,7 @@ export default function CustomerLayout() {
                         setIsMobileMenuOpen(false);
                         setIsAuthModalOpen(true);
                       }}
-                      className="w-full py-3 bg-[#8f5d31] text-white rounded-xl text-xs font-bold uppercase tracking-wider"
+                      className="w-full py-3 bg-[#4f46e5] text-white rounded-xl text-xs font-bold uppercase tracking-wider"
                     >
                       Login / Register
                     </button>
@@ -334,8 +337,8 @@ export default function CustomerLayout() {
           )}
 
           {showSidebar && (
-            <header className="hidden md:flex h-20 items-center justify-between px-8 border-b border-[#ddd7cc] bg-white/70 backdrop-blur sticky top-0 z-30">
-              <h2 className="text-xl font-bold text-[#161412]">
+            <header className="hidden md:flex h-20 items-center justify-between px-8 border-b border-[#e2e8f0] bg-white/80 backdrop-blur sticky top-0 z-30">
+              <h2 className="text-xl font-bold text-[#1e293b]">
                 {showB2BSidebar ? 'B2B Portal' : 'Customer Account'}
               </h2>
               <div className="flex items-center gap-4">
@@ -358,40 +361,35 @@ export default function CustomerLayout() {
 
   // Otherwise, render normal e-commerce header/footer layout without left sidebar
   return (
-    <div className="min-h-screen bg-[#f2f0ea] text-[#161412] selection:bg-[#161412] selection:text-[#f2f0ea]">
-      <div className="bg-[#161412] px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.26em] text-[#f2f0ea]">
+    <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] selection:bg-[#4f46e5] selection:text-white">
+      <div className="bg-[#1e1b4b] px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.26em] text-[#e0e7ff]">
         Sign up and get 20% off your first wholesale-ready order.
       </div>
 
-      <header className="sticky top-0 z-40 border-b border-[#ddd7cc] bg-[#f8f6f1]/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-[#e2e8f0] bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-8">
             <button
               onClick={() => navigate('/store')}
-              className="text-3xl font-black tracking-tight text-[#161412]"
+              className="text-3xl font-black tracking-tight text-[#1e293b]"
             >
-              Nex<span className="text-[#8f5d31]">Cart</span>
+              Nex<span className="text-[#4f46e5]">Cart</span>
             </button>
 
-            <nav className="hidden items-center gap-6 text-sm font-semibold text-[#49443d] md:flex">
-              <Link className="transition hover:text-[#161412]" to="/store">
+            <nav className="hidden items-center gap-5 text-sm font-semibold text-[#64748b] md:flex">
+              <Link className="transition hover:text-[#4f46e5]" to="/store">
                 Shop
               </Link>
-              <a className="transition hover:text-[#161412]" href="#new-arrivals">
-                New Arrivals
-              </a>
-              <a className="transition hover:text-[#161412]" href="#top-selling">
-                Top Selling
-              </a>
-              <a className="transition hover:text-[#161412]" href="#browse-style">
-                Categories
-              </a>
+              <CategoryMegaMenu />
+              <Link className="transition hover:text-[#4f46e5]" to="/store#products-section">
+                All Products
+              </Link>
               {isAuthenticated && isCustomer && (
                 <Link
-                  className="transition hover:text-[#161412]"
+                  className="transition hover:text-[#4f46e5]"
                   to="/store/dashboard/b2b-onboarding"
                 >
-                  Business Verification
+                  Business
                 </Link>
               )}
             </nav>
@@ -400,12 +398,12 @@ export default function CustomerLayout() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/store/cart')}
-              className="relative rounded-full border border-[#ddd7cc] bg-white p-3 text-[#161412] transition hover:border-[#161412]"
+              className="relative rounded-full border border-[#e2e8f0] bg-white p-3 text-[#1e293b] transition hover:border-[#4f46e5] hover:text-[#4f46e5]"
               aria-label="Cart"
             >
               <ShoppingBag className="h-5 w-5" />
               {totalItems > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#161412] px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#4f46e5] px-1 text-[10px] font-bold text-white">
                   {totalItems}
                 </span>
               )}
@@ -422,13 +420,13 @@ export default function CustomerLayout() {
         <Outlet />
       </main>
 
-      <footer className="mt-16 bg-[#161412] text-[#f2f0ea]">
+      <footer className="mt-16 bg-[#1e1b4b] text-[#e0e7ff]">
         <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.2fr_repeat(3,1fr)] lg:px-8">
           <div>
             <h2 className="text-3xl font-black tracking-tight">
-              Nex<span className="text-amber-500">Cart</span>
+              Nex<span className="text-[#a5b4fc]">Cart</span>
             </h2>
-            <p className="mt-4 max-w-sm text-sm leading-7 text-[#c8c1b4]">
+            <p className="mt-4 max-w-sm text-sm leading-7 text-[#a5b4fc]">
               A marketplace experience tuned for fashion-style discovery, wholesaler credibility,
               and smooth repeat buying.
             </p>
@@ -467,18 +465,125 @@ export default function CustomerLayout() {
 function FooterColumn({ title, items }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8f877b]">{title}</p>
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#6366f1]">{title}</p>
       <div className="mt-4 space-y-3">
         {items.map(([label, href]) => (
           <Link
             key={label}
             to={href}
-            className="block text-sm text-[#f2f0ea] transition hover:text-[#c8c1b4]"
+            className="block text-sm text-[#e0e7ff] transition hover:text-[#a5b4fc]"
           >
             {label}
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CategoryMegaMenu() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(null);
+  const menuRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const navigate = useNavigate();
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+      setActiveCategory(null);
+    }, 200);
+  };
+
+  const handleCategoryHover = (category) => {
+    setActiveCategory(category);
+  };
+
+  const handleNavigate = (categoryName, subcategory) => {
+    setIsOpen(false);
+    setActiveCategory(null);
+    // Navigate to store with category filter - the storefront handles filtering
+    const params = new URLSearchParams();
+    if (subcategory) {
+      params.set('subcategory', subcategory);
+    } else {
+      params.set('category', categoryName);
+    }
+    navigate(`/store?${params.toString()}`);
+  };
+
+  return (
+    <div
+      ref={menuRef}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button
+        className="flex items-center gap-1 transition hover:text-[#4f46e5]"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        Categories
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full pt-2 z-50">
+          <div className="flex rounded-xl border border-[#e2e8f0] bg-white shadow-[0_20px_60px_rgba(30,27,75,0.1)] overflow-hidden min-w-[600px]">
+            {/* Left: Category list */}
+            <div className="w-56 border-r border-[#e2e8f0] bg-[#f8fafc] py-2">
+              {categoryData.map((category) => (
+                <button
+                  key={category.slug}
+                  onMouseEnter={() => handleCategoryHover(category)}
+                  onClick={() => handleNavigate(category.name)}
+                  className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
+                    activeCategory?.slug === category.slug
+                      ? 'bg-white font-bold text-[#4f46e5]'
+                      : 'text-[#64748b] hover:bg-white hover:text-[#1e293b]'
+                  }`}
+                >
+                  <span>{category.name}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-[#94a3b8]" />
+                </button>
+              ))}
+            </div>
+
+            {/* Right: Subcategories */}
+            <div className="flex-1 p-5">
+              {activeCategory ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#4f46e5]">
+                    {activeCategory.name}
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
+                    {activeCategory.subcategories.map((sub) => (
+                      <button
+                        key={sub}
+                        onClick={() => handleNavigate(activeCategory.name, sub)}
+                        className="rounded px-2 py-1.5 text-left text-sm text-[#64748b] transition hover:bg-[#eef2ff] hover:text-[#4f46e5]"
+                      >
+                        {sub}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-[#94a3b8]">
+                  Hover on a category to see subcategories
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

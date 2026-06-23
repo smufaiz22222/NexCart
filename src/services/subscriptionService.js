@@ -798,7 +798,9 @@ export const validateCouponCode = async (db, code, wholesalerId = null) => {
     const status = getEffectiveSubscriptionStatus(activeSub);
 
     if (!activeSub || status !== 'ACTIVE' || activeSub.plan?.code !== 'STANDARD') {
-      const error = new Error('This upgrade coupon is only valid for wholesalers with an active Standard subscription.');
+      const error = new Error(
+        'This upgrade coupon is only valid for wholesalers with an active Standard subscription.'
+      );
       error.statusCode = 400;
       throw error;
     }
@@ -1040,9 +1042,14 @@ export const getSubscriptionUpgradeDetails = async (db, wholesalerId) => {
   const remainingStandardValue = Number((paidAmount * (remainingDays / totalDays)).toFixed(2));
 
   const premiumTotalValue = computePlanPricing(premiumPlan, currentSub.durationMonths).finalAmount;
-  const premiumValueForRemaining = Number((premiumTotalValue * (remainingDays / totalDays)).toFixed(2));
+  const premiumValueForRemaining = Number(
+    (premiumTotalValue * (remainingDays / totalDays)).toFixed(2)
+  );
 
-  const diffAmount = Math.max(0, Number((premiumValueForRemaining - remainingStandardValue).toFixed(2)));
+  const diffAmount = Math.max(
+    0,
+    Number((premiumValueForRemaining - remainingStandardValue).toFixed(2))
+  );
 
   return {
     isEligible: true,

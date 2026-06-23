@@ -197,7 +197,10 @@ export default function SellerProductDetails() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <DetailCard label="Discounted/Selling Price" value={formatCurrency(product.price)} />
+                <DetailCard
+                  label="Discounted/Selling Price"
+                  value={formatCurrency(product.price)}
+                />
                 <DetailCard label="Actual Price" value={formatCurrency(product.actualPrice)} />
                 <DetailCard label="Cost Price" value={formatCurrency(product.costPrice)} />
                 <DetailCard label="SKU" value={product.sku || 'Not set'} mono />

@@ -15,6 +15,7 @@ export default async function seedUsers(prisma) {
       email: 'admin@example.com',
       password: hashedPassword,
       role: 'SUPER_ADMIN',
+      emailVerified: true,
     },
   });
 
@@ -24,6 +25,7 @@ export default async function seedUsers(prisma) {
       email: 'buyer@example.com',
       password: hashedPassword,
       role: 'CUSTOMER',
+      emailVerified: true,
     },
   });
 
@@ -33,6 +35,7 @@ export default async function seedUsers(prisma) {
       email: 'tech@example.com',
       password: hashedPassword,
       role: 'WHOLESALER',
+      emailVerified: true,
       wholesalerProfile: { create: { businessName: 'ElectroHub Pro' } },
     },
     include: { wholesalerProfile: true },
@@ -44,6 +47,7 @@ export default async function seedUsers(prisma) {
       email: 'threads@example.com',
       password: hashedPassword,
       role: 'WHOLESALER',
+      emailVerified: true,
       wholesalerProfile: { create: { businessName: 'Urban Threads' } },
     },
     include: { wholesalerProfile: true },
@@ -72,6 +76,7 @@ export default async function seedUsers(prisma) {
         email: w.email,
         password: hashedPassword,
         role: 'WHOLESALER',
+        emailVerified: true,
         wholesalerProfile: { create: { businessName: w.businessName } },
       },
       include: { wholesalerProfile: true },
@@ -92,6 +97,7 @@ export default async function seedUsers(prisma) {
       email,
       password: hashedPassword,
       role: 'CUSTOMER',
+      emailVerified: true,
     });
   }
 

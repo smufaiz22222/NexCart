@@ -5,6 +5,7 @@ import {
   sendWelcomeEmail,
   sendVerificationOtp,
   sendPasswordResetOtp,
+  sendEmailChangeOtp,
   checkOtpRateLimit,
   logSecurityAudit,
   dispatchEmailAsync,
@@ -353,20 +354,10 @@ export const updateProfile = async (req, res) => {
 
     if (email !== undefined) {
       const normalizedEmail = email.trim().toLowerCase();
-      if (!normalizedEmail) {
-        return res.status(400).json({ error: 'Email cannot be empty' });
-      }
-      if (!validateEmail(normalizedEmail)) {
-        return res.status(400).json({ error: 'Invalid email format' });
-      }
       if (normalizedEmail !== user.email) {
-        const existingEmail = await prisma.user.findUnique({
-          where: { email: normalizedEmail },
+        return res.status(400).json({
+          error: 'Email changes require OTP verification. Please use the email change flow.',
         });
-        if (existingEmail) {
-          return res.status(400).json({ error: 'Email is already in use by another account' });
-        }
-        updateData.email = normalizedEmail;
       }
     }
 
@@ -802,5 +793,327 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error('RESET PASSWORD ERROR:', error);
     res.status(500).json({ error: 'Failed to reset password.' });
+  }
+};
+
+// ─── Email Change with Dual OTP Verification ─────────────────────────────────
+
+/**
+ * Step 1: User requests email change. Sends OTP to the OLD (current) email.
+ * Body: { newEmail }
+ * Requires authentication.
+ */
+export const requestEmailChange = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { newEmail } = req.body || {};
+
+    if (!newEmail) {
+      return res.status(400).json({ error: 'New email address is required.' });
+    }
+
+    const normalizedNewEmail = normalizeEmail(newEmail);
+
+    if (!validateEmail(normalizedNewEmail)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    if (normalizedNewEmail === user.email) {
+      return res.status(400).json({ error: 'New email is the same as your current email.' });
+    }
+
+    // Check if new email is already taken
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedNewEmail },
+    });
+    if (existingUser) {
+      return res.status(400).json({ error: 'This email is already in use by another account.' });
+    }
+
+    // Store the newEmail in pendingData so we can reference it throughout the flow
+    const pendingData = { newEmail: normalizedNewEmail, userId };
+
+    const otp = await generateAndSaveOtp(user.email, 'EMAIL_CHANGE_OLD', pendingData);
+    dispatchEmailAsync(() => sendEmailChangeOtp(user.email, otp, true));
+
+    logSecurityAudit('EMAIL_CHANGE_REQUESTED', {
+      userId,
+      oldEmail: user.email,
+      newEmail: normalizedNewEmail,
+    });
+
+    res.status(200).json({
+      message: 'A verification code has been sent to your current email address.',
+      oldEmail: user.email,
+    });
+  } catch (error) {
+    console.error('REQUEST EMAIL CHANGE ERROR:', error);
+    const isRateLimit = error.message?.includes('Limit') || error.message?.includes('wait');
+    res
+      .status(isRateLimit ? 429 : 500)
+      .json({ error: error.message || 'Failed to initiate email change.' });
+  }
+};
+
+/**
+ * Step 2: User verifies OTP sent to old email. On success, sends OTP to the NEW email.
+ * Body: { otp }
+ * Requires authentication.
+ */
+export const verifyOldEmailOtp = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { otp } = req.body || {};
+
+    if (!otp) {
+      return res.status(400).json({ error: 'OTP is required.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Verify OTP for old email
+    const otpRecord = await prisma.emailOTP.findUnique({
+      where: {
+        email_purpose: { email: user.email, purpose: 'EMAIL_CHANGE_OLD' },
+      },
+    });
+
+    if (!otpRecord) {
+      return res
+        .status(400)
+        .json({ error: 'No pending email change request found. Please start again.' });
+    }
+
+    if (new Date() > new Date(otpRecord.expiresAt)) {
+      await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+      logSecurityAudit('OTP_EXPIRED', { email: user.email, purpose: 'EMAIL_CHANGE_OLD' });
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+    }
+
+    const isMatch = await bcrypt.compare(otp, otpRecord.otpHash);
+    if (!isMatch) {
+      const nextAttempts = otpRecord.attempts + 1;
+      if (nextAttempts >= 5) {
+        await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+        logSecurityAudit('OTP_LOCKOUT', { email: user.email, purpose: 'EMAIL_CHANGE_OLD' });
+        return res.status(400).json({
+          error: 'Too many failed attempts. Please start the email change process again.',
+        });
+      }
+      await prisma.emailOTP.update({
+        where: { id: otpRecord.id },
+        data: { attempts: nextAttempts },
+      });
+      logSecurityAudit('OTP_VERIFICATION_FAILED', {
+        email: user.email,
+        purpose: 'EMAIL_CHANGE_OLD',
+        attempts: nextAttempts,
+      });
+      return res.status(400).json({ error: 'Invalid OTP. Please try again.' });
+    }
+
+    // OTP verified - extract newEmail from pendingData
+    const pendingData = otpRecord.pendingData ? JSON.parse(otpRecord.pendingData) : null;
+    if (!pendingData || !pendingData.newEmail) {
+      await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+      return res.status(400).json({ error: 'Email change data is corrupted. Please start again.' });
+    }
+
+    // Delete old email OTP record
+    await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+
+    // Re-check new email availability (could have been taken since step 1)
+    const existingUser = await prisma.user.findUnique({
+      where: { email: pendingData.newEmail },
+    });
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'The new email is now taken by another account. Please try with a different email.',
+      });
+    }
+
+    // Send OTP to the new email
+    const newPendingData = { newEmail: pendingData.newEmail, userId, oldEmailVerified: true };
+    const newOtp = await generateAndSaveOtp(
+      pendingData.newEmail,
+      'EMAIL_CHANGE_NEW',
+      newPendingData
+    );
+    dispatchEmailAsync(() => sendEmailChangeOtp(pendingData.newEmail, newOtp, false));
+
+    logSecurityAudit('EMAIL_CHANGE_OLD_VERIFIED', {
+      userId,
+      oldEmail: user.email,
+      newEmail: pendingData.newEmail,
+    });
+
+    res.status(200).json({
+      message:
+        'Current email verified. A verification code has been sent to your new email address.',
+      newEmail: pendingData.newEmail,
+    });
+  } catch (error) {
+    console.error('VERIFY OLD EMAIL OTP ERROR:', error);
+    const isRateLimit = error.message?.includes('Limit') || error.message?.includes('wait');
+    res.status(isRateLimit ? 429 : 500).json({ error: error.message || 'Failed to verify OTP.' });
+  }
+};
+
+/**
+ * Step 3: User verifies OTP sent to new email. On success, updates the email.
+ * Body: { otp, newEmail }
+ * Requires authentication.
+ */
+export const verifyNewEmailOtp = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { otp, newEmail } = req.body || {};
+
+    if (!otp || !newEmail) {
+      return res.status(400).json({ error: 'OTP and new email are required.' });
+    }
+
+    const normalizedNewEmail = normalizeEmail(newEmail);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Verify OTP for new email
+    const otpRecord = await prisma.emailOTP.findUnique({
+      where: {
+        email_purpose: { email: normalizedNewEmail, purpose: 'EMAIL_CHANGE_NEW' },
+      },
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({
+        error: 'No pending verification found for this email. Please start the process again.',
+      });
+    }
+
+    if (new Date() > new Date(otpRecord.expiresAt)) {
+      await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+      logSecurityAudit('OTP_EXPIRED', { email: normalizedNewEmail, purpose: 'EMAIL_CHANGE_NEW' });
+      return res
+        .status(400)
+        .json({ error: 'OTP has expired. Please start the email change process again.' });
+    }
+
+    const isMatch = await bcrypt.compare(otp, otpRecord.otpHash);
+    if (!isMatch) {
+      const nextAttempts = otpRecord.attempts + 1;
+      if (nextAttempts >= 5) {
+        await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+        logSecurityAudit('OTP_LOCKOUT', { email: normalizedNewEmail, purpose: 'EMAIL_CHANGE_NEW' });
+        return res.status(400).json({
+          error: 'Too many failed attempts. Please start the email change process again.',
+        });
+      }
+      await prisma.emailOTP.update({
+        where: { id: otpRecord.id },
+        data: { attempts: nextAttempts },
+      });
+      logSecurityAudit('OTP_VERIFICATION_FAILED', {
+        email: normalizedNewEmail,
+        purpose: 'EMAIL_CHANGE_NEW',
+        attempts: nextAttempts,
+      });
+      return res.status(400).json({ error: 'Invalid OTP. Please try again.' });
+    }
+
+    // Validate pendingData
+    const pendingData = otpRecord.pendingData ? JSON.parse(otpRecord.pendingData) : null;
+    if (!pendingData || !pendingData.oldEmailVerified || pendingData.userId !== userId) {
+      await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+      return res.status(400).json({ error: 'Invalid email change session. Please start over.' });
+    }
+
+    // Final check: new email still available
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedNewEmail },
+    });
+    if (existingUser) {
+      await prisma.emailOTP.delete({ where: { id: otpRecord.id } });
+      return res.status(400).json({ error: 'This email is now taken by another account.' });
+    }
+
+    // Perform the email update in a transaction
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      await tx.emailOTP.delete({ where: { id: otpRecord.id } });
+
+      return tx.user.update({
+        where: { id: userId },
+        data: { email: normalizedNewEmail },
+        include: {
+          wholesalerProfile: {
+            include: {
+              subscriptions: {
+                include: { plan: true },
+                orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+              },
+            },
+          },
+          businessProfile: true,
+        },
+      });
+    });
+
+    let wholesalerProfile = updatedUser.wholesalerProfile;
+    if (updatedUser.role === 'WHOLESALER' && wholesalerProfile) {
+      wholesalerProfile = await checkAndExpireSubscription(prisma, wholesalerProfile);
+      updatedUser.wholesalerProfile = wholesalerProfile;
+    }
+
+    const wholesalerSummary =
+      updatedUser.role === 'WHOLESALER' && updatedUser.wholesalerProfile
+        ? buildWholesalerAccessSummary(updatedUser.wholesalerProfile)
+        : null;
+
+    logSecurityAudit('EMAIL_CHANGE_COMPLETED', {
+      userId,
+      oldEmail: user.email,
+      newEmail: normalizedNewEmail,
+    });
+
+    res.status(200).json({
+      message: 'Email address updated successfully.',
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        createdAt: updatedUser.createdAt,
+        businessName: updatedUser.wholesalerProfile?.businessName || null,
+        subscription: wholesalerSummary?.subscription || null,
+        featureAccess: wholesalerSummary?.featureAccess || null,
+        wholesalerProfile: updatedUser.wholesalerProfile
+          ? {
+              id: updatedUser.wholesalerProfile.id,
+              businessName: updatedUser.wholesalerProfile.businessName,
+              businessPhone: updatedUser.wholesalerProfile.businessPhone,
+              taxId: updatedUser.wholesalerProfile.taxId,
+              businessAddress: updatedUser.wholesalerProfile.businessAddress,
+              onboardingStatus: wholesalerSummary?.onboardingStatus,
+            }
+          : null,
+        businessProfile: updatedUser.businessProfile || null,
+      },
+    });
+  } catch (error) {
+    console.error('VERIFY NEW EMAIL OTP ERROR:', error);
+    const isRateLimit = error.message?.includes('Limit') || error.message?.includes('wait');
+    res
+      .status(isRateLimit ? 429 : 500)
+      .json({ error: error.message || 'Failed to verify new email.' });
   }
 };

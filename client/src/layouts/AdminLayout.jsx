@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { CreditCard, LayoutDashboard, Shield, LogOut, Menu, X, Landmark } from 'lucide-react';
+import {
+  Building2,
+  CreditCard,
+  LayoutDashboard,
+  Landmark,
+  LogOut,
+  Menu,
+  Shield,
+  ShoppingBag,
+  X,
+} from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import NotificationBell from '../components/NotificationBell';
 
@@ -19,6 +29,20 @@ export default function AdminLayout() {
       matcher: (pathname) => pathname === '/admin',
     },
     {
+      name: 'Wholesalers',
+      href: '/admin/wholesalers',
+      icon: Building2,
+      description: 'Directory and applications',
+      matcher: (pathname) => pathname.startsWith('/admin/wholesalers'),
+    },
+    {
+      name: 'Orders',
+      href: '/admin/orders',
+      icon: ShoppingBag,
+      description: 'Platform-wide order tracking',
+      matcher: (pathname) => pathname.startsWith('/admin/orders'),
+    },
+    {
       name: 'Subscriptions',
       href: '/admin/subscriptions',
       icon: CreditCard,
@@ -29,7 +53,7 @@ export default function AdminLayout() {
       name: 'Supplier Payouts',
       href: '/admin/payouts',
       icon: Landmark,
-      description: 'Review and settle supplier requests',
+      description: 'Review and settle requests',
       matcher: (pathname) => pathname.startsWith('/admin/payouts'),
     },
   ];
@@ -40,25 +64,25 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5efe4] text-[#221c16] selection:bg-[#221c16] selection:text-[#f5efe4]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(200,122,58,0.18),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(28,84,77,0.14),_transparent_28%)]" />
+    <div className="min-h-screen bg-[#0B0E11] text-[#EAECEF] selection:bg-[#F0B90B] selection:text-[#0B0E11]">
       <div className="relative flex min-h-screen">
-        <aside className="hidden w-72 shrink-0 border-r border-[#d8ccb9] bg-[#f8f2e8]/90 backdrop-blur md:flex md:flex-col">
-          <div className="border-b border-[#d8ccb9] px-6 py-6">
+        {/* Sidebar */}
+        <aside className="hidden w-[260px] shrink-0 border-r border-[#2B3139] bg-[#12161C] md:flex md:flex-col">
+          <div className="border-b border-[#2B3139] px-5 py-5">
             <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-[#221c16] p-3 text-[#f5efe4] shadow-[0_14px_30px_rgba(34,28,22,0.18)]">
-                <Shield className="h-5 w-5" />
+              <div className="rounded-xl bg-[#F0B90B] p-2.5">
+                <Shield className="h-5 w-5 text-[#0B0E11]" />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8f5d31]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#F0B90B]">
                   Super Admin
                 </p>
-                <h1 className="text-xl font-black tracking-tight">NexCart Control</h1>
+                <h1 className="text-lg font-extrabold tracking-tight text-white">NexCart</h1>
               </div>
             </div>
           </div>
 
-          <nav className="flex-1 space-y-2 px-4 py-6">
+          <nav className="flex-1 space-y-1 px-3 py-4">
             {navigation.map((item) => {
               const isActive = item.matcher(location.pathname);
               const Icon = item.icon;
@@ -67,17 +91,17 @@ export default function AdminLayout() {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-[#221c16] text-[#f5efe4] shadow-[0_18px_34px_rgba(34,28,22,0.18)]'
-                      : 'text-[#5d5247] hover:bg-[#efe4d3] hover:text-[#221c16]'
+                      ? 'bg-[#2B3139] text-[#F0B90B]'
+                      : 'text-[#848E9C] hover:bg-[#1E2329] hover:text-[#EAECEF]'
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className={`h-[18px] w-[18px] ${isActive ? 'text-[#F0B90B]' : ''}`} />
                   <div>
                     <p>{item.name}</p>
                     <p
-                      className={`mt-0.5 text-[11px] font-medium ${isActive ? 'text-[#d8d1c5]' : 'text-[#8b7e70]'}`}
+                      className={`text-[11px] font-normal ${isActive ? 'text-[#B7BDC6]' : 'text-[#5E6673]'}`}
                     >
                       {item.description}
                     </p>
@@ -87,18 +111,20 @@ export default function AdminLayout() {
             })}
           </nav>
 
-          <div className="border-t border-[#d8ccb9] px-6 py-5">
-            <div className="rounded-2xl bg-[#efe4d3] p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8f5d31]">
-                Active Session
+          <div className="border-t border-[#2B3139] px-4 py-4">
+            <div className="rounded-lg bg-[#1E2329] p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#848E9C]">
+                Session
               </p>
-              <p className="mt-2 text-sm font-semibold">{user?.name || 'Super Admin'}</p>
-              <p className="mt-1 text-xs text-[#6b6155]">{user?.email}</p>
+              <p className="mt-1.5 text-sm font-semibold text-[#EAECEF]">
+                {user?.name || 'Super Admin'}
+              </p>
+              <p className="mt-0.5 text-xs text-[#5E6673]">{user?.email}</p>
             </div>
 
             <button
               onClick={handleLogout}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d0a274] bg-[#fff9f1] px-4 py-3 text-sm font-bold text-[#8f5d31] transition hover:bg-[#f4e3cb]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#2B3139] bg-[#1E2329] px-3 py-2.5 text-sm font-medium text-[#848E9C] transition hover:border-[#F0B90B]/30 hover:text-[#F0B90B]"
             >
               <LogOut className="h-4 w-4" />
               Logout
@@ -106,39 +132,40 @@ export default function AdminLayout() {
           </div>
         </aside>
 
+        {/* Main Area */}
         <div className="relative flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-[#d8ccb9] bg-[#f8f2e8]/85 backdrop-blur">
-            <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <header className="sticky top-0 z-30 border-b border-[#2B3139] bg-[#12161C]/95 backdrop-blur-md">
+            <div className="flex items-center justify-between px-4 py-3 sm:px-6">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setIsMobileMenuOpen((value) => !value)}
-                  className="rounded-xl border border-[#d8ccb9] bg-white/70 p-2 text-[#221c16] md:hidden"
+                  onClick={() => setIsMobileMenuOpen((v) => !v)}
+                  className="rounded-lg border border-[#2B3139] bg-[#1E2329] p-2 text-[#848E9C] md:hidden"
                 >
                   {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                 </button>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8f5d31]">
-                    Platform Oversight
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#F0B90B]">
+                    Control Panel
                   </p>
-                  <h2 className="text-lg font-black tracking-tight text-[#221c16]">
-                    Super Admin Dashboard
-                  </h2>
+                  <h2 className="text-base font-bold text-white">Super Admin Dashboard</h2>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <NotificationBell />
-                <div className="hidden rounded-2xl border border-[#d8ccb9] bg-white/70 px-4 py-2 text-right sm:block">
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-                    Signed in as
+                <div className="hidden rounded-lg border border-[#2B3139] bg-[#1E2329] px-3 py-1.5 text-right sm:block">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#848E9C]">
+                    Signed in
                   </p>
-                  <p className="text-sm font-semibold text-[#221c16]">{user?.email}</p>
+                  <p className="text-xs font-medium text-[#EAECEF]">{user?.email}</p>
                 </div>
               </div>
             </div>
 
+            {/* Mobile Menu */}
             {isMobileMenuOpen && (
-              <nav className="space-y-2 border-t border-[#d8ccb9] px-4 py-4 md:hidden">
+              <nav className="space-y-1 border-t border-[#2B3139] px-3 py-3 md:hidden">
                 {navigation.map((item) => {
                   const isActive = item.matcher(location.pathname);
                   const Icon = item.icon;
@@ -148,11 +175,13 @@ export default function AdminLayout() {
                       key={item.name}
                       to={item.href}
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold ${
-                        isActive ? 'bg-[#221c16] text-[#f5efe4]' : 'bg-white/70 text-[#221c16]'
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                        isActive
+                          ? 'bg-[#2B3139] text-[#F0B90B]'
+                          : 'text-[#848E9C] hover:bg-[#1E2329]'
                       }`}
                     >
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-[18px] w-[18px]" />
                       {item.name}
                     </Link>
                   );

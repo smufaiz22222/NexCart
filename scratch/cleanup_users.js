@@ -83,7 +83,9 @@ async function main() {
     const inventoryUpdate = await prisma.inventoryLog.updateMany({
       data: { wholesalerId: ourWholesalerId },
     });
-    console.log(`📦 Reassigned ${inventoryUpdate.count} inventory logs to Wholesaler ${ourWholesalerId}.`);
+    console.log(
+      `📦 Reassigned ${inventoryUpdate.count} inventory logs to Wholesaler ${ourWholesalerId}.`
+    );
 
     // 5. Clean up transactional dependency data in correct order
     console.log('🧹 Cleaning up transactional and dependency tables...');
@@ -148,7 +150,7 @@ async function main() {
       where: { userId: { not: ourUserId } },
     });
     await prisma.businessParty.deleteMany();
-    
+
     // Reviews not by our user
     await prisma.review.deleteMany({
       where: { userId: { not: ourUserId } },
@@ -180,7 +182,6 @@ async function main() {
     console.log(`👥 Deleted ${deleteUsers.count} other users.`);
 
     console.log('🎉 Cleanup and profile promotion completed successfully!');
-
   } catch (error) {
     console.error('❌ Error during cleanup and promotion:', error);
   } finally {

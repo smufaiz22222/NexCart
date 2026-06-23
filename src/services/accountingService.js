@@ -682,6 +682,33 @@ export async function getAccountingHub(wholesalerId) {
     { totalSales: 0, totalReceived: 0, totalOutstanding: 0 }
   );
 
+  // Separate offline vs e-commerce summaries
+  const offlineSalesOverview = combinedSales
+    .filter((s) => s.type === 'OFFLINE')
+    .reduce(
+      (acc, sale) => {
+        acc.totalSales = roundMoney(acc.totalSales + Number(sale.totalAmount));
+        acc.totalReceived = roundMoney(acc.totalReceived + Number(sale.amountReceived));
+        acc.totalOutstanding = roundMoney(acc.totalOutstanding + Number(sale.balanceDue));
+        return acc;
+      },
+      { totalSales: 0, totalReceived: 0, totalOutstanding: 0 }
+    );
+
+  const ecomSalesOverview = combinedSales
+    .filter((s) => s.type === 'ECOMMERCE')
+    .reduce(
+      (acc, sale) => {
+        acc.totalSales = roundMoney(acc.totalSales + Number(sale.totalAmount));
+        acc.totalReceived = roundMoney(acc.totalReceived + Number(sale.amountReceived));
+        acc.totalOutstanding = roundMoney(acc.totalOutstanding + Number(sale.balanceDue));
+        acc.count += 1;
+        if (sale.balanceDue > 0) acc.pendingCount += 1;
+        return acc;
+      },
+      { totalSales: 0, totalReceived: 0, totalOutstanding: 0, count: 0, pendingCount: 0 }
+    );
+
   return {
     overview: {
       ...categoryTotals,
@@ -690,6 +717,8 @@ export async function getAccountingHub(wholesalerId) {
       ),
       partiesPayable: roundMoney(partySummaries.reduce((sum, party) => sum + party.payable, 0)),
       ...salesOverview,
+      offline: offlineSalesOverview,
+      ecommerce: ecomSalesOverview,
     },
     parties: partySummaries,
     accounts: accountSummaries,

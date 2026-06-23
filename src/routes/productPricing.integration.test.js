@@ -105,7 +105,6 @@ test('Product pricing validation and marketplace discount percentage logic', asy
     assert.equal(getRes.body.price, 180);
     // Discount percentage should be round(((250 - 180) / 250) * 100) = 28%
     assert.equal(getRes.body.discountPercent, 28);
-
   } finally {
     await cleanupPricingFixture(fixture);
   }

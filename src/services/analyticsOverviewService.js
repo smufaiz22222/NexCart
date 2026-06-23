@@ -146,8 +146,7 @@ export const buildAnalyticsOverview = ({
         right.unitsSold - left.unitsSold ||
         right.revenue - left.revenue ||
         right.profit - left.profit
-    )
-    .slice(0, 10);
+    );
 
   const slowMovingInventory = products
     .filter((product) => toNumber(product.currentStock) > 0)

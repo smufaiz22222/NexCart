@@ -1,10 +1,18 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Package, Clock, Truck, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { cn } from '../utils/cn';
 import { useOrders } from '../api/queries';
 import OrderCard from '../components/orders/OrderCard';
+
+const statusIcons = {
+  PENDING: Clock,
+  PROCESSING: Package,
+  SHIPPED: Truck,
+  DELIVERED: CheckCircle2,
+  CANCELLED_RETURNED: XCircle,
+};
 
 export default function Orders() {
   const location = useLocation();
@@ -12,7 +20,7 @@ export default function Orders() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const backPath = user?.role === 'WHOLESALER' ? '/wholesaler' : '/store';
+  const backPath = user?.role === 'WHOLESALER' ? '/wholesaler' : '/store/dashboard';
 
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
@@ -79,29 +87,37 @@ export default function Orders() {
     return (
       <div
         className={cn(
-          'max-w-6xl mx-auto px-4 py-8 space-y-8 animate-pulse',
-          isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
+          'max-w-6xl mx-auto px-4 py-8 space-y-6 animate-pulse',
+          isWholesalerPath ? 'text-zinc-200' : 'text-[#1e293b]'
         )}
       >
         <div
           className={cn(
-            'h-24 rounded-lg border',
-            isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#EFEFEF] border-[#C0C0C0]'
+            'h-20 rounded-xl border',
+            isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#f1f5f9] border-[#e2e8f0]'
           )}
         />
+        <div className="grid grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                'h-20 rounded-xl border',
+                isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#f1f5f9] border-[#e2e8f0]'
+              )}
+            />
+          ))}
+        </div>
         <div className="space-y-4">
-          <div
-            className={cn(
-              'h-44 rounded-lg border',
-              isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#EFEFEF] border-[#C0C0C0]'
-            )}
-          />
-          <div
-            className={cn(
-              'h-44 rounded-lg border',
-              isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#EFEFEF] border-[#C0C0C0]'
-            )}
-          />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                'h-40 rounded-xl border',
+                isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#f1f5f9] border-[#e2e8f0]'
+              )}
+            />
+          ))}
         </div>
       </div>
     );
@@ -110,110 +126,192 @@ export default function Orders() {
   return (
     <div
       className={cn(
-        'max-w-6xl mx-auto px-4 py-8 font-sans selection:bg-[#0047AB]/10',
-        isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
+        'max-w-6xl mx-auto px-4 py-8 font-sans',
+        isWholesalerPath ? 'text-zinc-200' : 'text-[#1e293b]'
       )}
     >
-      <button
-        onClick={() => navigate(backPath)}
-        className={cn(
-          'flex items-center font-bold text-sm tracking-wide transition-colors group mb-8',
-          isWholesalerPath
-            ? 'text-zinc-400 hover:text-amber-500'
-            : 'text-[#6C757D] hover:text-[#0047AB]'
-        )}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-        Back
-      </button>
+      {/* Header */}
+      <div className="mb-8">
+        <button
+          onClick={() => navigate(backPath)}
+          className={cn(
+            'flex items-center font-semibold text-sm transition-colors group mb-6',
+            isWholesalerPath
+              ? 'text-zinc-400 hover:text-amber-500'
+              : 'text-[#64748b] hover:text-[#4f46e5]'
+          )}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+          Back to Dashboard
+        </button>
 
-      <div
-        className={cn(
-          'flex justify-between items-center mb-8 border-b pb-6',
-          isWholesalerPath ? 'border-zinc-800' : 'border-[#C0C0C0]'
-        )}
-      >
-        <div>
-          <h1
-            className={cn(
-              'text-3xl font-bold tracking-tight flex items-center gap-2',
-              isWholesalerPath ? 'text-white' : 'text-[#16171a]'
-            )}
-          >
-            {user?.role === 'WHOLESALER' ? (
-              <span>Incoming Shop Orders</span>
-            ) : (
-              <span>My Purchase History</span>
-            )}
-            {isFetching && !isLoading && (
-              <span
+        <div className="flex items-center justify-between">
+          <div>
+            <h1
+              className={cn(
+                'text-2xl font-black tracking-tight flex items-center gap-3',
+                isWholesalerPath ? 'text-white' : 'text-[#1e293b]'
+              )}
+            >
+              <div
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium border animate-pulse',
-                  isWholesalerPath
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    : 'bg-[#EFEFEF] text-[#0047AB] border-[#C0C0C0]'
+                  'flex h-10 w-10 items-center justify-center rounded-xl',
+                  isWholesalerPath ? 'bg-amber-500/20' : 'bg-[#4f46e5]'
                 )}
               >
-                Syncing...
-              </span>
-            )}
-          </h1>
-          <p className={cn('text-sm mt-2', isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]')}>
-            {user?.role === 'WHOLESALER'
-              ? 'Manage orders and review return, refund, and dispute requests.'
-              : 'Track orders and raise return, refund, or dispute requests from one place.'}
-          </p>
+                <Package
+                  className={cn('h-5 w-5', isWholesalerPath ? 'text-amber-400' : 'text-white')}
+                />
+              </div>
+              {user?.role === 'WHOLESALER' ? 'Incoming Orders' : 'Order History'}
+            </h1>
+            <p
+              className={cn(
+                'text-sm mt-2 ml-[52px]',
+                isWholesalerPath ? 'text-zinc-400' : 'text-[#64748b]'
+              )}
+            >
+              {user?.role === 'WHOLESALER'
+                ? 'Manage orders and review return, refund, and dispute requests.'
+                : 'Track orders and manage returns or disputes from one place.'}
+            </p>
+          </div>
+          {isFetching && !isLoading && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border animate-pulse',
+                isWholesalerPath
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  : 'bg-[#eef2ff] text-[#4f46e5] border-[#c7d2fe]'
+              )}
+            >
+              Syncing...
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Order Type Filter Tabs */}
-      <div className="flex flex-wrap gap-2 p-1.5 rounded-xl border border-zinc-800/10 bg-zinc-950/5 max-w-max mb-8">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8 stagger-children">
         {[
-          { id: 'ALL', label: 'All Orders' },
-          { id: 'B2C', label: 'Retail (B2C)' },
-          { id: 'B2B', label: 'Wholesale (B2B)' },
-        ].map((tab) => {
-          const count = counts[tab.id];
-          const isActive = selectedType === tab.id;
+          { id: 'PENDING', label: 'Pending', color: 'amber' },
+          { id: 'PROCESSING', label: 'Processing', color: 'blue' },
+          { id: 'SHIPPED', label: 'Shipped', color: 'indigo' },
+          { id: 'DELIVERED', label: 'Delivered', color: 'emerald' },
+          { id: 'CANCELLED_RETURNED', label: 'Cancelled', color: 'red' },
+        ].map((stat) => {
+          const Icon = statusIcons[stat.id] || XCircle;
+          const count = statusCounts[stat.id];
+          const isActive = selectedStatus === stat.id;
           return (
             <button
-              key={tab.id}
-              onClick={() => handleTypeChange(tab.id)}
+              key={stat.id}
+              onClick={() => setSelectedStatus(isActive ? 'ALL' : stat.id)}
               className={cn(
-                'px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 border',
+                'relative rounded-xl border p-4 text-left transition-all duration-200 stat-card-glow animate-slide-in btn-press',
                 isActive
                   ? isWholesalerPath
-                    ? 'bg-amber-500/25 border-amber-500/35 text-amber-400 font-extrabold shadow-[0_2px_10px_rgba(245,158,11,0.1)]'
-                    : 'bg-[#0047AB] border-[#0047AB] text-white font-extrabold'
+                    ? 'bg-amber-500/10 border-amber-500/30 shadow-lg shadow-amber-500/5'
+                    : 'bg-[#eef2ff] border-[#4f46e5] shadow-lg shadow-[#4f46e5]/5'
                   : isWholesalerPath
-                    ? 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
-                    : 'bg-transparent border-transparent text-zinc-600 hover:text-[#16171a] hover:bg-[#EFEFEF]'
+                    ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                    : 'bg-white border-[#e2e8f0] hover:border-[#4f46e5]/30 hover:shadow-sm'
               )}
             >
-              {tab.label}
-              <span
+              <Icon
                 className={cn(
-                  'px-1.5 py-0.5 rounded text-[10px] font-mono leading-none border',
+                  'h-4 w-4 mb-2',
                   isActive
                     ? isWholesalerPath
-                      ? 'bg-amber-500/30 border-amber-500/20 text-amber-300'
-                      : 'bg-white/20 border-white/10 text-white'
+                      ? 'text-amber-400'
+                      : 'text-[#4f46e5]'
                     : isWholesalerPath
-                      ? 'bg-zinc-900/80 border-zinc-800 text-zinc-500'
-                      : 'bg-[#EFEFEF] border-[#C0C0C0] text-zinc-500'
+                      ? 'text-zinc-500'
+                      : 'text-[#64748b]'
+                )}
+              />
+              <p
+                className={cn(
+                  'text-xl font-black font-mono',
+                  isActive
+                    ? isWholesalerPath
+                      ? 'text-amber-400'
+                      : 'text-[#4f46e5]'
+                    : isWholesalerPath
+                      ? 'text-white'
+                      : 'text-[#1e293b]'
                 )}
               >
                 {count}
-              </span>
+              </p>
+              <p
+                className={cn(
+                  'text-[10px] font-bold uppercase tracking-wider mt-1',
+                  isWholesalerPath ? 'text-zinc-500' : 'text-[#64748b]'
+                )}
+              >
+                {stat.label}
+              </p>
             </button>
           );
         })}
       </div>
 
-      {/* Order Status Filter Pills */}
-      <div className="flex flex-wrap gap-2.5 mb-8">
+      {/* Order Type Filter Tabs */}
+      {counts.B2B > 0 && (
+        <div
+          className={cn(
+            'flex gap-1 p-1 rounded-xl border max-w-max mb-6',
+            isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#f1f5f9] border-[#e2e8f0]'
+          )}
+        >
+          {[
+            { id: 'ALL', label: 'All' },
+            { id: 'B2C', label: 'Retail' },
+            { id: 'B2B', label: 'Wholesale' },
+          ].map((tab) => {
+            const count = counts[tab.id];
+            const isActive = selectedType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTypeChange(tab.id)}
+                className={cn(
+                  'px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2',
+                  isActive
+                    ? isWholesalerPath
+                      ? 'bg-amber-500 text-black shadow-sm'
+                      : 'bg-white text-[#1e293b] shadow-sm border border-[#e2e8f0]'
+                    : isWholesalerPath
+                      ? 'text-zinc-400 hover:text-zinc-200'
+                      : 'text-[#64748b] hover:text-[#1e293b]'
+                )}
+              >
+                {tab.label}
+                <span
+                  className={cn(
+                    'text-[10px] font-mono px-1.5 py-0.5 rounded',
+                    isActive
+                      ? isWholesalerPath
+                        ? 'bg-amber-600/50 text-black'
+                        : 'bg-[#f1f5f9] text-[#64748b]'
+                      : isWholesalerPath
+                        ? 'text-zinc-600'
+                        : 'text-[#94a3b8]'
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Status Filter Pills */}
+      <div className="flex flex-wrap gap-2 mb-8">
         {[
-          { id: 'ALL', label: 'All Statuses' },
+          { id: 'ALL', label: 'All' },
           { id: 'PENDING', label: 'Pending' },
           { id: 'PROCESSING', label: 'Processing' },
           { id: 'SHIPPED', label: 'Shipped' },
@@ -227,92 +325,115 @@ export default function Orders() {
               key={tab.id}
               onClick={() => setSelectedStatus(tab.id)}
               className={cn(
-                'px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all border flex items-center gap-1.5',
+                'px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 btn-press',
                 isActive
                   ? isWholesalerPath
-                    ? 'bg-amber-500 text-black border-amber-500 font-bold shadow-md shadow-amber-500/10'
-                    : 'bg-[#0047AB] text-white border-[#0047AB] font-bold shadow-md shadow-blue-500/10'
+                    ? 'bg-amber-500 text-black border-amber-500 font-bold'
+                    : 'bg-[#4f46e5] text-white border-[#4f46e5] font-bold shadow-sm'
                   : isWholesalerPath
                     ? 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                    : 'bg-white border-[#C0C0C0] text-zinc-600 hover:text-[#16171a] hover:bg-[#EFEFEF]'
+                    : 'bg-white border-[#e2e8f0] text-[#64748b] hover:text-[#1e293b] hover:border-[#4f46e5]/30'
               )}
             >
               {tab.label}
-              <span
-                className={cn(
-                  'text-[10px] font-mono leading-none rounded-full px-1.5 py-0.5',
-                  isActive
-                    ? isWholesalerPath
-                      ? 'bg-amber-600 text-black'
-                      : 'bg-white/20 text-white'
-                    : isWholesalerPath
-                      ? 'bg-zinc-950 text-zinc-500'
-                      : 'bg-[#EFEFEF] text-zinc-500'
-                )}
-              >
-                {count}
-              </span>
+              {count > 0 && (
+                <span
+                  className={cn(
+                    'text-[10px] font-mono leading-none rounded-full px-1.5 py-0.5',
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : isWholesalerPath
+                        ? 'text-zinc-600'
+                        : 'text-[#94a3b8]'
+                  )}
+                >
+                  {count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
+      {/* Content */}
       {isError ? (
         <div
           className={cn(
             'p-12 flex flex-col items-center justify-center text-center rounded-2xl border',
-            isWholesalerPath
-              ? 'bg-[#111111] border-zinc-800'
-              : 'swiss-panel bg-[#f8f6f1] border-[#ddd7cc]'
+            isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2e8f0]'
           )}
         >
-          <p className="text-[#8B0000] text-sm font-semibold mb-4">
-            Failed to load orders:{' '}
-            {error?.response?.data?.error || error?.message || 'Unknown error'}
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4">
+            <XCircle className="w-7 h-7 text-red-400" />
+          </div>
+          <p className="text-sm font-bold text-red-600 mb-2">Failed to load orders</p>
+          <p className="text-xs text-[#64748b] mb-5 max-w-sm">
+            {error?.response?.data?.error || error?.message || 'Something went wrong'}
           </p>
           <button
             onClick={() => refetch()}
             className={cn(
-              'px-5 py-2.5 font-semibold rounded-md transition-colors text-white',
+              'px-5 py-2.5 font-bold rounded-xl transition-colors text-white text-xs uppercase tracking-wider',
               isWholesalerPath
-                ? 'bg-amber-500 hover:bg-amber-400 text-black font-bold'
-                : 'bg-[#0047AB] hover:bg-[#003B91]'
+                ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                : 'bg-[#4f46e5] hover:bg-[#4338ca]'
             )}
           >
-            Retry Loading
+            Try Again
           </button>
         </div>
       ) : filteredOrders.length === 0 ? (
         <div
           className={cn(
             'border-dashed p-16 text-center flex flex-col items-center rounded-2xl border',
-            isWholesalerPath ? 'bg-[#111111] border-zinc-800' : 'swiss-panel border-[#ddd7cc]'
+            isWholesalerPath ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white border-[#e2e8f0]'
           )}
         >
           <div
             className={cn(
-              'p-5 rounded-md mb-5 border',
-              isWholesalerPath
-                ? 'bg-zinc-900 border-zinc-800 text-zinc-400'
-                : 'bg-[#EFEFEF] border-[#C0C0C0] text-[#6C757D]'
+              'w-16 h-16 rounded-2xl flex items-center justify-center mb-5',
+              isWholesalerPath ? 'bg-zinc-800' : 'bg-[#f1f5f9]'
             )}
           >
-            <Package className="h-10 w-10 text-[#6C757D]" />
+            <Package
+              className={cn('h-8 w-8', isWholesalerPath ? 'text-zinc-500' : 'text-[#94a3b8]')}
+            />
           </div>
           <h3
+            className={cn('text-lg font-bold', isWholesalerPath ? 'text-white' : 'text-[#1e293b]')}
+          >
+            No orders found
+          </h3>
+          <p
             className={cn(
-              'text-lg font-bold tracking-wide',
-              isWholesalerPath ? 'text-white' : 'text-[#16171a]'
+              'mt-2 text-sm max-w-sm',
+              isWholesalerPath ? 'text-zinc-500' : 'text-[#64748b]'
             )}
           >
-            No orders yet
-          </h3>
-          <p className={cn('mt-2 max-w-sm', isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]')}>
-            When a transaction is made, the order details and invoice will appear here.
+            {selectedStatus !== 'ALL' || selectedType !== 'ALL'
+              ? 'Try adjusting your filters to see more orders.'
+              : 'When a transaction is made, order details will appear here.'}
           </p>
+          {(selectedStatus !== 'ALL' || selectedType !== 'ALL') && (
+            <button
+              onClick={() => {
+                setSelectedStatus('ALL');
+                setSelectedType('ALL');
+              }}
+              className={cn(
+                'mt-5 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border',
+                isWholesalerPath
+                  ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+                  : 'border-[#e2e8f0] text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5]'
+              )}
+            >
+              <RotateCcw className="w-3.5 h-3.5 inline mr-2" />
+              Clear Filters
+            </button>
+          )}
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-5 stagger-children">
           {filteredOrders.map((order) => (
             <OrderCard
               key={order.id}
