@@ -30,6 +30,9 @@ import ProductCard from '../components/storefront/ProductCard';
 import NewsletterBanner from '../components/storefront/NewsletterBanner';
 
 export default function Storefront() {
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   // Restore persisted state from sessionStorage on mount
   const getPersistedState = (key, fallback) => {
     try {
@@ -132,7 +135,9 @@ export default function Storefront() {
 
   const { data: dailyDealsData } = useDailyDeals();
 
-  const { data: userRecsData, isLoading: isLoadingUserRecs } = useUserRecommendations();
+  const { data: userRecsData, isLoading: isLoadingUserRecs } = useUserRecommendations({
+    enabled: isAuthenticated,
+  });
 
   const { data: topSellingData } = useMarketplaceProducts({
     page: 1,
@@ -218,9 +223,7 @@ export default function Storefront() {
   const isError = isErrorMarketplace || isErrorTrending;
   const isFetching = isFetchingMarketplace || isFetchingTrending;
 
-  const navigate = useNavigate();
   const loggedImpressionRecommendationIds = useRef(new Set());
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data: wishlist = [] } = useWishlist({ enabled: isAuthenticated });
   const toggleWishlistMutation = useToggleWishlist();

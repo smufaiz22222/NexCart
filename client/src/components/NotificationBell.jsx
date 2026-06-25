@@ -92,6 +92,7 @@ export default function NotificationBell() {
   return (
     <div className="relative z-50 flex" ref={dropdownRef}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           'relative rounded-xl border p-2.5 transition-all duration-300 focus:outline-none cursor-pointer',
@@ -139,6 +140,7 @@ export default function NotificationBell() {
             </div>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllAsRead}
                 className={cn(
                   'flex items-center gap-1 text-xs font-bold transition cursor-pointer',
@@ -230,6 +232,7 @@ export default function NotificationBell() {
 
                   {/* Delete button */}
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteNotification(n.id);

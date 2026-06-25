@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import apiClient from '../api/axios.js';
+import apiClient, { injectAuthHandlers } from '../api/axios.js';
 import useCartStore from './cartStore.js';
 import queryClient from '../api/queryClient.js';
 import { clearAuthSessionHint, setAuthSessionHint } from '../utils/sessionHint.js';
@@ -121,5 +121,27 @@ const useAuthStore = create((set) => ({
     });
   },
 }));
+
+injectAuthHandlers(
+  async () => {
+    await useAuthStore.getState().logout();
+  },
+  (featureAccess, onboardingStatus) => {
+    const currentStore = useAuthStore.getState();
+    if (currentStore.user) {
+      const updatedUser = {
+        ...currentStore.user,
+        featureAccess,
+      };
+      if (onboardingStatus) {
+        updatedUser.wholesalerProfile = {
+          ...updatedUser.wholesalerProfile,
+          onboardingStatus,
+        };
+      }
+      currentStore.setUser(updatedUser);
+    }
+  }
+);
 
 export default useAuthStore;

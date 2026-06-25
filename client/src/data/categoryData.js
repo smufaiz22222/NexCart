@@ -212,30 +212,6 @@ const categoryData = [
 export default categoryData;
 
 /**
- * Flat list of all subcategory names for quick search/matching
- */
-export const allSubcategories = categoryData.flatMap((cat) => cat.subcategories);
-
-/**
- * Get the parent category for a given subcategory string
- */
-export function getParentCategory(subcategoryName) {
-  for (const cat of categoryData) {
-    if (cat.subcategories.includes(subcategoryName)) {
-      return cat;
-    }
-  }
-  return null;
-}
-
-/**
- * Find a category by slug
- */
-export function getCategoryBySlug(slug) {
-  return categoryData.find((cat) => cat.slug === slug) || null;
-}
-
-/**
  * Get the DB category value from a display name
  */
 export function getDbCategory(displayName) {

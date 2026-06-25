@@ -1,4 +1,4 @@
-import { AlertTriangle, CreditCard, ShieldAlert, Sparkles } from 'lucide-react';
+import { CreditCard, ShieldAlert, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const statusCopy = {
@@ -98,19 +98,6 @@ export function PremiumFeatureNotice({ featureName }) {
             </Link>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-export function SellerInlineState({ status }) {
-  return (
-    <div className="rounded-[18px] border border-zinc-800 bg-[#111111] p-4 text-sm text-zinc-300">
-      <div className="flex items-center gap-3">
-        <AlertTriangle className="h-4 w-4 text-amber-400" />
-        <span>
-          Seller status: <strong className="text-white">{status || 'UNKNOWN'}</strong>
-        </span>
       </div>
     </div>
   );

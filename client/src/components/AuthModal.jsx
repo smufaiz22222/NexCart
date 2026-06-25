@@ -1,5 +1,5 @@
-import { useState, useTransition } from 'react';
-import { X, ArrowRight, ShoppingBag, BriefcaseBusiness, Eye, EyeOff } from 'lucide-react';
+import { useState, useTransition, useEffect } from 'react';
+import { X, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
 import apiClient from '../api/axios.js';
@@ -42,42 +42,25 @@ function validateRegistrationForm(formData) {
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const { login, register } = useAuthStore();
   const [activeTab, setActiveTab] = useState('login'); // 'login', 'register', or 'verify-otp'
-  const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
-
-  // Login form state
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
-
-  // Register form state
-  const [registerData, setRegisterData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'CUSTOMER',
-    businessName: '',
-  });
 
   // OTP Verification state
   const [tempVerifyData, setTempVerifyData] = useState(null); // { email, password }
-  const [otpCode, setOtpCode] = useState('');
-
   const [formError, setFormError] = useState('');
 
   if (!isOpen) return null;
 
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
+  const handleLoginSubmit = (email, password) => {
     setFormError('');
 
-    if (!loginData.email.trim() || !loginData.password) {
+    if (!email.trim() || !password) {
       setFormError('Please fill in all fields.');
       return;
     }
 
     startTransition(async () => {
       try {
-        await login(loginData.email.trim().toLowerCase(), loginData.password);
+        await login(email.trim().toLowerCase(), password);
         toast.success('Successfully logged in!');
         onClose();
         if (onSuccess) onSuccess();
@@ -91,15 +74,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                 type="button"
                 onClick={async () => {
                   setFormError('');
-                  const email = loginData.email.trim().toLowerCase();
-                  setTempVerifyData({ email, password: loginData.password });
+                  const emailClean = email.trim().toLowerCase();
+                  setTempVerifyData({ email: emailClean, password });
                   try {
                     await apiClient.post('/auth/send-otp', {
-                      email,
+                      email: emailClean,
                       purpose: 'VERIFICATION',
                     });
                     toast.success('Verification code sent to your email!');
-                    setOtpCode('');
                     setActiveTab('verify-otp');
                   } catch (sendErr) {
                     setFormError(sendErr.response?.data?.error || 'Failed to send OTP code.');
@@ -118,8 +100,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     });
   };
 
-  const handleRegisterSubmit = (e) => {
-    e.preventDefault();
+  const handleRegisterSubmit = (registerData) => {
     setFormError('');
 
     const nextError = validateRegistrationForm(registerData);
@@ -136,7 +117,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           email: registerData.email.trim().toLowerCase(),
           password: registerData.password,
         });
-        setOtpCode('');
         setActiveTab('verify-otp');
       } catch (err) {
         setFormError(err.response?.data?.error || 'Registration failed.');
@@ -144,8 +124,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     });
   };
 
-  const handleOtpSubmit = (e) => {
-    e.preventDefault();
+  const handleOtpSubmit = (otpCode) => {
     setFormError('');
 
     if (otpCode.length !== 6) {
@@ -169,7 +148,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           onClose();
           if (onSuccess) onSuccess();
         } else {
-          setLoginData((prev) => ({ ...prev, email: tempVerifyData.email }));
           setActiveTab('login');
           toast.info('Please enter your password to log in.');
         }
@@ -202,6 +180,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
       >
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
           className="absolute right-6 top-6 rounded-full p-2 text-[#8b857c] hover:bg-[#f2f0ea] hover:text-[#161412] transition"
           aria-label="Close modal"
@@ -219,6 +198,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           {activeTab !== 'verify-otp' && (
             <div className="mt-6 flex border-b border-[#ece7de]">
               <button
+                type="button"
                 onClick={() => {
                   setActiveTab('login');
                   setFormError('');
@@ -232,6 +212,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                 Sign In
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setActiveTab('register');
                   setFormError('');
@@ -257,204 +238,24 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
 
         {/* Content Body */}
         {activeTab === 'verify-otp' ? (
-          <form onSubmit={handleOtpSubmit} className="mt-6 space-y-4">
-            <div className="text-sm text-[#6b665f] text-center mb-4 leading-relaxed">
-              We sent a 6-digit verification code to <br />
-              <strong className="text-[#161412]">{tempVerifyData?.email}</strong>
-            </div>
-
-            <FormField label="Verification Code">
-              <input
-                type="text"
-                required
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className="w-full text-center tracking-[0.3em] font-mono rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-lg text-[#161412] outline-none transition focus:border-[#161412]"
-              />
-            </FormField>
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
-            >
-              {isPending ? 'Verifying...' : 'Verify & Sign In'}
-              {!isPending && <ArrowRight className="h-4 w-4" />}
-            </button>
-
-            <div className="flex flex-col items-center gap-2 mt-4 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={isPending}
-                className="text-[#8f5d31] hover:underline disabled:opacity-50"
-              >
-                Resend verification code
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('login');
-                  setFormError('');
-                }}
-                className="text-[#8b857c] hover:text-[#161412]"
-              >
-                Back to Sign In
-              </button>
-            </div>
-          </form>
+          <VerifyOtpForm
+            onSubmit={handleOtpSubmit}
+            onResendOtp={handleResendOtp}
+            onBackToSignIn={() => {
+              setActiveTab('login');
+              setFormError('');
+            }}
+            isPending={isPending}
+            tempVerifyEmail={tempVerifyData?.email}
+          />
         ) : activeTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
-            <FormField label="Email Address">
-              <input
-                type="email"
-                required
-                value={loginData.email}
-                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                placeholder="you@example.com"
-                className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-              />
-            </FormField>
-
-            <FormField label="Password">
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={loginData.password}
-                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                  placeholder="Enter your password"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 pr-10 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b857c] hover:text-[#161412]"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </FormField>
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
-            >
-              {isPending ? 'Signing in...' : 'Sign In'}
-              {!isPending && <ArrowRight className="h-4 w-4" />}
-            </button>
-          </form>
+          <LoginForm
+            onSubmit={handleLoginSubmit}
+            isPending={isPending}
+            tempVerifyData={tempVerifyData}
+          />
         ) : (
-          <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
-            {/* Role Selection Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setRegisterData({ ...registerData, role: 'CUSTOMER' })}
-                className={`flex flex-col rounded-2xl border p-3 text-left transition ${
-                  registerData.role === 'CUSTOMER'
-                    ? 'border-[#161412] bg-[#161412] text-white'
-                    : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
-                }`}
-              >
-                <span className="text-xs font-black tracking-tight">Buy Products</span>
-                <span
-                  className={`text-[10px] mt-0.5 ${registerData.role === 'CUSTOMER' ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}
-                >
-                  Customer
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegisterData({ ...registerData, role: 'WHOLESALER' })}
-                className={`flex flex-col rounded-2xl border p-3 text-left transition ${
-                  registerData.role === 'WHOLESALER'
-                    ? 'border-[#161412] bg-[#161412] text-white'
-                    : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
-                }`}
-              >
-                <span className="text-xs font-black tracking-tight">Sell Products</span>
-                <span
-                  className={`text-[10px] mt-0.5 ${registerData.role === 'WHOLESALER' ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}
-                >
-                  Wholesaler
-                </span>
-              </button>
-            </div>
-
-            <FormField label="Full Name">
-              <input
-                type="text"
-                required
-                value={registerData.name}
-                onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                placeholder="John Doe"
-                className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-              />
-            </FormField>
-
-            <FormField label="Email Address">
-              <input
-                type="email"
-                required
-                value={registerData.email}
-                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                placeholder="you@example.com"
-                className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-              />
-            </FormField>
-
-            <FormField label="Password">
-              <input
-                type="password"
-                required
-                value={registerData.password}
-                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                placeholder="Create password"
-                className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-              />
-            </FormField>
-
-            <FormField label="Confirm Password">
-              <input
-                type="password"
-                required
-                value={registerData.confirmPassword}
-                onChange={(e) =>
-                  setRegisterData({ ...registerData, confirmPassword: e.target.value })
-                }
-                placeholder="Confirm password"
-                className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-              />
-            </FormField>
-
-            {registerData.role === 'WHOLESALER' && (
-              <FormField label="Business / Shop Name">
-                <input
-                  type="text"
-                  required
-                  value={registerData.businessName}
-                  onChange={(e) =>
-                    setRegisterData({ ...registerData, businessName: e.target.value })
-                  }
-                  placeholder="Brand / Wholesaler Name"
-                  className="w-full rounded-2xl border border-[#d2b08a] bg-[#fff8ee] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                />
-              </FormField>
-            )}
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
-            >
-              {isPending ? 'Registering...' : 'Create Account'}
-              {!isPending && <ArrowRight className="h-4 w-4" />}
-            </button>
-          </form>
+          <RegisterForm onSubmit={handleRegisterSubmit} isPending={isPending} />
         )}
       </div>
     </div>
@@ -469,5 +270,247 @@ function FormField({ label, children }) {
       </span>
       <div className="mt-1.5">{children}</div>
     </label>
+  );
+}
+
+function LoginForm({ onSubmit, isPending, tempVerifyData }) {
+  const [loginData, setLoginData] = useState({
+    email: tempVerifyData?.email || '',
+    password: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (tempVerifyData?.email) {
+      setLoginData((prev) => ({ ...prev, email: tempVerifyData.email }));
+    }
+  }, [tempVerifyData]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(loginData.email, loginData.password);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <FormField label="Email Address">
+        <input
+          type="email"
+          required
+          value={loginData.email}
+          onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+          placeholder="you@example.com"
+          className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+        />
+      </FormField>
+
+      <FormField label="Password">
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            required
+            value={loginData.password}
+            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+            placeholder="Enter your password"
+            className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 pr-10 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b857c] hover:text-[#161412]"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </FormField>
+
+      <button
+        type="submit"
+        disabled={isPending}
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
+      >
+        {isPending ? 'Signing in...' : 'Sign In'}
+        {!isPending && <ArrowRight className="h-4 w-4" />}
+      </button>
+    </form>
+  );
+}
+
+function RegisterForm({ onSubmit, isPending }) {
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'CUSTOMER',
+    businessName: '',
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(registerData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      {/* Role Selection Buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setRegisterData({ ...registerData, role: 'CUSTOMER' })}
+          className={`flex flex-col rounded-2xl border p-3 text-left transition ${
+            registerData.role === 'CUSTOMER'
+              ? 'border-[#161412] bg-[#161412] text-white'
+              : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
+          }`}
+        >
+          <span className="text-xs font-black tracking-tight">Buy Products</span>
+          <span
+            className={`text-[10px] mt-0.5 ${registerData.role === 'CUSTOMER' ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}
+          >
+            Customer
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setRegisterData({ ...registerData, role: 'WHOLESALER' })}
+          className={`flex flex-col rounded-2xl border p-3 text-left transition ${
+            registerData.role === 'WHOLESALER'
+              ? 'border-[#161412] bg-[#161412] text-white'
+              : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
+          }`}
+        >
+          <span className="text-xs font-black tracking-tight">Sell Products</span>
+          <span
+            className={`text-[10px] mt-0.5 ${registerData.role === 'WHOLESALER' ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}
+          >
+            Wholesaler
+          </span>
+        </button>
+      </div>
+
+      <FormField label="Full Name">
+        <input
+          type="text"
+          required
+          value={registerData.name}
+          onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+          placeholder="John Doe"
+          className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+        />
+      </FormField>
+
+      <FormField label="Email Address">
+        <input
+          type="email"
+          required
+          value={registerData.email}
+          onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+          placeholder="you@example.com"
+          className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+        />
+      </FormField>
+
+      <FormField label="Password">
+        <input
+          type="password"
+          required
+          value={registerData.password}
+          onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+          placeholder="Create password"
+          className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+        />
+      </FormField>
+
+      <FormField label="Confirm Password">
+        <input
+          type="password"
+          required
+          value={registerData.confirmPassword}
+          onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+          placeholder="Confirm password"
+          className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
+        />
+      </FormField>
+
+      {registerData.role === 'WHOLESALER' && (
+        <FormField label="Business / Shop Name">
+          <input
+            type="text"
+            required
+            value={registerData.businessName}
+            onChange={(e) => setRegisterData({ ...registerData, businessName: e.target.value })}
+            placeholder="Brand / Wholesaler Name"
+            className="w-full rounded-2xl border border-[#d2b08a] bg-[#fff8ee] px-4 py-3 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
+          />
+        </FormField>
+      )}
+
+      <button
+        type="submit"
+        disabled={isPending}
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
+      >
+        {isPending ? 'Registering...' : 'Create Account'}
+        {!isPending && <ArrowRight className="h-4 w-4" />}
+      </button>
+    </form>
+  );
+}
+
+function VerifyOtpForm({ onSubmit, onResendOtp, onBackToSignIn, isPending, tempVerifyEmail }) {
+  const [otpCode, setOtpCode] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(otpCode);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <div className="text-sm text-[#6b665f] text-center mb-4 leading-relaxed">
+        We sent a 6-digit verification code to <br />
+        <strong className="text-[#161412]">{tempVerifyEmail}</strong>
+      </div>
+
+      <FormField label="Verification Code">
+        <input
+          type="text"
+          required
+          maxLength={6}
+          value={otpCode}
+          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+          placeholder="123456"
+          className="w-full text-center tracking-[0.3em] font-mono rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-3 text-lg text-[#161412] outline-none transition focus:border-[#161412]"
+        />
+      </FormField>
+
+      <button
+        type="submit"
+        disabled={isPending}
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60 mt-6"
+      >
+        {isPending ? 'Verifying...' : 'Verify & Sign In'}
+        {!isPending && <ArrowRight className="h-4 w-4" />}
+      </button>
+
+      <div className="flex flex-col items-center gap-2 mt-4 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={onResendOtp}
+          disabled={isPending}
+          className="text-[#8f5d31] hover:underline disabled:opacity-50"
+        >
+          Resend verification code
+        </button>
+        <button
+          type="button"
+          onClick={onBackToSignIn}
+          className="text-[#8b857c] hover:text-[#161412]"
+        >
+          Back to Sign In
+        </button>
+      </div>
+    </form>
   );
 }

@@ -259,71 +259,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
         </div>
 
         {/* Nested Attributes Section (Field Array) */}
-        <div className="space-y-4 rounded-lg border border-border-subtle bg-bg-main p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-text-title tracking-wide">
-                Product Attributes
-              </h3>
-              <p className="text-[11px] text-text-muted mt-1 uppercase tracking-wider">
-                Add details like Material, Fit, or Origin
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => form.pushFieldValue('attributes', { name: '', value: '' })}
-              className="flex items-center gap-1.5 rounded-md bg-bg-card border border-border-subtle px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-body transition-all hover:bg-bg-card-hover hover:text-text-title"
-            >
-              <Plus className="h-3 w-3" />
-              Add Detail
-            </button>
-          </div>
-
-          <form.Field name="attributes" mode="array">
-            {(field) => (
-              <div className="space-y-3">
-                {field.state.value.map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-end gap-3 group animate-in fade-in slide-in-from-top-2 duration-300"
-                  >
-                    <form.Field name={`attributes[${i}].name`}>
-                      {(subField) => (
-                        <TextField
-                          field={subField}
-                          placeholder="Label (e.g. Material)"
-                          className="flex-1"
-                        />
-                      )}
-                    </form.Field>
-                    <form.Field name={`attributes[${i}].value`}>
-                      {(subField) => (
-                        <TextField
-                          field={subField}
-                          placeholder="Value (e.g. 100% Cotton)"
-                          className="flex-1"
-                        />
-                      )}
-                    </form.Field>
-                    <button
-                      type="button"
-                      onClick={() => form.removeFieldValue('attributes', i)}
-                      className="mb-1 rounded-md bg-semantic-danger/10 p-3 text-semantic-danger opacity-0 transition-all hover:bg-semantic-danger/20 group-hover:opacity-100"
-                      aria-label="Remove detail"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                {field.state.value.length === 0 && (
-                  <p className="text-center py-4 text-xs text-text-muted italic">
-                    No custom details added yet.
-                  </p>
-                )}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <ProductAttributesSection form={form} />
 
         {/* Footer Actions */}
         <div className="flex flex-col-reverse gap-3 pt-4 border-t border-border-subtle/50 sm:flex-row sm:justify-end">
@@ -361,6 +297,74 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
           </form.Subscribe>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ProductAttributesSection({ form }) {
+  return (
+    <div className="space-y-4 rounded-lg border border-border-subtle bg-bg-main p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-text-title tracking-wide">Product Attributes</h3>
+          <p className="text-[11px] text-text-muted mt-1 uppercase tracking-wider">
+            Add details like Material, Fit, or Origin
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => form.pushFieldValue('attributes', { name: '', value: '' })}
+          className="flex items-center gap-1.5 rounded-md bg-bg-card border border-border-subtle px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-body transition-all hover:bg-bg-card-hover hover:text-text-title"
+        >
+          <Plus className="h-3 w-3" />
+          Add Detail
+        </button>
+      </div>
+
+      <form.Field name="attributes" mode="array">
+        {(field) => (
+          <div className="space-y-3">
+            {field.state.value.map((_, i) => (
+              <div
+                key={i}
+                className="flex items-end gap-3 group animate-in fade-in slide-in-from-top-2 duration-300"
+              >
+                <form.Field name={`attributes[${i}].name`}>
+                  {(subField) => (
+                    <TextField
+                      field={subField}
+                      placeholder="Label (e.g. Material)"
+                      className="flex-1"
+                    />
+                  )}
+                </form.Field>
+                <form.Field name={`attributes[${i}].value`}>
+                  {(subField) => (
+                    <TextField
+                      field={subField}
+                      placeholder="Value (e.g. 100% Cotton)"
+                      className="flex-1"
+                    />
+                  )}
+                </form.Field>
+                <button
+                  type="button"
+                  onClick={() => form.removeFieldValue('attributes', i)}
+                  className="mb-1 rounded-md bg-semantic-danger/10 p-3 text-semantic-danger opacity-0 transition-all hover:bg-semantic-danger/20 group-hover:opacity-100"
+                  aria-label="Remove detail"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {field.state.value.length === 0 && (
+              <p className="text-center py-4 text-xs text-text-muted italic">
+                No custom details added yet.
+              </p>
+            )}
+          </div>
+        )}
+      </form.Field>
     </div>
   );
 }

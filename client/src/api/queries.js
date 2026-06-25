@@ -5,7 +5,7 @@ import apiClient from './axios';
 // 1. PRODUCT DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const productKeys = {
+const productKeys = {
   all: ['products'],
   lists: () => [...productKeys.all, 'list'],
   marketplace: (params) => [...productKeys.all, 'marketplace', params || {}],
@@ -18,27 +18,27 @@ export const productKeys = {
 };
 
 // Fetchers
-export const fetchProducts = async () => {
+const fetchProducts = async () => {
   const response = await apiClient.get('/products');
   return response.data.products || [];
 };
 
-export const fetchMarketplaceProducts = async (params = {}) => {
+const fetchMarketplaceProducts = async (params = {}) => {
   const response = await apiClient.get('/products/marketplace', { params });
   return response.data;
 };
 
-export const fetchProductDetail = async (id) => {
+const fetchProductDetail = async (id) => {
   const response = await apiClient.get(`/products/${id}`);
   return response.data;
 };
 
-export const fetchSimilarProducts = async (id) => {
+const fetchSimilarProducts = async (id) => {
   const response = await apiClient.get(`/recommendations/products/${id}/similar?limit=8`);
   return response.data;
 };
 
-export const fetchTrendingProducts = async () => {
+const fetchTrendingProducts = async () => {
   const response = await apiClient.get('/recommendations/popular?scope=trending&limit=100');
   return response.data;
 };
@@ -95,7 +95,7 @@ export const useTrendingProducts = () => {
   });
 };
 
-export const fetchDailyDeals = async () => {
+const fetchDailyDeals = async () => {
   const response = await apiClient.get('/deals/daily');
   return response.data;
 };
@@ -108,15 +108,16 @@ export const useDailyDeals = () => {
   });
 };
 
-export const fetchUserRecommendations = async () => {
+const fetchUserRecommendations = async () => {
   const response = await apiClient.get('/recommendations/user?limit=8');
   return response.data;
 };
 
-export const useUserRecommendations = () => {
+export const useUserRecommendations = (options = {}) => {
   return useQuery({
     queryKey: productKeys.recommendations(),
     queryFn: fetchUserRecommendations,
+    ...options,
   });
 };
 
@@ -185,12 +186,12 @@ export const useSubmitReview = (productId) => {
 // 2. INVENTORY DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const inventoryKeys = {
+const inventoryKeys = {
   all: ['inventory'],
   logs: () => [...inventoryKeys.all, 'logs'],
 };
 
-export const fetchInventoryLogs = async () => {
+const fetchInventoryLogs = async () => {
   const response = await apiClient.get('/inventory');
   return response.data.logs || [];
 };
@@ -220,7 +221,7 @@ export const useAdjustStock = () => {
 // 3. LEDGER DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const ledgerKeys = {
+const ledgerKeys = {
   all: ['ledger'],
   entries: () => [...ledgerKeys.all, 'entries'],
   myLedger: () => [...ledgerKeys.all, 'myLedger'],
@@ -229,19 +230,7 @@ export const ledgerKeys = {
   accountEntries: (accountId) => [...ledgerKeys.all, 'account-entries', accountId],
 };
 
-export const fetchLedgerEntries = async () => {
-  const response = await apiClient.get('/ledger');
-  return response.data.entries || [];
-};
-
-export const useLedgerEntries = () => {
-  return useQuery({
-    queryKey: ledgerKeys.entries(),
-    queryFn: fetchLedgerEntries,
-  });
-};
-
-export const fetchLedgerHub = async () => {
+const fetchLedgerHub = async () => {
   const response = await apiClient.get('/ledger/hub');
   return response.data || { overview: {}, parties: [], accounts: [], sales: [], ledgerEntries: [] };
 };
@@ -253,7 +242,7 @@ export const useLedgerHub = () => {
   });
 };
 
-export const fetchPartyDetails = async (partyId) => {
+const fetchPartyDetails = async (partyId) => {
   const response = await apiClient.get(`/ledger/parties/${partyId}/details`);
   return response.data;
 };
@@ -266,7 +255,7 @@ export const usePartyDetails = (partyId) => {
   });
 };
 
-export const fetchAccountEntries = async (accountId) => {
+const fetchAccountEntries = async (accountId) => {
   const response = await apiClient.get(`/ledger/accounts/${accountId}/entries`);
   return response.data;
 };
@@ -279,7 +268,7 @@ export const useAccountEntries = (accountId) => {
   });
 };
 
-export const fetchMyLedger = async () => {
+const fetchMyLedger = async () => {
   const response = await apiClient.get('/ledger/my-ledger');
   return response.data || { balance: '0.00', entriesCount: 0, entries: [] };
 };
@@ -288,21 +277,6 @@ export const useMyLedger = () => {
   return useQuery({
     queryKey: ledgerKeys.myLedger(),
     queryFn: fetchMyLedger,
-  });
-};
-
-export const useRecordPayment = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (formData) => {
-      const response = await apiClient.post('/ledger/payment', formData);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
-      queryClient.invalidateQueries({ queryKey: ledgerKeys.myLedger() });
-      queryClient.invalidateQueries({ queryKey: b2bKeys.buyerCreditStatus() });
-    },
   });
 };
 
@@ -390,12 +364,12 @@ export const useReconcileInstrument = () => {
 // 4. ORDERS DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const orderKeys = {
+const orderKeys = {
   all: ['orders'],
   lists: () => [...orderKeys.all, 'list'],
 };
 
-export const fetchOrders = async () => {
+const fetchOrders = async () => {
   const response = await apiClient.get('/orders');
   return response.data.orders || [];
 };
@@ -696,7 +670,7 @@ export const useCreateDisputeInternalNote = () => {
 // 5. B2B & B2C HYBRID PLATFORM HOOKS
 // ==========================================
 
-export const b2bKeys = {
+const b2bKeys = {
   all: ['b2b'],
   applications: () => [...b2bKeys.all, 'applications'],
   rfqs: () => [...b2bKeys.all, 'rfqs'],
@@ -713,33 +687,6 @@ export const useB2BRegister = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: b2bKeys.all });
-    },
-  });
-};
-
-export const useB2BApplications = () => {
-  return useQuery({
-    queryKey: b2bKeys.applications(),
-    queryFn: async () => {
-      const response = await apiClient.get('/b2b/applications');
-      return response.data.applications || [];
-    },
-  });
-};
-
-export const useB2BApprove = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, verification, rejectionReason, creditLimit }) => {
-      const response = await apiClient.post(`/b2b/admin/approve/${id}`, {
-        verification,
-        rejectionReason,
-        creditLimit,
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: b2bKeys.applications() });
     },
   });
 };
@@ -821,19 +768,6 @@ export const useBuyerRespondRfq = () => {
   });
 };
 
-export const useUpdateProductTiers = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ productId, tiers }) => {
-      const response = await apiClient.post(`/b2b/products/${productId}/tiers`, { tiers });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-    },
-  });
-};
-
 export const useWholesalerBuyers = () => {
   return useQuery({
     queryKey: b2bKeys.wholesalerBuyers(),
@@ -844,21 +778,11 @@ export const useWholesalerBuyers = () => {
   });
 };
 
-export const useBuyerCreditStatus = () => {
-  return useQuery({
-    queryKey: b2bKeys.buyerCreditStatus(),
-    queryFn: async () => {
-      const response = await apiClient.get('/b2b/buyer/credit-limits');
-      return response.data.creditLimits || [];
-    },
-  });
-};
-
 // ==========================================
 // 6. WISHLIST DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const wishlistKeys = {
+const wishlistKeys = {
   all: ['wishlist'],
 };
 
@@ -890,12 +814,12 @@ export const useToggleWishlist = () => {
 // 7. DASHBOARD DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const dashboardKeys = {
+const dashboardKeys = {
   all: ['dashboard'],
   data: () => [...dashboardKeys.all, 'data'],
 };
 
-export const fetchDashboardData = async () => {
+const fetchDashboardData = async () => {
   const [productsRes, ledgerRes, advisorRes, ordersRes, profileRes] = await Promise.all([
     apiClient.get('/products'),
     apiClient.get('/stats/wholesaler-summary'),
