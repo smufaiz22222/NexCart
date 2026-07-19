@@ -13,40 +13,52 @@ import {
   User,
 } from 'lucide-react';
 
+const LOADING_STEPS = [
+  'Classifying query domain & validating guardrails',
+  'Analyzing real-time metrics context (revenue, stock pressure, retention)',
+  'Searching vector database (RAG) for matching knowledge docs',
+  'Synthesizing recommendation and generating response text',
+];
+
 // ==========================================
 // Custom Markdown/Rich Text Parser Components
 // ==========================================
 
-const renderInline = (text) => {
+const InlineText = ({ text }) => {
   if (!text) return null;
   const regex = /(\*\*.*?\*\*|`.*?`|\*.*?\*)/g;
   const segments = text.split(regex);
 
-  return segments.map((seg, idx) => {
-    if (seg.startsWith('**') && seg.endsWith('**')) {
-      return (
-        <strong key={idx} className="font-extrabold text-white">
-          {seg.slice(2, -2)}
-        </strong>
-      );
-    } else if (seg.startsWith('*') && seg.endsWith('*')) {
-      return (
-        <em key={idx} className="italic text-zinc-100">
-          {seg.slice(1, -1)}
-        </em>
-      );
-    } else if (seg.startsWith('`') && seg.endsWith('`')) {
-      return (
-        <code
-          key={idx}
-          className="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 font-mono text-xs text-amber-400"
-        >
-          {seg.slice(1, -1)}
-        </code>
-      );
-    }
-    return seg;
-  });
+  return (
+    <>
+      {segments.map((seg, pos) => {
+        const key = `inline-${pos}-${seg}`;
+        if (seg.startsWith('**') && seg.endsWith('**')) {
+          return (
+            <strong key={key} className="font-extrabold text-white">
+              {seg.slice(2, -2)}
+            </strong>
+          );
+        } else if (seg.startsWith('*') && seg.endsWith('*')) {
+          return (
+            <em key={key} className="italic text-zinc-100">
+              {seg.slice(1, -1)}
+            </em>
+          );
+        } else if (seg.startsWith('`') && seg.endsWith('`')) {
+          return (
+            <code
+              key={key}
+              className="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 font-mono text-xs text-amber-400"
+            >
+              {seg.slice(1, -1)}
+            </code>
+          );
+        }
+        return seg;
+      })}
+    </>
+  );
 };
 
 const CodeBlock = ({ code, lang }) => {
@@ -146,8 +158,10 @@ const TextBlock = ({ text }) => {
         : 'list-decimal pl-6 space-y-1.5 my-2 text-zinc-300';
     elements.push(
       <ListTag key={key} className={listClasses}>
-        {currentList.items.map((item, idx) => (
-          <li key={idx}>{renderInline(item)}</li>
+        {currentList.items.map((item, pos) => (
+          <li key={`list-item-${pos}-${item}`}>
+            <InlineText text={item} />
+          </li>
         ))}
       </ListTag>
     );
@@ -231,19 +245,19 @@ const TextBlock = ({ text }) => {
           key={key}
           className="text-sm font-black uppercase tracking-wider text-zinc-100 mt-4 mb-2"
         >
-          {renderInline(line.slice(4))}
+          <InlineText text={line.slice(4)} />
         </h4>
       );
     } else if (line.startsWith('## ')) {
       elements.push(
         <h3 key={key} className="text-base font-black tracking-tight text-white mt-5 mb-2">
-          {renderInline(line.slice(3))}
+          <InlineText text={line.slice(3)} />
         </h3>
       );
     } else if (line.startsWith('# ')) {
       elements.push(
         <h2 key={key} className="text-lg font-black tracking-tight text-white mt-6 mb-2.5">
-          {renderInline(line.slice(2))}
+          <InlineText text={line.slice(2)} />
         </h2>
       );
     } else if (line.trim() === '') {
@@ -251,7 +265,7 @@ const TextBlock = ({ text }) => {
     } else {
       elements.push(
         <p key={key} className="text-sm leading-relaxed text-zinc-300 my-1">
-          {renderInline(line)}
+          <InlineText text={line} />
         </p>
       );
     }
@@ -270,15 +284,16 @@ const MarkdownRenderer = ({ content }) => {
 
   return (
     <div className="space-y-3 font-sans">
-      {blocks.map((block, index) => {
+      {blocks.map((block, pos) => {
+        const key = `markdown-block-${pos}`;
         if (block.startsWith('```')) {
           const lines = block.split('\n');
           const firstLine = lines[0];
           const lang = firstLine.slice(3).trim() || 'code';
           const code = lines.slice(1, -1).join('\n');
-          return <CodeBlock key={index} code={code} lang={lang} />;
+          return <CodeBlock key={key} code={code} lang={lang} />;
         } else {
-          return <TextBlock key={index} text={block} />;
+          return <TextBlock key={key} text={block} />;
         }
       })}
     </div>
@@ -293,23 +308,25 @@ const ThoughtProcess = ({ message }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const steps = [
-    { name: 'Classified query domain & validated guardrails', status: 'done' },
-    { name: 'Scanned active wholesaler metrics context', status: 'done' },
+    { id: 'classify', name: 'Classified query domain & validated guardrails', status: 'done' },
+    { id: 'scan-metrics', name: 'Scanned active wholesaler metrics context', status: 'done' },
   ];
 
   if (message.sources && message.sources.length > 0) {
     steps.push({
+      id: 'query-vector',
       name: `Queried vector database & retrieved ${message.sources.length} matching documentation chunk(s)`,
       status: 'done',
     });
   } else {
     steps.push({
+      id: 'evaluate-heuristics',
       name: 'Evaluated rule-based heuristics (RAG lookup skipped)',
       status: 'done',
     });
   }
 
-  steps.push({ name: 'Synthesized tailored advisor response', status: 'done' });
+  steps.push({ id: 'synthesize', name: 'Synthesized tailored advisor response', status: 'done' });
 
   return (
     <div className="mb-4 rounded-xl border border-zinc-800/80 bg-zinc-950/40 overflow-hidden font-sans">
@@ -326,8 +343,8 @@ const ThoughtProcess = ({ message }) => {
       </button>
       {isOpen && (
         <div className="border-t border-zinc-900/60 bg-zinc-950/60 px-4 py-3 text-[11px] space-y-2.5 font-mono text-zinc-400">
-          {steps.map((step, idx) => (
-            <div key={idx} className="flex items-start gap-2">
+          {steps.map((step) => (
+            <div key={step.id} className="flex items-start gap-2">
               <span className="text-emerald-400 shrink-0 select-none">✓</span>
               <span>{step.name}</span>
             </div>
@@ -346,34 +363,29 @@ export default function AdvisorTranscript({ messages, isLoadingHistory, isSendin
   const transcriptRef = useRef(null);
   const [activeStep, setActiveStep] = useState(0);
 
+  const updateActiveStep = (step) => {
+    setActiveStep(step);
+  };
+
   useEffect(() => {
     if (!transcriptRef.current) return;
     transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
   }, [messages, isSending]);
 
   useEffect(() => {
-    if (!isSending) {
-      setActiveStep(0);
-      return;
-    }
+    if (!isSending) return;
 
-    const timer1 = setTimeout(() => setActiveStep(1), 600);
-    const timer2 = setTimeout(() => setActiveStep(2), 1200);
-    const timer3 = setTimeout(() => setActiveStep(3), 1800);
+    const timer1 = setTimeout(() => updateActiveStep(1), 600);
+    const timer2 = setTimeout(() => updateActiveStep(2), 1200);
+    const timer3 = setTimeout(() => updateActiveStep(3), 1800);
 
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
+      updateActiveStep(0);
     };
   }, [isSending]);
-
-  const loadingSteps = [
-    'Classifying query domain & validating guardrails',
-    'Analyzing real-time metrics context (revenue, stock pressure, retention)',
-    'Searching vector database (RAG) for matching knowledge docs',
-    'Synthesizing recommendation and generating response text',
-  ];
 
   return (
     <div
@@ -403,11 +415,11 @@ export default function AdvisorTranscript({ messages, isLoadingHistory, isSendin
           </p>
         </div>
       ) : (
-        messages.map((message, index) => {
+        messages.map((message, pos) => {
           const isUser = message.role === 'user';
           return (
             <div
-              key={`${message.role}-${index}`}
+              key={message.id || `${message.role}-${pos}-${message.text.slice(0, 15)}`}
               className={isUser ? 'w-full flex justify-end' : 'w-full flex justify-start'}
             >
               {isUser ? (
@@ -462,9 +474,9 @@ export default function AdvisorTranscript({ messages, isLoadingHistory, isSendin
                         Retrieved Sources
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {message.sources.map((source, idx) => (
+                        {message.sources.map((source) => (
                           <span
-                            key={idx}
+                            key={`${source.file}-${source.page}`}
                             className="inline-flex items-center rounded-lg border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors"
                           >
                             📄 {source.file} (Page {source.page})
@@ -498,12 +510,12 @@ export default function AdvisorTranscript({ messages, isLoadingHistory, isSendin
             </div>
 
             <div className="space-y-3 font-mono text-[11px] text-zinc-400">
-              {loadingSteps.map((step, idx) => {
-                const isCompleted = idx < activeStep;
-                const isActive = idx === activeStep;
+              {LOADING_STEPS.map((step, pos) => {
+                const isCompleted = pos < activeStep;
+                const isActive = pos === activeStep;
                 return (
                   <div
-                    key={idx}
+                    key={step}
                     className={`flex items-center gap-2.5 transition-all duration-300 ${
                       isActive
                         ? 'text-amber-400 font-bold'

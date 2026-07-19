@@ -39,6 +39,14 @@ const statusConfig = {
   },
 };
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
 export default function B2BOrders() {
   const navigate = useNavigate();
   const { data: allOrders = [], isLoading } = useOrders();
@@ -81,13 +89,6 @@ export default function B2BOrders() {
       b2bOrders.filter((o) => ['DELIVERED', 'RETURN_COMPLETED', 'CANCELLED'].includes(o.status)),
     [b2bOrders]
   );
-
-  const formatCurrency = (value) =>
-    new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(Number(value || 0));
 
   if (isLoading) {
     return (
@@ -327,7 +328,8 @@ function OrderCard({ order, formatCurrency, navigate }) {
   const itemCount = order.items?.length || 0;
 
   return (
-    <div
+    <button
+      type="button"
       className="rounded-xl border border-[#e2e8f0] bg-white p-5 hover:border-[#7c3aed] hover:shadow-md hover:shadow-[#7c3aed]/5 transition-all duration-200 cursor-pointer card-hover-subtle"
       onClick={() => navigate('/store/dashboard/orders')}
     >
@@ -355,9 +357,9 @@ function OrderCard({ order, formatCurrency, navigate }) {
           {/* Items preview */}
           <div className="mt-3 flex items-center gap-3">
             <div className="flex -space-x-2">
-              {order.items?.slice(0, 3).map((item, idx) => (
+              {order.items?.slice(0, 3).map((item) => (
                 <div
-                  key={idx}
+                  key={item.id}
                   className="w-10 h-10 rounded-lg bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-center overflow-hidden"
                 >
                   {item.product?.imageUrl ? (
@@ -401,6 +403,6 @@ function OrderCard({ order, formatCurrency, navigate }) {
           </p>
         </div>
       </div>
-    </div>
+    </button>
   );
 }

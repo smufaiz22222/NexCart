@@ -170,7 +170,6 @@ export default function DataTable({
 
   const selectedRowsCount = Object.keys(tableState.rowSelection).length;
   const totalRowsCount = table.getPrePaginationRowModel().rows.length;
-
   return (
     <div className="space-y-4">
       {/* Top Action Bar */}
@@ -219,11 +218,7 @@ export default function DataTable({
         )}
 
         <div className="overflow-x-auto">
-          <table
-            className="min-w-full divide-y divide-border-subtle"
-            role="grid"
-            aria-rowcount={totalRowsCount}
-          >
+          <table className="min-w-full divide-y divide-border-subtle">
             <thead className="bg-table-header-bg">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
@@ -342,36 +337,44 @@ function ColumnsDropdown({ table, showVisibilityToggle }) {
       {isOpen && (
         <>
           {/* Overlay to click off */}
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setIsOpen(false);
+              }
+            }}
+            className="fixed inset-0 z-10"
+            aria-label="Close columns menu"
+          />
           <div className="absolute right-0 mt-2 w-48 rounded-md bg-bg-card border border-border-subtle shadow-xl z-20 py-1 font-sans text-xs">
             <div className="px-3 py-2 border-b border-border-subtle font-bold text-text-muted uppercase tracking-wider text-[10px]">
               Toggle Columns
             </div>
             <div className="max-h-60 overflow-y-auto py-1">
-              {table
-                .getAllLeafColumns()
-                .filter((col) => col.getCanHide())
-                .map((col) => {
-                  const headerVal = col.columnDef.header;
-                  // Extract title name if it is a function or node
-                  const name =
-                    typeof headerVal === 'string' ? headerVal : col.id || col.columnDef.id;
+              {table.getAllLeafColumns().flatMap((col) => {
+                if (!col.getCanHide()) return [];
+                const headerVal = col.columnDef.header;
+                // Extract title name if it is a function or node
+                const name = typeof headerVal === 'string' ? headerVal : col.id || col.columnDef.id;
 
-                  return (
-                    <label
-                      key={col.id}
-                      className="flex items-center px-3 py-2 text-text-body hover:bg-bg-card-hover hover:text-text-title cursor-pointer select-none"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={col.getIsVisible()}
-                        onChange={col.getToggleVisibilityHandler()}
-                        className="mr-2 h-3.5 w-3.5 rounded border-border-subtle bg-bg-main text-brand-primary focus:ring-brand-primary/30 accent-brand-primary"
-                      />
-                      <span className="capitalize">{name}</span>
-                    </label>
-                  );
-                })}
+                return [
+                  <label
+                    key={col.id}
+                    className="flex items-center px-3 py-2 text-text-body hover:bg-bg-card-hover hover:text-text-title cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={col.getIsVisible()}
+                      onChange={col.getToggleVisibilityHandler()}
+                      className="mr-2 h-3.5 w-3.5 rounded border-border-subtle bg-bg-main text-brand-primary focus:ring-brand-primary/30 accent-brand-primary"
+                    />
+                    <span className="capitalize">{name}</span>
+                  </label>,
+                ];
+              })}
             </div>
           </div>
         </>

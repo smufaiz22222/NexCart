@@ -159,6 +159,7 @@ export default function Login() {
                   type="text"
                   required
                   maxLength={6}
+                  aria-label="Verification Code"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="000000"
@@ -208,6 +209,7 @@ export default function Login() {
                   <input
                     type="email"
                     required
+                    aria-label="Email address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
@@ -227,6 +229,7 @@ export default function Login() {
                   <input
                     type="password"
                     required
+                    aria-label="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"

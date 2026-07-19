@@ -51,10 +51,17 @@ export default function AddressManager({
     setShowForm(false);
   };
 
+  const handleAddressCardKeyDown = (event, addressId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSelectedAddressId(addressId);
+    }
+  };
+
   return (
     <div className="rounded-2xl bg-white p-6 border border-[#e2e8f0] shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-[#4f46e5]" />
           <h3 className="text-sm font-bold text-[#0f172a]">Delivery Address</h3>
@@ -81,73 +88,89 @@ export default function AddressManager({
         </div>
       ) : (
         !showForm && (
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {addresses.map((address) => {
               const isSelected = selectedAddressId === address.id;
               return (
                 <div
                   key={address.id}
-                  onClick={() => setSelectedAddressId(address.id)}
                   className={cn(
-                    'min-w-[220px] max-w-[260px] flex-shrink-0 rounded-xl border p-4 cursor-pointer transition-all relative',
+                    'relative rounded-xl border p-4 transition-all',
                     isSelected
                       ? 'border-[#4f46e5] bg-[#eef2ff] shadow-sm'
                       : 'border-[#e2e8f0] bg-[#f8fafc] hover:border-[#4f46e5]/40'
                   )}
                 >
+                  {/* Clickable selector button for the entire card area */}
+                  <button
+                    type="button"
+                    aria-label={`Select address for ${address.fullName}`}
+                    onClick={() => setSelectedAddressId(address.id)}
+                    onKeyDown={(event) => handleAddressCardKeyDown(event, address.id)}
+                    className="absolute inset-0 w-full h-full cursor-pointer rounded-xl focus:outline-none"
+                  />
+
                   {/* Selection indicator */}
                   {isSelected && (
-                    <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-[#4f46e5]" />
+                    <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-[#4f46e5] pointer-events-none" />
                   )}
 
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <p className="text-xs font-bold text-[#0f172a] truncate">{address.fullName}</p>
-                    {address.isDefault && (
-                      <span className="rounded bg-[#4f46e5] px-1.5 py-0.5 text-[8px] font-bold text-white uppercase">
-                        Default
-                      </span>
-                    )}
+                  {/* Content wrapper with pointer-events-none so click goes through to selector button */}
+                  <div className="pointer-events-none relative mb-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <p className="text-xs font-bold text-[#0f172a] truncate">
+                        {address.fullName}
+                      </p>
+                      {address.isDefault && (
+                        <span className="rounded bg-[#4f46e5] px-1.5 py-0.5 text-[8px] font-bold text-white uppercase">
+                          Default
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-[#64748b] line-clamp-2 leading-4">
+                      {address.formatted}
+                    </p>
                   </div>
 
-                  <p className="text-[11px] text-[#64748b] line-clamp-2 leading-4 mb-3">
-                    {address.formatted}
-                  </p>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  {/* Actions (relative and pointer-events-auto to receive clicks) */}
+                  <div className="relative z-10 flex items-center gap-2">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditAddress(address);
                       }}
-                      className="text-[10px] font-bold text-[#64748b] hover:text-[#4f46e5] transition-colors"
+                      className="text-[10px] font-bold text-[#64748b] hover:text-[#4f46e5] transition-colors cursor-pointer bg-transparent border-0 p-0"
+                      aria-label="Edit address"
                     >
                       Edit
                     </button>
                     {!address.isDefault && (
                       <>
-                        <span className="text-[#e2e8f0]">|</span>
+                        <span className="text-[#e2e8f0] pointer-events-none">|</span>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSetDefaultAddress(address.id);
                           }}
-                          className="text-[10px] font-bold text-[#64748b] hover:text-[#4f46e5] transition-colors"
+                          className="text-[10px] font-bold text-[#64748b] hover:text-[#4f46e5] transition-colors cursor-pointer bg-transparent border-0 p-0"
+                          aria-label="Set default address"
                         >
                           Set Default
                         </button>
                       </>
                     )}
-                    <span className="text-[#e2e8f0]">|</span>
+                    <span className="text-[#e2e8f0] pointer-events-none">|</span>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteAddress(address.id);
                       }}
-                      className="text-[10px] font-bold text-[#64748b] hover:text-red-500 transition-colors"
+                      className="text-[10px] font-bold text-[#64748b] hover:text-red-500 transition-colors cursor-pointer bg-transparent border-0 p-0"
+                      aria-label="Remove address"
                     >
                       Remove
                     </button>
@@ -160,7 +183,7 @@ export default function AddressManager({
             <button
               type="button"
               onClick={handleAddNew}
-              className="min-w-[140px] flex-shrink-0 rounded-xl border border-dashed border-[#c7d2fe] bg-[#eef2ff]/50 p-4 flex flex-col items-center justify-center gap-2 hover:border-[#4f46e5] hover:bg-[#eef2ff] transition-all"
+              className="flex min-h-[132px] rounded-xl border border-dashed border-[#c7d2fe] bg-[#eef2ff]/50 p-4 flex-col items-center justify-center gap-2 hover:border-[#4f46e5] hover:bg-[#eef2ff] transition-all"
             >
               <Plus className="h-5 w-5 text-[#4f46e5]" />
               <span className="text-[10px] font-bold text-[#4f46e5]">Add New</span>

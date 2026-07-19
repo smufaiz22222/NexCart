@@ -16,7 +16,7 @@ export default function SearchBar({
   return (
     <section className="border-b border-[#e2e8f0] bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-3 rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-5 py-3">
             <Search className="h-4 w-4 shrink-0 text-[#94a3b8]" />
             <input
@@ -31,7 +31,7 @@ export default function SearchBar({
           {isSearchOrFilterActive && (
             <button
               onClick={clearFilters}
-              className="rounded-full border border-[#e2e8f0] bg-white px-4 py-3 text-xs font-bold text-[#64748b] transition hover:bg-[#4f46e5] hover:text-white hover:border-[#4f46e5]"
+              className="w-full rounded-full border border-[#e2e8f0] bg-white px-4 py-3 text-xs font-bold text-[#64748b] transition hover:bg-[#4f46e5] hover:text-white hover:border-[#4f46e5] sm:w-auto"
             >
               Clear All
             </button>

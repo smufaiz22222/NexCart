@@ -1,0 +1,111 @@
+Title: Live Content
+Description: Fetched live
+Source: https://react.doctor/docs/rules/react-doctor/no-event-handler
+---
+react-doctor/no-event-handler - Docs | React Doctor
+New
+Introducing React Doctor for Enterprise
+Features
+Pricing
+Docs
+Blog
+Changelog
+Menu
+Features
+Pricing
+Docs
+Blog
+Changelog
+Collapse all
+Overview
+What Is React Doctor?
+Quickstart
+CLI to CI
+How to Fix Issues
+CI & PRs
+GitHub Actions Setup
+Updating CI
+Other CI Providers
+Migrating to CI v2
+Configuration
+Config Files
+ESLint & oxlint Plugins
+Reference
+CLI Reference
+GitHub Action Reference
+Node.js API
+Community
+Changelog
+Legal
+Modified MIT License
+Terms of Service
+Privacy Policy
+Data Use
+Security
+Company
+Support
+Rules
+Rules reference
+Collapse all
+Overview
+What Is React Doctor?
+Quickstart
+CLI to CI
+How to Fix Issues
+CI & PRs
+GitHub Actions Setup
+Updating CI
+Other CI Providers
+Migrating to CI v2
+Configuration
+Config Files
+ESLint & oxlint Plugins
+Reference
+CLI Reference
+GitHub Action Reference
+Node.js API
+Community
+Changelog
+Legal
+Modified MIT License
+Terms of Service
+Privacy Policy
+Data Use
+Security
+Company
+Support
+Rules
+Rules reference
+react-doctor/no-event-handler
+Disallow using state and an effect as an event handler.
+Category
+:
+ 
+State & Effects
+Severity
+:
+ 
+warn
+Source
+:
+ 
+eslint-plugin-react-you-might-not-need-an-effect
+Framework
+:
+ 
+global
+Enabled when
+:
+ 
+eslint-plugin-react-you-might-not-need-an-effect installed in project
+Documentation
+:
+ 
+https://react.dev/learn/you-might-not-need-an-effect#sharing-logic-between-event-handlers
+Validation prompt
+Use this to decide whether a fired diagnostic is real or a false positive.
+Fires on a cleanup-less useEffect containing an if statement with no else whose test reads state (avoidEventHandler) or a prop (avoidPropHandler) — the textbook 'when X becomes truthy, do the side effect' pattern that belongs in the handler that flipped X. False positive: the state being checked is set by an external subscription (storage event, IntersectionObserver) the handler cannot observe.
+Fix prompt
+Use this once validation confirms the diagnostic is real.
+Move the work into the event handler that sets the state (onClick, onSubmit, onChange) and call it directly — no intermediate state hop. If multiple handlers share the work, extract a regular function and call it from each; do not route through useEffect. For prop-callback variants (onSomething from props), invoke the callback from the parent's handler instead. See 
+https://react.dev/learn/you-might-not-need-an-effect#sharing-logic-between-event-handlers

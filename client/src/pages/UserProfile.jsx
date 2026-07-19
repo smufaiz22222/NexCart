@@ -289,7 +289,7 @@ export default function UserProfile() {
     : 'U';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 font-sans text-[#16171a]">
+    <div className="mx-auto max-w-4xl px-4 py-6 font-sans text-[#16171a] sm:py-8">
       {/* Back button */}
       <button
         onClick={() => navigate('/store')}
@@ -299,7 +299,7 @@ export default function UserProfile() {
         Back to Store
       </button>
 
-      <h1 className="text-3xl font-bold tracking-tight mb-8">Your Profile</h1>
+      <h1 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">Your Profile</h1>
 
       {/* Account Information Card */}
       <section className="swiss-panel p-6 mb-8 bg-white border border-[#ddd7cc] rounded-xl">
@@ -313,6 +313,7 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="text"
+                  aria-label="Full Name"
                   value={profileForm.name}
                   onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                   required
@@ -324,7 +325,7 @@ export default function UserProfile() {
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6C757D] mb-1.5">
                   Email Address
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <span className="flex-1 px-3.5 py-2.5 border border-[#EFEFEF] bg-[#faf9f7] rounded-lg text-sm text-[#6C757D]">
                     {user?.email}
                   </span>
@@ -359,6 +360,7 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="password"
+                    aria-label="Current Password"
                     value={profileForm.currentPassword}
                     onChange={(e) =>
                       setProfileForm({ ...profileForm, currentPassword: e.target.value })
@@ -374,6 +376,7 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="password"
+                    aria-label="New Password"
                     value={profileForm.newPassword}
                     onChange={(e) =>
                       setProfileForm({ ...profileForm, newPassword: e.target.value })
@@ -389,6 +392,7 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="password"
+                    aria-label="Confirm New Password"
                     value={profileForm.confirmNewPassword}
                     onChange={(e) =>
                       setProfileForm({ ...profileForm, confirmNewPassword: e.target.value })
@@ -401,11 +405,11 @@ export default function UserProfile() {
               </div>
             )}
 
-            <div className="flex items-center gap-3 pt-4 border-t border-[#EFEFEF]">
+            <div className="flex flex-col gap-3 border-t border-[#EFEFEF] pt-4 sm:flex-row sm:items-center">
               <button
                 type="submit"
                 disabled={isUpdatingProfile}
-                className="px-5 py-2.5 bg-[#0047AB] hover:bg-[#003B91] disabled:bg-gray-400 text-white rounded-lg text-xs font-semibold transition-colors"
+                className="w-full rounded-lg bg-[#0047AB] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#003B91] disabled:bg-gray-400 sm:w-auto"
               >
                 {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
               </button>
@@ -416,15 +420,15 @@ export default function UserProfile() {
                   setChangePassword(false);
                 }}
                 disabled={isUpdatingProfile}
-                className="px-5 py-2.5 border border-[#C0C0C0] text-[#6C757D] rounded-lg text-xs font-semibold hover:bg-[#EFEFEF] transition-colors"
+                className="w-full rounded-lg border border-[#C0C0C0] px-5 py-2.5 text-xs font-semibold text-[#6C757D] transition-colors hover:bg-[#EFEFEF] sm:w-auto"
               >
                 Cancel
               </button>
             </div>
           </form>
         ) : (
-          <div className="flex items-start justify-between gap-5">
-            <div className="flex items-start gap-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-4 sm:gap-5">
               <div className="w-16 h-16 rounded-full bg-[#161412] text-white flex items-center justify-center text-lg font-bold shrink-0">
                 {initials}
               </div>
@@ -456,7 +460,7 @@ export default function UserProfile() {
             </div>
             <button
               onClick={handleStartEditProfile}
-              className="flex items-center gap-1.5 px-3 py-2 border border-[#C0C0C0] hover:border-[#161412] hover:bg-[#faf9f7] text-[#161412] rounded-lg text-xs font-semibold transition-colors"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#C0C0C0] px-3 py-2 text-xs font-semibold text-[#161412] transition-colors hover:border-[#161412] hover:bg-[#faf9f7] sm:w-auto"
             >
               <Pencil className="w-3.5 h-3.5" />
               Edit Profile
@@ -467,7 +471,7 @@ export default function UserProfile() {
         {/* Email Change OTP Flow */}
         {emailChangeStep && (
           <div className="mt-5 p-5 border border-[#0047AB]/20 bg-blue-50/30 rounded-xl animate-fade-in-up">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-sm font-bold text-[#161412] flex items-center gap-2">
                 <Mail className="w-4 h-4 text-[#0047AB]" />
                 Change Email Address
@@ -482,7 +486,7 @@ export default function UserProfile() {
             </div>
 
             {/* Step indicator */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               {['Enter New Email', 'Verify Current Email', 'Verify New Email'].map((label, idx) => {
                 const stepIdx =
                   emailChangeStep === 'enterNew' ? 0 : emailChangeStep === 'verifyOld' ? 1 : 2;
@@ -496,7 +500,7 @@ export default function UserProfile() {
                       {idx + 1}
                     </div>
                     <span
-                      className={`text-[10px] font-semibold uppercase tracking-wider ${
+                      className={`max-w-[90px] text-[10px] font-semibold uppercase tracking-wider ${
                         idx <= stepIdx ? 'text-[#0047AB]' : 'text-[#6C757D]'
                       }`}
                     >
@@ -517,6 +521,7 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="email"
+                    aria-label="New Email Address"
                     value={newEmailInput}
                     onChange={(e) => setNewEmailInput(e.target.value)}
                     required
@@ -549,6 +554,7 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="text"
+                    aria-label="Verification Code"
                     value={emailChangeOtp}
                     onChange={(e) =>
                       setEmailChangeOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
@@ -584,6 +590,7 @@ export default function UserProfile() {
                   </label>
                   <input
                     type="text"
+                    aria-label="Verification Code"
                     value={emailChangeOtp}
                     onChange={(e) =>
                       setEmailChangeOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
@@ -645,7 +652,7 @@ export default function UserProfile() {
 
       {/* Shipping Addresses Section */}
       <section className="swiss-panel p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-[#161412] flex items-center gap-2">
               <MapPin className="w-5 h-5 text-[#0047AB]" />
@@ -692,6 +699,7 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="text"
+                  aria-label="Full Name"
                   value={addressForm.fullName}
                   onChange={(e) => setAddressForm({ ...addressForm, fullName: e.target.value })}
                   required
@@ -705,6 +713,7 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="tel"
+                  aria-label="Phone"
                   value={addressForm.phone}
                   onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
                   required
@@ -719,6 +728,7 @@ export default function UserProfile() {
               </label>
               <input
                 type="text"
+                aria-label="Street Address"
                 value={addressForm.street}
                 onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
                 required
@@ -733,6 +743,7 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="text"
+                  aria-label="City"
                   value={addressForm.city}
                   onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
                   required
@@ -746,6 +757,7 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="text"
+                  aria-label="State"
                   value={addressForm.state}
                   onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })}
                   required
@@ -759,6 +771,7 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="text"
+                  aria-label="PIN Code"
                   value={addressForm.postalCode}
                   onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
                   required
@@ -767,10 +780,10 @@ export default function UserProfile() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-[#0047AB] hover:bg-[#003B91] text-white rounded-lg text-xs font-semibold transition-colors"
+                className="w-full rounded-lg bg-[#0047AB] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#003B91] sm:w-auto"
               >
                 {editingAddress ? 'Update Address' : 'Save Address'}
               </button>
@@ -780,7 +793,7 @@ export default function UserProfile() {
                   setShowAddressForm(false);
                   setEditingAddress(null);
                 }}
-                className="px-5 py-2.5 border border-[#C0C0C0] text-[#6C757D] rounded-lg text-xs font-semibold hover:bg-[#EFEFEF] transition-colors"
+                className="w-full rounded-lg border border-[#C0C0C0] px-5 py-2.5 text-xs font-semibold text-[#6C757D] transition-colors hover:bg-[#EFEFEF] sm:w-auto"
               >
                 Cancel
               </button>
@@ -813,7 +826,7 @@ export default function UserProfile() {
                     : 'border-[#ddd7cc] bg-white hover:border-[#6C757D]'
                 }`}
               >
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-bold text-[#161412]">{addr.fullName}</p>
@@ -833,7 +846,7 @@ export default function UserProfile() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 self-end sm:self-auto">
                     {!addr.isDefault && (
                       <button
                         onClick={() => handleSetDefault(addr.id)}

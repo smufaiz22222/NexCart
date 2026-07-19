@@ -4,31 +4,34 @@ import { useCreateOfflinePurchase } from '../../api/queries';
 import { toast } from 'sonner';
 import { ModalShell, Field } from './LayoutComponents';
 
-const inputClassName =
+const inputClassName = () =>
   'w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-amber-500';
 
 const PAYMENT_METHODS = ['CASH', 'CREDIT', 'UPI', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'OTHER'];
 
+const EMPTY_PURCHASE_FORM = {
+  invoiceNumber: '',
+  partyId: '',
+  paymentMethod: 'CASH',
+  amountPaid: '',
+  notes: '',
+  items: [{ productId: '', quantity: '1', unitPrice: '' }],
+  instrumentNumber: '',
+  bankName: '',
+  dueDate: '',
+  awaitingClearance: false,
+};
+
+const EMPTY_PARTIES = [];
+const EMPTY_PRODUCTS = [];
+
 export default function PurchaseModal({
   onClose,
-  parties = [],
-  products = [],
+  parties = EMPTY_PARTIES,
+  products = EMPTY_PRODUCTS,
   initialFormValues = null,
 }) {
-  const emptyPurchaseForm = {
-    invoiceNumber: '',
-    partyId: '',
-    paymentMethod: 'CASH',
-    amountPaid: '',
-    notes: '',
-    items: [{ productId: '', quantity: '1', unitPrice: '' }],
-    instrumentNumber: '',
-    bankName: '',
-    dueDate: '',
-    awaitingClearance: false,
-  };
-
-  const [purchaseForm, setPurchaseForm] = useState(initialFormValues || emptyPurchaseForm);
+  const [purchaseForm, setPurchaseForm] = useState(initialFormValues || EMPTY_PURCHASE_FORM);
   const createOfflinePurchaseMutation = useCreateOfflinePurchase();
 
   const handlePurchaseSubmit = (event) => {
@@ -86,6 +89,7 @@ export default function PurchaseModal({
           <Field label="Invoice number">
             <input
               placeholder="Auto-generated if left blank"
+              aria-label="Invoice number"
               value={purchaseForm.invoiceNumber}
               onChange={(event) =>
                 setPurchaseForm((current) => ({
@@ -128,12 +132,14 @@ export default function PurchaseModal({
                 }
                 className={inputClassName()}
               >
-                {PAYMENT_METHODS.filter((method) => method !== 'CREDIT' && method !== 'CHEQUE').map(
-                  (method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  )
+                {PAYMENT_METHODS.flatMap((method) =>
+                  method !== 'CREDIT' && method !== 'CHEQUE'
+                    ? [
+                        <option key={method} value={method}>
+                          {method}
+                        </option>,
+                      ]
+                    : []
                 )}
               </select>
             </Field>
@@ -184,6 +190,7 @@ export default function PurchaseModal({
                     required
                     type="number"
                     min="1"
+                    aria-label="Quantity"
                     value={item.quantity}
                     onChange={(event) => updatePurchaseItem(index, 'quantity', event.target.value)}
                     className={inputClassName()}
@@ -195,6 +202,7 @@ export default function PurchaseModal({
                     type="number"
                     min="0"
                     step="0.01"
+                    aria-label="Unit price"
                     value={item.unitPrice}
                     onChange={(event) => updatePurchaseItem(index, 'unitPrice', event.target.value)}
                     className={inputClassName()}
@@ -218,6 +226,7 @@ export default function PurchaseModal({
         <Field label="Notes">
           <textarea
             rows="3"
+            aria-label="Notes"
             value={purchaseForm.notes}
             onChange={(event) =>
               setPurchaseForm((current) => ({ ...current, notes: event.target.value }))

@@ -5,19 +5,265 @@ import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import apiClient from '../api/axios';
 
+const generateAttributeId = () => `attr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
 /**
  * A robust Product Form built with TanStack Form.
  * Demonstrates nested arrays, sync/async validation, and granular subscriptions.
  */
+function BasicInfoSection({ form, initialSku }) {
+  return (
+    <>
+      {/* Basic Information Section */}
+      <div className="grid gap-6 sm:grid-cols-2">
+        <form.Field
+          name="name"
+          validators={{
+            onChange: ({ value }) => (!value ? 'Name is required' : undefined),
+          }}
+        >
+          {(field) => (
+            <TextField
+              field={field}
+              label="Product Name *"
+              placeholder="e.g. Vintage Denim Jacket"
+            />
+          )}
+        </form.Field>
+
+        <form.Field
+          name="sku"
+          validators={{
+            onChange: ({ value }) => (!value ? 'SKU is required' : undefined),
+            onChangeAsyncDebounceMs: 500,
+            onChangeAsync: async ({ value }) => {
+              if (!value) return;
+              try {
+                const response = await apiClient.get(`/products/check-sku/${value}`);
+                if (response.data.exists && value !== initialSku) {
+                  return 'This SKU is already in use';
+                }
+              } catch {
+                console.debug('SKU check failed or endpoint missing');
+              }
+            },
+          }}
+        >
+          {(field) => (
+            <div className="relative">
+              <TextField field={field} label="SKU Code *" placeholder="e.g. JKT-DENIM-001" />
+              {field.state.meta.isValidating ? (
+                <Loader2 className="absolute right-3 top-8 h-4 w-4 animate-spin text-brand-accent" />
+              ) : null}
+            </div>
+          )}
+        </form.Field>
+      </div>
+
+      <form.Field name="description">
+        {(field) => (
+          <TextAreaField
+            field={field}
+            label="Description"
+            placeholder="Tell buyers what makes this product special..."
+          />
+        )}
+      </form.Field>
+    </>
+  );
+}
+
+function PricingSection({ form }) {
+  return (
+    <div className="grid gap-6 sm:grid-cols-3">
+      <form.Field
+        name="costPrice"
+        validators={{
+          onChange: ({ value }) =>
+            value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
+              ? 'Enter a valid cost price'
+              : undefined,
+        }}
+      >
+        {(field) => (
+          <TextField field={field} label="Cost Price (₹)" type="number" placeholder="0.00" />
+        )}
+      </form.Field>
+
+      <form.Field
+        name="actualPrice"
+        validators={{
+          onChange: ({ value }) => {
+            if (value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)) {
+              return 'Enter a valid actual price';
+            }
+            const priceVal = form.getFieldValue('price');
+            if (value && priceVal && parseFloat(value) < parseFloat(priceVal)) {
+              return 'Actual price must be >= selling price';
+            }
+            return undefined;
+          },
+        }}
+      >
+        {(field) => (
+          <TextField
+            field={field}
+            label="Actual Price (Original) (₹)"
+            type="number"
+            placeholder="0.00"
+          />
+        )}
+      </form.Field>
+
+      <form.Field
+        name="price"
+        validators={{
+          onChange: ({ value }) => {
+            if (isNaN(value) || value <= 0) {
+              return 'Enter a valid price';
+            }
+            const actualPriceVal = form.getFieldValue('actualPrice');
+            if (actualPriceVal && parseFloat(value) > parseFloat(actualPriceVal)) {
+              return 'Selling price cannot exceed Actual Price';
+            }
+            return undefined;
+          },
+        }}
+      >
+        {(field) => (
+          <TextField
+            field={field}
+            label="Discounted/Selling Price (₹) *"
+            type="number"
+            placeholder="0.00"
+          />
+        )}
+      </form.Field>
+    </div>
+  );
+}
+
+function InventorySection({ form, defaultDeliveryFee }) {
+  return (
+    <>
+      {/* Category & Delivery Settings */}
+      <div className="grid gap-6 sm:grid-cols-2">
+        <form.Field name="category">
+          {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
+        </form.Field>
+
+        <form.Field
+          name="deliveryFee"
+          validators={{
+            onChange: ({ value }) =>
+              value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
+                ? 'Enter a valid delivery fee'
+                : undefined,
+          }}
+        >
+          {(field) => (
+            <div className="space-y-1.5">
+              <TextField
+                field={field}
+                label="Delivery Fee Override (₹)"
+                type="number"
+                placeholder={`Default: ₹${defaultDeliveryFee.toFixed(2)}`}
+              />
+              <p className="text-[11px] text-text-muted font-medium leading-normal pl-1">
+                Specify a custom per-item delivery fee for this product. Leave blank to default to
+                your profile shipping settings.
+              </p>
+            </div>
+          )}
+        </form.Field>
+      </div>
+
+      {/* Stock Management */}
+      <div className="grid gap-6 sm:grid-cols-2">
+        <form.Field
+          name="currentStock"
+          validators={{
+            onChange: ({ value }) =>
+              value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0)
+                ? 'Enter a valid stock number'
+                : undefined,
+          }}
+        >
+          {(field) => (
+            <TextField field={field} label="Current Stock" type="number" placeholder="0" />
+          )}
+        </form.Field>
+
+        <form.Field
+          name="minStock"
+          validators={{
+            onChange: ({ value }) =>
+              value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0)
+                ? 'Enter a valid min stock alert'
+                : undefined,
+          }}
+        >
+          {(field) => (
+            <TextField field={field} label="Min Stock Alert" type="number" placeholder="10" />
+          )}
+        </form.Field>
+      </div>
+    </>
+  );
+}
+
+function FormActions({ form, onCancel, initialData }) {
+  return (
+    <div className="flex flex-col-reverse gap-3 pt-4 border-t border-border-subtle/50 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded-md border border-border-subtle bg-bg-card px-6 py-2.5 text-sm font-semibold text-text-body transition hover:bg-bg-card-hover"
+      >
+        Cancel
+      </button>
+
+      <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+        {([canSubmit, isSubmitting]) => (
+          <button
+            type="submit"
+            disabled={!canSubmit || isSubmitting}
+            className={cn(
+              'inline-flex items-center justify-center gap-2 rounded-md bg-brand-primary px-8 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed',
+              isSubmitting && 'animate-pulse'
+            )}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                {initialData ? 'Save Changes' : 'Create Product'}
+              </>
+            )}
+          </button>
+        )}
+      </form.Subscribe>
+    </div>
+  );
+}
+
 export function ProductForm({ initialData, onSubmit, onCancel }) {
-  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(0);
+  const [profileDeliveryFee, setProfileDeliveryFee] = useState(null);
+  const defaultDeliveryFee =
+    initialData?.wholesaler?.deliveryFee !== undefined &&
+    initialData?.wholesaler?.deliveryFee !== null
+      ? Number(initialData.wholesaler.deliveryFee)
+      : (profileDeliveryFee ?? 0);
 
   useEffect(() => {
     if (
       initialData?.wholesaler?.deliveryFee !== undefined &&
       initialData?.wholesaler?.deliveryFee !== null
     ) {
-      setDefaultDeliveryFee(Number(initialData.wholesaler.deliveryFee));
       return;
     }
 
@@ -25,7 +271,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
       try {
         const response = await apiClient.get('/b2b/wholesaler/profile');
         if (response.data?.wholesaler?.deliveryFee !== undefined) {
-          setDefaultDeliveryFee(Number(response.data.wholesaler.deliveryFee));
+          setProfileDeliveryFee(Number(response.data.wholesaler.deliveryFee));
         }
       } catch (err) {
         console.debug('Failed to fetch wholesaler profile for delivery fee placeholder:', err);
@@ -49,10 +295,17 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
         initialData?.deliveryFee !== undefined && initialData.deliveryFee !== null
           ? initialData.deliveryFee
           : '',
-      attributes: initialData?.attributes || [{ name: '', value: '' }],
+      attributes: (initialData?.attributes || [{ name: '', value: '' }]).map((attr, idx) => ({
+        ...attr,
+        id: attr.id || `initial-attr-${idx}`,
+      })),
     },
     onSubmit: async ({ value }) => {
-      await onSubmit(value);
+      const sanitizedValue = {
+        ...value,
+        attributes: value.attributes?.map(({ id: _id, ...rest }) => rest) || [],
+      };
+      await onSubmit(sanitizedValue);
     },
   });
 
@@ -68,234 +321,16 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
       >
         <FormError form={form} />
 
-        {/* Basic Information Section */}
-        <div className="grid gap-6 sm:grid-cols-2">
-          <form.Field
-            name="name"
-            validators={{
-              onChange: ({ value }) => (!value ? 'Name is required' : undefined),
-            }}
-          >
-            {(field) => (
-              <TextField
-                field={field}
-                label="Product Name *"
-                placeholder="e.g. Vintage Denim Jacket"
-              />
-            )}
-          </form.Field>
+        <BasicInfoSection form={form} initialSku={initialData?.sku} />
 
-          <form.Field
-            name="sku"
-            validators={{
-              onChange: ({ value }) => (!value ? 'SKU is required' : undefined),
-              onChangeAsyncDebounceMs: 500,
-              onChangeAsync: async ({ value }) => {
-                if (!value) return;
-                try {
-                  const response = await apiClient.get(`/products/check-sku/${value}`);
-                  if (response.data.exists && value !== initialData?.sku) {
-                    return 'This SKU is already in use';
-                  }
-                } catch {
-                  console.debug('SKU check failed or endpoint missing');
-                }
-              },
-            }}
-          >
-            {(field) => (
-              <div className="relative">
-                <TextField field={field} label="SKU Code *" placeholder="e.g. JKT-DENIM-001" />
-                {field.state.meta.isValidating ? (
-                  <Loader2 className="absolute right-3 top-8 h-4 w-4 animate-spin text-brand-accent" />
-                ) : null}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <PricingSection form={form} />
 
-        <form.Field name="description">
-          {(field) => (
-            <TextAreaField
-              field={field}
-              label="Description"
-              placeholder="Tell buyers what makes this product special..."
-            />
-          )}
-        </form.Field>
-
-        {/* Pricing Configuration Row */}
-        <div className="grid gap-6 sm:grid-cols-3">
-          <form.Field
-            name="costPrice"
-            validators={{
-              onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
-                  ? 'Enter a valid cost price'
-                  : undefined,
-            }}
-          >
-            {(field) => (
-              <TextField field={field} label="Cost Price (₹)" type="number" placeholder="0.00" />
-            )}
-          </form.Field>
-
-          <form.Field
-            name="actualPrice"
-            validators={{
-              onChange: ({ value }) => {
-                if (
-                  value !== undefined &&
-                  value !== '' &&
-                  (isNaN(value) || parseFloat(value) < 0)
-                ) {
-                  return 'Enter a valid actual price';
-                }
-                const priceVal = form.getFieldValue('price');
-                if (value && priceVal && parseFloat(value) < parseFloat(priceVal)) {
-                  return 'Actual price must be >= selling price';
-                }
-                return undefined;
-              },
-            }}
-          >
-            {(field) => (
-              <TextField
-                field={field}
-                label="Actual Price (Original) (₹)"
-                type="number"
-                placeholder="0.00"
-              />
-            )}
-          </form.Field>
-
-          <form.Field
-            name="price"
-            validators={{
-              onChange: ({ value }) => {
-                if (isNaN(value) || value <= 0) {
-                  return 'Enter a valid price';
-                }
-                const actualPriceVal = form.getFieldValue('actualPrice');
-                if (actualPriceVal && parseFloat(value) > parseFloat(actualPriceVal)) {
-                  return 'Selling price cannot exceed Actual Price';
-                }
-                return undefined;
-              },
-            }}
-          >
-            {(field) => (
-              <TextField
-                field={field}
-                label="Discounted/Selling Price (₹) *"
-                type="number"
-                placeholder="0.00"
-              />
-            )}
-          </form.Field>
-        </div>
-
-        {/* Category & Delivery Settings */}
-        <div className="grid gap-6 sm:grid-cols-2">
-          <form.Field name="category">
-            {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
-          </form.Field>
-
-          <form.Field
-            name="deliveryFee"
-            validators={{
-              onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseFloat(value) < 0)
-                  ? 'Enter a valid delivery fee'
-                  : undefined,
-            }}
-          >
-            {(field) => (
-              <div className="space-y-1.5">
-                <TextField
-                  field={field}
-                  label="Delivery Fee Override (₹)"
-                  type="number"
-                  placeholder={`Default: ₹${defaultDeliveryFee.toFixed(2)}`}
-                />
-                <p className="text-[11px] text-text-muted font-medium leading-normal pl-1">
-                  Specify a custom per-item delivery fee for this product. Leave blank to default to
-                  your profile shipping settings.
-                </p>
-              </div>
-            )}
-          </form.Field>
-        </div>
-
-        {/* Stock Management */}
-        <div className="grid gap-6 sm:grid-cols-2">
-          <form.Field
-            name="currentStock"
-            validators={{
-              onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0)
-                  ? 'Enter a valid stock number'
-                  : undefined,
-            }}
-          >
-            {(field) => (
-              <TextField field={field} label="Current Stock" type="number" placeholder="0" />
-            )}
-          </form.Field>
-
-          <form.Field
-            name="minStock"
-            validators={{
-              onChange: ({ value }) =>
-                value !== undefined && value !== '' && (isNaN(value) || parseInt(value, 10) < 0)
-                  ? 'Enter a valid min stock alert'
-                  : undefined,
-            }}
-          >
-            {(field) => (
-              <TextField field={field} label="Min Stock Alert" type="number" placeholder="10" />
-            )}
-          </form.Field>
-        </div>
+        <InventorySection form={form} defaultDeliveryFee={defaultDeliveryFee} />
 
         {/* Nested Attributes Section (Field Array) */}
         <ProductAttributesSection form={form} />
 
-        {/* Footer Actions */}
-        <div className="flex flex-col-reverse gap-3 pt-4 border-t border-border-subtle/50 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-border-subtle bg-bg-card px-6 py-2.5 text-sm font-semibold text-text-body transition hover:bg-bg-card-hover"
-          >
-            Cancel
-          </button>
-
-          <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
-            {([canSubmit, isSubmitting]) => (
-              <button
-                type="submit"
-                disabled={!canSubmit || isSubmitting}
-                className={cn(
-                  'inline-flex items-center justify-center gap-2 rounded-md bg-brand-primary px-8 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed',
-                  isSubmitting && 'animate-pulse'
-                )}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    {initialData ? 'Save Changes' : 'Create Product'}
-                  </>
-                )}
-              </button>
-            )}
-          </form.Subscribe>
-        </div>
+        <FormActions form={form} onCancel={onCancel} initialData={initialData} />
       </form>
     </div>
   );
@@ -313,7 +348,13 @@ function ProductAttributesSection({ form }) {
         </div>
         <button
           type="button"
-          onClick={() => form.pushFieldValue('attributes', { name: '', value: '' })}
+          onClick={() =>
+            form.pushFieldValue('attributes', {
+              id: generateAttributeId(),
+              name: '',
+              value: '',
+            })
+          }
           className="flex items-center gap-1.5 rounded-md bg-bg-card border border-border-subtle px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-body transition-all hover:bg-bg-card-hover hover:text-text-title"
         >
           <Plus className="h-3 w-3" />
@@ -324,9 +365,9 @@ function ProductAttributesSection({ form }) {
       <form.Field name="attributes" mode="array">
         {(field) => (
           <div className="space-y-3">
-            {field.state.value.map((_, i) => (
+            {field.state.value.map((item, i) => (
               <div
-                key={i}
+                key={item.id || i}
                 className="flex items-end gap-3 group animate-in fade-in slide-in-from-top-2 duration-300"
               >
                 <form.Field name={`attributes[${i}].name`}>

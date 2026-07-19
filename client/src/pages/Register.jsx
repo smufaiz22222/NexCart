@@ -247,6 +247,7 @@ export default function Register() {
                   type="text"
                   required
                   maxLength={6}
+                  aria-label="Verification Code"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="000000"
@@ -309,6 +310,7 @@ export default function Register() {
                   type="text"
                   name="name"
                   required
+                  aria-label="Full Name"
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="John Doe"
@@ -322,6 +324,7 @@ export default function Register() {
                   type="email"
                   name="email"
                   required
+                  aria-label="Email"
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="you@example.com"
@@ -338,6 +341,7 @@ export default function Register() {
                     type="password"
                     name="password"
                     required
+                    aria-label="Password"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Min 8 chars"
@@ -352,6 +356,7 @@ export default function Register() {
                     type="password"
                     name="confirmPassword"
                     required
+                    aria-label="Confirm Password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     placeholder="Repeat"
@@ -380,6 +385,7 @@ export default function Register() {
                     type="text"
                     name="businessName"
                     required
+                    aria-label="Business / Shop Name"
                     value={formData.businessName}
                     onChange={handleChange}
                     placeholder="Business / Shop Name"
@@ -390,6 +396,7 @@ export default function Register() {
                       type="text"
                       name="businessPhone"
                       required
+                      aria-label="Business Phone"
                       value={formData.businessPhone}
                       onChange={handleChange}
                       placeholder="Phone"
@@ -398,6 +405,7 @@ export default function Register() {
                     <input
                       type="text"
                       name="taxId"
+                      aria-label="GST"
                       value={formData.taxId}
                       onChange={handleChange}
                       placeholder="GST (optional)"
@@ -408,6 +416,7 @@ export default function Register() {
                     name="businessAddress"
                     required
                     rows={2}
+                    aria-label="Business Address"
                     value={formData.businessAddress}
                     onChange={handleChange}
                     placeholder="Business address"

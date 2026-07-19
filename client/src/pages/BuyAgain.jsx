@@ -5,6 +5,14 @@ import { useOrders } from '../api/queries';
 import useCartStore from '../store/cartStore';
 import { toast } from 'sonner';
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
 export default function BuyAgain() {
   const navigate = useNavigate();
   const { data: orders = [], isLoading } = useOrders();
@@ -52,13 +60,6 @@ export default function BuyAgain() {
     }
   };
 
-  const formatCurrency = (value) =>
-    new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(Number(value || 0));
-
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 animate-pulse">
@@ -84,7 +85,7 @@ export default function BuyAgain() {
           Back to Dashboard
         </button>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#4f46e5]">
               <RotateCcw className="h-5 w-5 text-white" />
@@ -96,7 +97,7 @@ export default function BuyAgain() {
               </p>
             </div>
           </div>
-          <span className="text-xs font-bold text-[#64748b] border border-[#e2e8f0] px-3 py-1.5 rounded-full bg-[#f1f5f9] font-mono">
+          <span className="w-fit text-xs font-bold text-[#64748b] border border-[#e2e8f0] px-3 py-1.5 rounded-full bg-[#f1f5f9] font-mono">
             {purchasedProducts.length} item{purchasedProducts.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -127,7 +128,8 @@ export default function BuyAgain() {
               className="group rounded-xl border border-[#e2e8f0] bg-white hover:border-[#4f46e5] hover:shadow-lg hover:shadow-[#4f46e5]/5 transition-all duration-200 flex flex-col overflow-hidden card-hover-lift animate-slide-in"
             >
               {/* Product Image */}
-              <div
+              <button
+                type="button"
                 onClick={() => navigate(`/store/product/${product.id}`)}
                 className="h-44 bg-[#f8fafc] flex items-center justify-center border-b border-[#e2e8f0] cursor-pointer overflow-hidden relative"
               >
@@ -147,19 +149,20 @@ export default function BuyAgain() {
                     </span>
                   </div>
                 )}
-              </div>
+              </button>
 
               {/* Product Info */}
               <div className="p-4 flex flex-col flex-1">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[#64748b]">
                   {product.category || 'General'}
                 </span>
-                <h3
+                <button
+                  type="button"
                   onClick={() => navigate(`/store/product/${product.id}`)}
-                  className="text-sm font-bold text-[#1e293b] line-clamp-2 mt-1 cursor-pointer hover:text-[#4f46e5] transition-colors"
+                  className="mt-1 text-left text-sm font-bold text-[#1e293b] line-clamp-2 cursor-pointer hover:text-[#4f46e5] transition-colors"
                 >
                   {product.name}
-                </h3>
+                </button>
 
                 {product.wholesalerName && (
                   <p className="text-[10px] text-[#64748b] mt-1">by {product.wholesalerName}</p>

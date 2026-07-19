@@ -35,6 +35,14 @@ const defaultAddressForm = {
 
 const OTHER_LOCALITY_VALUE = '__OTHER__';
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
 export default function B2BCart() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -82,6 +90,12 @@ export default function B2BCart() {
     resolved: false,
   });
 
+  const changePostalLookup = (val) => setPostalLookup(val);
+  const changeSelectedLocality = (val) => setSelectedLocality(val);
+  const changeManualLocality = (val) => setManualLocality(val);
+  const changeIsManualLocality = (val) => setIsManualLocality(val);
+  const changeAddressForm = (val) => setAddressForm(val);
+
   const isB2BApproved =
     user?.businessProfile?.verification === 'APPROVED' &&
     user?.businessProfile?.status === 'ACTIVE';
@@ -125,29 +139,21 @@ export default function B2BCart() {
   const hasBank = !seller ? false : !!(seller.bankAccountNo && seller.bankAccountNo.trim());
   const hasUpi = !seller ? false : !!(seller.upiId && seller.upiId.trim());
 
-  useEffect(() => {
-    if (seller) {
-      if (hasBank && hasUpi) {
-        if (selectedPaymentMode !== 'BANK' && selectedPaymentMode !== 'UPI') {
-          setSelectedPaymentMode('BANK');
-        }
-      } else if (hasBank) {
-        setSelectedPaymentMode('BANK');
-      } else if (hasUpi) {
-        setSelectedPaymentMode('UPI');
-      } else {
-        setSelectedPaymentMode('');
-      }
-    } else {
-      setSelectedPaymentMode('');
+  const paymentMode = useMemo(() => {
+    if (!seller) return '';
+    if (hasBank && hasUpi) {
+      return selectedPaymentMode === 'UPI' ? 'UPI' : 'BANK';
     }
+    if (hasBank) return 'BANK';
+    if (hasUpi) return 'UPI';
+    return '';
   }, [seller, hasBank, hasUpi, selectedPaymentMode]);
 
   useEffect(() => {
     const postalCode = addressForm.postalCode.trim();
 
     if (!/^\d{6}$/.test(postalCode)) {
-      setPostalLookup((current) => ({
+      changePostalLookup((current) => ({
         ...current,
         status: postalCode.length ? 'invalid' : 'idle',
         message: postalCode.length ? 'Postal code must be exactly 6 digits.' : '',
@@ -159,15 +165,15 @@ export default function B2BCart() {
         resolved: false,
       }));
 
-      setSelectedLocality('');
-      setManualLocality('');
-      setIsManualLocality(false);
-      setAddressForm((current) => ({ ...current, city: '', state: '' }));
+      changeSelectedLocality('');
+      changeManualLocality('');
+      changeIsManualLocality(false);
+      changeAddressForm((current) => ({ ...current, city: '', state: '' }));
       return undefined;
     }
 
     const timer = setTimeout(async () => {
-      setPostalLookup((current) => ({
+      changePostalLookup((current) => ({
         ...current,
         status: 'loading',
         message: 'Fetching details from postal code...',
@@ -181,24 +187,24 @@ export default function B2BCart() {
         const firstKnownLocality =
           localityOptions.find((locality) => locality !== lookup.otherValue) || '';
 
-        setPostalLookup({
+        changePostalLookup({
           ...lookup,
           status: lookup.resolved ? 'resolved' : 'error',
           message: lookup.message,
         });
 
-        setAddressForm((current) => ({
+        changeAddressForm((current) => ({
           ...current,
           postalCode,
           city: lookup.city || '',
           state: lookup.state || '',
           addressLine2: firstKnownLocality || '',
         }));
-        setSelectedLocality(firstKnownLocality || lookup.otherValue || OTHER_LOCALITY_VALUE);
-        setManualLocality('');
-        setIsManualLocality(false);
+        changeSelectedLocality(firstKnownLocality || lookup.otherValue || OTHER_LOCALITY_VALUE);
+        changeManualLocality('');
+        changeIsManualLocality(false);
       } catch (error) {
-        setPostalLookup({
+        changePostalLookup({
           status: 'error',
           message:
             error.response?.data?.message ||
@@ -212,10 +218,10 @@ export default function B2BCart() {
           postalCode,
           resolved: false,
         });
-        setSelectedLocality('');
-        setManualLocality('');
-        setIsManualLocality(false);
-        setAddressForm((current) => ({ ...current, city: '', state: '', addressLine2: '' }));
+        changeSelectedLocality('');
+        changeManualLocality('');
+        changeIsManualLocality(false);
+        changeAddressForm((current) => ({ ...current, city: '', state: '', addressLine2: '' }));
       }
     }, 450);
 
@@ -291,7 +297,7 @@ export default function B2BCart() {
       return;
     }
 
-    const prefix = selectedPaymentMode ? `${selectedPaymentMode}:` : '';
+    const prefix = paymentMode ? `${paymentMode}:` : '';
 
     setIsProcessing(true);
     try {
@@ -308,13 +314,6 @@ export default function B2BCart() {
       setIsProcessing(false);
     }
   };
-
-  const formatCurrency = (value) =>
-    new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(Number(value || 0));
 
   if (!isAuthenticated || !isB2BApproved) {
     return (
@@ -393,10 +392,14 @@ export default function B2BCart() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-full-name"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         Full Name *
                       </label>
                       <input
+                        id="b2b-cart-full-name"
                         type="text"
                         required
                         value={addressForm.fullName}
@@ -409,10 +412,14 @@ export default function B2BCart() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-phone"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         Mobile Number *
                       </label>
                       <input
+                        id="b2b-cart-phone"
                         type="text"
                         required
                         value={addressForm.phone}
@@ -428,10 +435,14 @@ export default function B2BCart() {
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-address-line-1"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         Address Line 1 *
                       </label>
                       <input
+                        id="b2b-cart-address-line-1"
                         type="text"
                         required
                         value={addressForm.addressLine1}
@@ -444,10 +455,14 @@ export default function B2BCart() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-postal-code"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         Postal Code *
                       </label>
                       <input
+                        id="b2b-cart-postal-code"
                         type="text"
                         required
                         value={addressForm.postalCode}
@@ -477,12 +492,16 @@ export default function B2BCart() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-locality"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         Area / Locality *
                       </label>
                       {postalLookup.resolved ? (
                         <>
                           <select
+                            id="b2b-cart-locality"
                             value={isManualLocality ? postalLookup.otherValue : selectedLocality}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -511,8 +530,10 @@ export default function B2BCart() {
                           </select>
                           {isManualLocality && (
                             <input
+                              id="b2b-cart-manual-locality"
                               type="text"
                               required
+                              aria-label="Enter locality manually"
                               value={manualLocality}
                               onChange={(e) => setManualLocality(e.target.value)}
                               placeholder="Enter locality manually"
@@ -522,6 +543,7 @@ export default function B2BCart() {
                         </>
                       ) : (
                         <input
+                          id="b2b-cart-locality"
                           type="text"
                           disabled
                           placeholder="Enter a valid pincode first"
@@ -531,10 +553,14 @@ export default function B2BCart() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-city"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         City (Auto-filled)
                       </label>
                       <input
+                        id="b2b-cart-city"
                         type="text"
                         readOnly
                         value={addressForm.city}
@@ -543,10 +569,14 @@ export default function B2BCart() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                      <label
+                        htmlFor="b2b-cart-state"
+                        className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                      >
                         State (Auto-filled)
                       </label>
                       <input
+                        id="b2b-cart-state"
                         type="text"
                         readOnly
                         value={addressForm.state}
@@ -640,7 +670,7 @@ export default function B2BCart() {
                         onClick={() => setSelectedPaymentMode('BANK')}
                         className={cn(
                           'flex-1 py-2 px-3 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5',
-                          selectedPaymentMode === 'BANK'
+                          paymentMode === 'BANK'
                             ? 'bg-white text-[#0047AB] shadow-sm'
                             : 'text-[#6C757D] hover:text-[#16171a]'
                         )}
@@ -653,7 +683,7 @@ export default function B2BCart() {
                         onClick={() => setSelectedPaymentMode('UPI')}
                         className={cn(
                           'flex-1 py-2 px-3 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5',
-                          selectedPaymentMode === 'UPI'
+                          paymentMode === 'UPI'
                             ? 'bg-white text-[#0047AB] shadow-sm'
                             : 'text-[#6C757D] hover:text-[#16171a]'
                         )}
@@ -665,7 +695,7 @@ export default function B2BCart() {
                   )}
 
                   {/* Payment Details rendering */}
-                  {selectedPaymentMode === 'BANK' && hasBank && (
+                  {paymentMode === 'BANK' && hasBank && (
                     <div className="border border-[#EFEFEF] rounded-lg p-3.5 text-xs space-y-2 bg-[#FBFBFB]">
                       <p className="font-bold text-[#161412] flex items-center gap-1.5 pb-1.5 border-b border-[#EFEFEF]">
                         <Landmark className="w-4 h-4 text-[#0047AB]" />
@@ -690,7 +720,7 @@ export default function B2BCart() {
                     </div>
                   )}
 
-                  {selectedPaymentMode === 'UPI' && hasUpi && (
+                  {paymentMode === 'UPI' && hasUpi && (
                     <div className="border border-[#EFEFEF] rounded-lg p-3.5 text-xs space-y-2 bg-[#FBFBFB]">
                       <p className="font-bold text-[#161412] flex items-center gap-1.5 pb-1.5 border-b border-[#EFEFEF]">
                         <span className="font-sans font-black tracking-wider text-[10px] text-[#0047AB]">
@@ -736,32 +766,40 @@ export default function B2BCart() {
                 <Upload className="w-4 h-4" /> Payment Confirmation
               </h2>
               <p className="text-xs text-[#6C757D] mb-4 leading-5">
-                {selectedPaymentMode === 'UPI'
+                {paymentMode === 'UPI'
                   ? "Pay the total amount to the wholesaler's UPI ID above, then provide your transaction reference number and a receipt screenshot below."
                   : "Transfer the total amount to the wholesaler's bank account above, then provide your transaction reference ID (UTR) and a receipt screenshot below."}
               </p>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
-                    {selectedPaymentMode === 'UPI'
+                  <label
+                    htmlFor="b2b-cart-payment-reference"
+                    className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                  >
+                    {paymentMode === 'UPI'
                       ? 'UPI Transaction ID / Ref No'
                       : 'Transaction Reference ID / UTR'}
                   </label>
                   <input
+                    id="b2b-cart-payment-reference"
                     type="text"
                     value={paymentReferenceNo}
                     onChange={(e) => setPaymentReferenceNo(e.target.value)}
                     placeholder={
-                      selectedPaymentMode === 'UPI' ? 'e.g. txn_1234567890' : 'e.g. UTR1234567890'
+                      paymentMode === 'UPI' ? 'e.g. txn_1234567890' : 'e.g. UTR1234567890'
                     }
                     className="w-full px-3 py-2.5 border border-[#EFEFEF] rounded-lg text-sm focus:outline-none focus:border-[#0047AB] transition"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1">
+                  <label
+                    htmlFor="b2b-cart-payment-receipt-url"
+                    className="block text-[10px] font-bold text-[#6C757D] uppercase tracking-wider mb-1"
+                  >
                     Payment Receipt Screenshot URL
                   </label>
                   <input
+                    id="b2b-cart-payment-receipt-url"
                     type="text"
                     value={paymentReceiptUrl}
                     onChange={(e) => setPaymentReceiptUrl(e.target.value)}

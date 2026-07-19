@@ -4,7 +4,7 @@ import { useCreateOfflineSale } from '../../api/queries';
 import { toast } from 'sonner';
 import { ModalShell, Field } from './LayoutComponents';
 
-const inputClassName =
+const inputClassName = () =>
   'w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-amber-500';
 
 const PAYMENT_METHODS = ['CASH', 'CREDIT', 'UPI', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'OTHER'];
@@ -28,7 +28,10 @@ const emptySaleForm = {
   awaitingClearance: false,
 };
 
-export default function SaleModal({ onClose, parties = [], products = [] }) {
+const EMPTY_PARTIES = [];
+const EMPTY_PRODUCTS = [];
+
+export default function SaleModal({ onClose, parties = EMPTY_PARTIES, products = EMPTY_PRODUCTS }) {
   const [saleForm, setSaleForm] = useState(emptySaleForm);
   const createOfflineSaleMutation = useCreateOfflineSale();
 
@@ -87,6 +90,7 @@ export default function SaleModal({ onClose, parties = [], products = [] }) {
           <Field label="Invoice number">
             <input
               placeholder="Auto-generated if left blank"
+              aria-label="Invoice number"
               value={saleForm.invoiceNumber}
               onChange={(event) =>
                 setSaleForm((current) => ({ ...current, invoiceNumber: event.target.value }))
@@ -123,12 +127,14 @@ export default function SaleModal({ onClose, parties = [], products = [] }) {
                 }
                 className={inputClassName()}
               >
-                {PAYMENT_METHODS.filter((method) => method !== 'CREDIT' && method !== 'CHEQUE').map(
-                  (method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  )
+                {PAYMENT_METHODS.flatMap((method) =>
+                  method !== 'CREDIT' && method !== 'CHEQUE'
+                    ? [
+                        <option key={method} value={method}>
+                          {method}
+                        </option>,
+                      ]
+                    : []
                 )}
               </select>
             </Field>
@@ -179,6 +185,7 @@ export default function SaleModal({ onClose, parties = [], products = [] }) {
                     required
                     type="number"
                     min="1"
+                    aria-label="Quantity"
                     value={item.quantity}
                     onChange={(event) => updateSaleItem(index, 'quantity', event.target.value)}
                     className={inputClassName()}
@@ -190,6 +197,7 @@ export default function SaleModal({ onClose, parties = [], products = [] }) {
                     type="number"
                     min="0"
                     step="0.01"
+                    aria-label="Unit price"
                     value={item.unitPrice}
                     onChange={(event) => updateSaleItem(index, 'unitPrice', event.target.value)}
                     className={inputClassName()}
@@ -213,6 +221,7 @@ export default function SaleModal({ onClose, parties = [], products = [] }) {
         <Field label="Notes">
           <textarea
             rows="3"
+            aria-label="Notes"
             value={saleForm.notes}
             onChange={(event) =>
               setSaleForm((current) => ({ ...current, notes: event.target.value }))

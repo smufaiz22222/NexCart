@@ -13,6 +13,11 @@ import CartItemList from '../components/cart/CartItemList';
 import AddressManager from '../components/cart/AddressManager';
 import CheckoutSummary from '../components/cart/CheckoutSummary';
 
+const PAYMENT_OPTIONS = [
+  { value: 'COD', label: 'Cash on Delivery', icon: Banknote },
+  { value: 'PREPAID', label: 'Pay Online (Razorpay)', icon: CreditCard },
+];
+
 export default function Cart() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -216,7 +221,7 @@ export default function Cart() {
   return (
     <div className="space-y-6 pb-12 text-[#1e293b]">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#4f46e5]">
             <ShoppingBag className="h-5 w-5 text-white" />
@@ -230,7 +235,7 @@ export default function Cart() {
         </div>
         <button
           onClick={() => navigate('/store')}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2.5 text-xs font-bold text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2.5 text-xs font-bold text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all sm:w-auto"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Continue Shopping
@@ -320,16 +325,11 @@ export default function Cart() {
 }
 
 function PaymentMethodSection({ paymentMethod, setPaymentMethod }) {
-  const options = [
-    { value: 'COD', label: 'Cash on Delivery', icon: Banknote },
-    { value: 'PREPAID', label: 'Pay Online (Razorpay)', icon: CreditCard },
-  ];
-
   return (
     <div className="rounded-2xl bg-white p-5 border border-[#e2e8f0] shadow-sm">
       <h3 className="text-sm font-bold text-[#0f172a] mb-3">Payment Method</h3>
-      <div className="flex gap-3">
-        {options.map((option) => {
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {PAYMENT_OPTIONS.map((option) => {
           const Icon = option.icon;
           const isActive = paymentMethod === option.value;
           return (

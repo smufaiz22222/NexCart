@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import {
   Activity,
   BarChart3,
@@ -11,20 +11,26 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Line,
-  ComposedChart,
-  Legend,
-} from 'recharts';
 import apiClient from '../api/axios';
+
+const Area = React.lazy(() => import('recharts').then((m) => ({ default: m.Area })));
+const AreaChart = React.lazy(() => import('recharts').then((m) => ({ default: m.AreaChart })));
+const CartesianGrid = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.CartesianGrid }))
+);
+const ResponsiveContainer = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.ResponsiveContainer }))
+);
+const Tooltip = React.lazy(() => import('recharts').then((m) => ({ default: m.Tooltip })));
+const XAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.XAxis })));
+const YAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.YAxis })));
+const Line = React.lazy(() => import('recharts').then((m) => ({ default: m.Line })));
+const ComposedChart = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.ComposedChart }))
+);
+const Legend = React.lazy(() => import('recharts').then((m) => ({ default: m.Legend })));
 import DataTable from '../components/DataTable';
+const CHART_TICK_STYLE = { fill: 'var(--text-muted)', fontSize: 12 };
 
 const KPI_CARDS = [
   {
@@ -404,69 +410,69 @@ export default function Analytics() {
           }
         >
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={trendRows}>
-                <defs>
-                  <linearGradient id="analyticsRevenueFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="analyticsProfitFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--semantic-success)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="var(--semantic-success)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  stroke="var(--border-subtle)"
-                  vertical={false}
-                  strokeDasharray="3 3"
-                />
-                <XAxis
-                  dataKey="period"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--bg-card)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '12px',
-                    color: 'var(--text-title)',
-                  }}
-                />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="var(--brand-accent)"
-                  strokeWidth={2}
-                  fill="url(#analyticsRevenueFill)"
-                  name="Revenue"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="profit"
-                  stroke="var(--semantic-success)"
-                  strokeWidth={2}
-                  fill="url(#analyticsProfitFill)"
-                  name="Profit"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="marginPercent"
-                  stroke="var(--info)"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Margin %"
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <Suspense
+              fallback={<div className="h-full w-full bg-white/5 animate-pulse rounded-xl" />}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={trendRows}>
+                  <defs>
+                    <linearGradient id="analyticsRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="analyticsProfitFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--semantic-success)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--semantic-success)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    stroke="var(--border-subtle)"
+                    vertical={false}
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="period"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={CHART_TICK_STYLE}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={CHART_TICK_STYLE} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '12px',
+                      color: 'var(--text-title)',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="var(--brand-accent)"
+                    strokeWidth={2}
+                    fill="url(#analyticsRevenueFill)"
+                    name="Revenue"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="profit"
+                    stroke="var(--semantic-success)"
+                    strokeWidth={2}
+                    fill="url(#analyticsProfitFill)"
+                    name="Profit"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="marginPercent"
+                    stroke="var(--info)"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Margin %"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </Suspense>
           </div>
         </Panel>
 
@@ -547,49 +553,48 @@ export default function Analytics() {
           </div>
 
           <div className="mt-5 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={recommendationFunnel}>
-                <defs>
-                  <linearGradient id="funnelFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  stroke="var(--border-subtle)"
-                  vertical={false}
-                  strokeDasharray="3 3"
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--bg-card)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '12px',
-                    color: 'var(--text-title)',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="var(--brand-accent)"
-                  strokeWidth={2}
-                  fill="url(#funnelFill)"
-                  name="Events"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <Suspense
+              fallback={<div className="h-full w-full bg-white/5 animate-pulse rounded-xl" />}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={recommendationFunnel}>
+                  <defs>
+                    <linearGradient id="funnelFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    stroke="var(--border-subtle)"
+                    vertical={false}
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={CHART_TICK_STYLE} />
+                  <YAxis
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={CHART_TICK_STYLE}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '12px',
+                      color: 'var(--text-title)',
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="var(--brand-accent)"
+                    strokeWidth={2}
+                    fill="url(#funnelFill)"
+                    name="Events"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Suspense>
           </div>
         </Panel>
 

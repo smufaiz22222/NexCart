@@ -378,6 +378,7 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
             order.paymentMethod === 'BANK_TRANSFER' &&
             order.paymentStatus === 'PENDING' && (
               <button
+                type="button"
                 disabled={verifyBankPaymentMutation.isPending}
                 onClick={() => handleVerifyBankPayment()}
                 className={cn(
@@ -394,6 +395,7 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
             order.status === 'PENDING' &&
             order.paymentMethod !== 'BANK_TRANSFER' && (
               <button
+                type="button"
                 onClick={() => handleUpdateStatus('PROCESSING')}
                 className={cn(
                   'w-full md:w-auto text-xs font-semibold uppercase tracking-wider border px-5 py-2.5 rounded-md transition-all',
@@ -407,6 +409,7 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
             )}
           {user?.role === 'WHOLESALER' && order.status === 'PROCESSING' && (
             <button
+              type="button"
               onClick={() => handleUpdateStatus('SHIPPED')}
               className={cn(
                 'w-full md:w-auto text-xs font-semibold uppercase tracking-wider border px-5 py-2.5 rounded-md transition-all',
@@ -420,6 +423,7 @@ export default function OrderCard({ order, user, isWholesalerPath }) {
           )}
           {user?.role === 'WHOLESALER' && order.status === 'SHIPPED' && (
             <button
+              type="button"
               onClick={() => handleUpdateStatus('DELIVERED')}
               className={cn(
                 'w-full md:w-auto text-xs font-semibold uppercase tracking-wider px-5 py-2.5 rounded-md transition-all',

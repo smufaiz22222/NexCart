@@ -308,16 +308,28 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const startEditing = () => {
-    const current = (product.priceTiers || []).map((t) => ({
+    const current = (product.priceTiers || []).map((t, idx) => ({
+      id: t.id || `tier-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       minQuantity: t.minQuantity,
       unitPrice: t.unitPrice,
     }));
-    setEditedTiers(current.length > 0 ? current : [{ minQuantity: '', unitPrice: '' }]);
+    setEditedTiers(
+      current.length > 0
+        ? current
+        : [{ id: `tier-new-${Date.now()}`, minQuantity: '', unitPrice: '' }]
+    );
     setIsEditing(true);
   };
 
   const handleAddRow = () => {
-    setEditedTiers([...editedTiers, { minQuantity: '', unitPrice: '' }]);
+    setEditedTiers([
+      ...editedTiers,
+      {
+        id: `tier-new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        minQuantity: '',
+        unitPrice: '',
+      },
+    ]);
   };
 
   const handleRemoveRow = (index) => {
@@ -415,11 +427,12 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
           <div className="space-y-3">
             {editedTiers.map((tier, index) => (
               <div
-                key={index}
+                key={tier.id || index}
                 className="grid grid-cols-[1fr_1fr_auto] gap-4 items-center animate-in fade-in slide-in-from-top-1 duration-200"
               >
                 <input
                   type="number"
+                  aria-label="Minimum quantity"
                   value={tier.minQuantity}
                   onChange={(e) => handleChangeRow(index, 'minQuantity', e.target.value)}
                   placeholder="e.g. 10"
@@ -429,6 +442,7 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
                 />
                 <input
                   type="number"
+                  aria-label="Unit price"
                   value={tier.unitPrice}
                   onChange={(e) => handleChangeRow(index, 'unitPrice', e.target.value)}
                   placeholder="e.g. 180.00"

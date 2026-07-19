@@ -145,7 +145,7 @@ export default function Orders() {
           Back to Dashboard
         </button>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1
               className={cn(
@@ -179,7 +179,7 @@ export default function Orders() {
           {isFetching && !isLoading && (
             <span
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border animate-pulse',
+                'inline-flex items-center gap-1.5 self-start rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider animate-pulse',
                 isWholesalerPath
                   ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                   : 'bg-[#eef2ff] text-[#4f46e5] border-[#c7d2fe]'
@@ -261,7 +261,7 @@ export default function Orders() {
       {counts.B2B > 0 && (
         <div
           className={cn(
-            'flex gap-1 p-1 rounded-xl border max-w-max mb-6',
+            'mb-6 flex w-full flex-wrap gap-1 rounded-xl border p-1 sm:w-fit',
             isWholesalerPath ? 'bg-zinc-900 border-zinc-800' : 'bg-[#f1f5f9] border-[#e2e8f0]'
           )}
         >
@@ -277,7 +277,7 @@ export default function Orders() {
                 key={tab.id}
                 onClick={() => handleTypeChange(tab.id)}
                 className={cn(
-                  'px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2',
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 sm:flex-initial',
                   isActive
                     ? isWholesalerPath
                       ? 'bg-amber-500 text-black shadow-sm'

@@ -55,7 +55,12 @@ export default function AiKhatta() {
     reader.onloadend = async () => {
       try {
         const response = await apiClient.post('/khatta/process', { image: reader.result });
-        setParsedData(response.data.entries);
+        setParsedData(
+          (response.data.entries || []).map((entry, pos) => ({
+            ...entry,
+            id: `khatta-${pos}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          }))
+        );
       } catch (err) {
         console.error('AI Processing Error:', err);
         setError('AI processing failed. Check your API key or backend limits.');
@@ -245,9 +250,9 @@ export default function AiKhatta() {
             </div>
 
             <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
-              {parsedData.map((data, idx) => (
+              {parsedData.map((data) => (
                 <div
-                  key={idx}
+                  key={data.id}
                   className={`p-4 rounded-xl flex justify-between items-center transition-colors ${
                     data.isTotal
                       ? 'border border-amber-500/40 bg-amber-500/10'

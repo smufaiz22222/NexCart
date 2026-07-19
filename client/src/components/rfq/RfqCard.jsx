@@ -495,6 +495,7 @@ export default function RfqCard({
           <div className="flex items-center gap-2">
             <input
               type="number"
+              aria-label="New Stock quantity"
               placeholder="New Stock quantity"
               value={
                 updatingStockMap[rfq.id] !== undefined ? updatingStockMap[rfq.id] : rfq.quantity

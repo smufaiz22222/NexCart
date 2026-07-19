@@ -29,19 +29,18 @@ import EmptyState from '../components/storefront/EmptyState';
 import ProductCard from '../components/storefront/ProductCard';
 import NewsletterBanner from '../components/storefront/NewsletterBanner';
 
+const getPersistedState = (key, fallback) => {
+  try {
+    const stored = sessionStorage.getItem(`storefront_${key}`);
+    return stored !== null ? JSON.parse(stored) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export default function Storefront() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
-  // Restore persisted state from sessionStorage on mount
-  const getPersistedState = (key, fallback) => {
-    try {
-      const stored = sessionStorage.getItem(`storefront_${key}`);
-      return stored !== null ? JSON.parse(stored) : fallback;
-    } catch {
-      return fallback;
-    }
-  };
 
   const [searchTerm, setSearchTerm] = useState(() => getPersistedState('search', ''));
   const [debouncedSearch, setDebouncedSearch] = useState(() => getPersistedState('search', ''));

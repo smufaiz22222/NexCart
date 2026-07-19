@@ -23,6 +23,33 @@ import { useOrders, useMyLedger, useUserRecommendations, useRfqs } from '../api/
 import useAuthStore from '../store/authStore';
 import useB2BCartStore from '../store/b2bCartStore';
 
+const getStepperStatus = (status) => {
+  const steps = [
+    { key: 'PENDING', label: 'Order Placed', desc: 'Awaiting wholesaler acceptance' },
+    { key: 'PROCESSING', label: 'Processing', desc: 'Packing & inspection' },
+    { key: 'SHIPPED', label: 'In Transit', desc: 'Dispatched with logistics' },
+    { key: 'DELIVERED', label: 'Delivered', desc: 'Settled to financial ledger' },
+  ];
+
+  const statusIndexMap = {
+    PENDING: 0,
+    PROCESSING: 1,
+    SHIPPED: 2,
+    DELIVERED: 3,
+    RETURN_COMPLETED: 3,
+    CANCELLED: -1,
+  };
+
+  const currentIndex = statusIndexMap[status] ?? 0;
+
+  return steps.map((step, idx) => ({
+    ...step,
+    isCompleted: idx < currentIndex,
+    isActive: idx === currentIndex,
+    isPending: idx > currentIndex,
+  }));
+};
+
 export default function BusinessDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -190,33 +217,6 @@ export default function BusinessDashboard() {
       </div>
     );
   }
-
-  const getStepperStatus = (status) => {
-    const steps = [
-      { key: 'PENDING', label: 'Order Placed', desc: 'Awaiting wholesaler acceptance' },
-      { key: 'PROCESSING', label: 'Processing', desc: 'Packing & inspection' },
-      { key: 'SHIPPED', label: 'In Transit', desc: 'Dispatched with logistics' },
-      { key: 'DELIVERED', label: 'Delivered', desc: 'Settled to financial ledger' },
-    ];
-
-    const statusIndexMap = {
-      PENDING: 0,
-      PROCESSING: 1,
-      SHIPPED: 2,
-      DELIVERED: 3,
-      RETURN_COMPLETED: 3,
-      CANCELLED: -1,
-    };
-
-    const currentIndex = statusIndexMap[status] ?? 0;
-
-    return steps.map((step, idx) => ({
-      ...step,
-      isCompleted: idx < currentIndex,
-      isActive: idx === currentIndex,
-      isPending: idx > currentIndex,
-    }));
-  };
 
   const trackingSteps = latestOrder ? getStepperStatus(latestOrder.status) : [];
 
@@ -570,8 +570,9 @@ export default function BusinessDashboard() {
               const reason = item.reasons?.[0] || 'Popular choice';
 
               return (
-                <div
+                <button
                   key={product.id}
+                  type="button"
                   onClick={() => navigate(`/store/product/${product.id}`)}
                   className="min-w-[240px] max-w-[240px] swiss-card p-4 hover:border-[#0047AB] transition-all cursor-pointer group flex flex-col justify-between"
                 >
@@ -604,7 +605,7 @@ export default function BusinessDashboard() {
                       <Sparkles className="w-3.5 h-3.5 text-[#0047AB]" /> {reason}
                     </p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -619,10 +620,12 @@ export default function BusinessDashboard() {
   );
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  return currencyFormatter.format(Number(value || 0));
 }

@@ -182,6 +182,7 @@ export default function Ledger() {
               type="file"
               ref={ocrInputRef}
               onChange={handleOcrFileChange}
+              aria-label="Upload OCR image"
               className="hidden"
               accept="image/*"
             />
@@ -688,57 +689,63 @@ export default function Ledger() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {(hub.paymentInstruments || [])
-                    .filter((inst) => inst.type === 'RECEIVABLE')
-                    .map((inst) => (
-                      <tr key={inst.id} className="bg-[#121212]">
-                        <td className="px-4 py-3 text-zinc-400">
-                          {new Date(inst.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-300">{inst.paymentMethod}</td>
-                        <td className="px-4 py-3 text-white font-mono">
-                          {inst.instrumentNumber || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-400">{inst.bankName || '-'}</td>
-                        <td className="px-4 py-3 text-zinc-300">
-                          {inst.party?.name || 'Local Party'}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-white">
-                          {formatCurrency(inst.amount)}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-400">
-                          {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {inst.status === 'PENDING' ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                reconcileInstrumentMutation.mutate(inst.id, {
-                                  onSuccess: () => {
-                                    toast.success('Payment successfully cleared and reconciled!');
-                                    refetch();
-                                  },
-                                  onError: (err) => {
-                                    toast.error(err.response?.data?.error || 'Clearance failed');
-                                  },
-                                });
-                              }}
-                              disabled={reconcileInstrumentMutation.isPending}
-                              className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-black text-black transition"
-                            >
-                              {reconcileInstrumentMutation.isPending
-                                ? 'Clearing...'
-                                : 'Mark as Cashed'}
-                            </button>
-                          ) : (
-                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300">
-                              Cashed
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                  {(hub.paymentInstruments || []).flatMap((inst) =>
+                    inst.type === 'RECEIVABLE'
+                      ? [
+                          <tr key={inst.id} className="bg-[#121212]">
+                            <td className="px-4 py-3 text-zinc-400">
+                              {new Date(inst.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-300">{inst.paymentMethod}</td>
+                            <td className="px-4 py-3 text-white font-mono">
+                              {inst.instrumentNumber || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-400">{inst.bankName || '-'}</td>
+                            <td className="px-4 py-3 text-zinc-300">
+                              {inst.party?.name || 'Local Party'}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-white">
+                              {formatCurrency(inst.amount)}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-400">
+                              {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {inst.status === 'PENDING' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    reconcileInstrumentMutation.mutate(inst.id, {
+                                      onSuccess: () => {
+                                        toast.success(
+                                          'Payment successfully cleared and reconciled!'
+                                        );
+                                        refetch();
+                                      },
+                                      onError: (err) => {
+                                        toast.error(
+                                          err.response?.data?.error || 'Clearance failed'
+                                        );
+                                      },
+                                    });
+                                  }}
+                                  disabled={reconcileInstrumentMutation.isPending}
+                                  className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-black text-black transition"
+                                >
+                                  {reconcileInstrumentMutation.isPending
+                                    ? 'Clearing...'
+                                    : 'Mark as Cashed'}
+                                </button>
+                              ) : (
+                                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300">
+                                  Cashed
+                                </span>
+                              )}
+                            </td>
+                          </tr>,
+                        ]
+                      : []
+                  )}
                   {(hub.paymentInstruments || []).filter((inst) => inst.type === 'RECEIVABLE')
                     .length === 0 ? (
                     <tr>
@@ -772,60 +779,66 @@ export default function Ledger() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {(hub.paymentInstruments || [])
-                    .filter((inst) => inst.type === 'PAYABLE')
-                    .map((inst) => (
-                      <tr key={inst.id} className="bg-[#121212]">
-                        <td className="px-4 py-3 text-zinc-400">
-                          {new Date(inst.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-300">{inst.paymentMethod}</td>
-                        <td className="px-4 py-3 text-white font-mono">
-                          {inst.instrumentNumber || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-400">{inst.bankName || '-'}</td>
-                        <td className="px-4 py-3 text-zinc-300 font-medium text-amber-200">
-                          {inst.drawerName || 'Self'}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-300">
-                          {inst.party?.name || 'Local Party'}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-white">
-                          {formatCurrency(inst.amount)}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-400">
-                          {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {inst.status === 'PENDING' ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                reconcileInstrumentMutation.mutate(inst.id, {
-                                  onSuccess: () => {
-                                    toast.success('Payment successfully cleared and reconciled!');
-                                    refetch();
-                                  },
-                                  onError: (err) => {
-                                    toast.error(err.response?.data?.error || 'Clearance failed');
-                                  },
-                                });
-                              }}
-                              disabled={reconcileInstrumentMutation.isPending}
-                              className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-black text-black transition"
-                            >
-                              {reconcileInstrumentMutation.isPending
-                                ? 'Clearing...'
-                                : 'Mark as Cashed'}
-                            </button>
-                          ) : (
-                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300">
-                              Cashed
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                  {(hub.paymentInstruments || []).flatMap((inst) =>
+                    inst.type === 'PAYABLE'
+                      ? [
+                          <tr key={inst.id} className="bg-[#121212]">
+                            <td className="px-4 py-3 text-zinc-400">
+                              {new Date(inst.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-300">{inst.paymentMethod}</td>
+                            <td className="px-4 py-3 text-white font-mono">
+                              {inst.instrumentNumber || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-400">{inst.bankName || '-'}</td>
+                            <td className="px-4 py-3 text-zinc-300 font-medium text-amber-200">
+                              {inst.drawerName || 'Self'}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-300">
+                              {inst.party?.name || 'Local Party'}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-white">
+                              {formatCurrency(inst.amount)}
+                            </td>
+                            <td className="px-4 py-3 text-zinc-400">
+                              {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {inst.status === 'PENDING' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    reconcileInstrumentMutation.mutate(inst.id, {
+                                      onSuccess: () => {
+                                        toast.success(
+                                          'Payment successfully cleared and reconciled!'
+                                        );
+                                        refetch();
+                                      },
+                                      onError: (err) => {
+                                        toast.error(
+                                          err.response?.data?.error || 'Clearance failed'
+                                        );
+                                      },
+                                    });
+                                  }}
+                                  disabled={reconcileInstrumentMutation.isPending}
+                                  className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-black text-black transition"
+                                >
+                                  {reconcileInstrumentMutation.isPending
+                                    ? 'Clearing...'
+                                    : 'Mark as Cashed'}
+                                </button>
+                              ) : (
+                                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300">
+                                  Cashed
+                                </span>
+                              )}
+                            </td>
+                          </tr>,
+                        ]
+                      : []
+                  )}
                   {(hub.paymentInstruments || []).filter((inst) => inst.type === 'PAYABLE')
                     .length === 0 ? (
                     <tr>

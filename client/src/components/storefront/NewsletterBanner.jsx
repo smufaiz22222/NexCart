@@ -1,11 +1,11 @@
 import { Sparkles } from 'lucide-react';
 
-export default function NewsletterBanner() {
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Newsletter subscription mock logic or tracking
-  };
+const handleSubmit = (e) => {
+  e.preventDefault();
+  // Newsletter subscription mock logic or tracking
+};
 
+export default function NewsletterBanner() {
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-14 sm:px-6 lg:px-8">
       <div className="rounded-2xl bg-gradient-to-br from-[#4f46e5] to-[#7c3aed] px-6 py-10 text-white sm:px-10">
@@ -30,6 +30,7 @@ export default function NewsletterBanner() {
               type="email"
               placeholder="Enter your email"
               required
+              aria-label="Email address"
               className="w-full rounded-full bg-white px-5 py-3.5 text-sm text-[#1e293b] outline-none"
             />
             <button

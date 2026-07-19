@@ -56,10 +56,12 @@ export default function DealsSection({ dealProducts, handleProductClick }) {
   );
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  return currencyFormatter.format(Number(value || 0));
 }

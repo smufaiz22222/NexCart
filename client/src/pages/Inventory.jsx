@@ -364,6 +364,7 @@ export default function Inventory() {
                   required
                   type="number"
                   name="changeAmount"
+                  aria-label="Quantity Change"
                   placeholder="e.g. 50 or -10"
                   value={formData.changeAmount}
                   onChange={handleChange}

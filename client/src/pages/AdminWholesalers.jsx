@@ -19,19 +19,21 @@ import apiClient from '../api/axios';
 import DataTable from '../components/DataTable';
 import { Panel, PageHeader, StatusBadge, EmptyState } from '../components/admin';
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
 
-const formatDate = (value) =>
-  new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
+const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+
+const formatDate = (value) => dateFormatter.format(new Date(value));
 
 const columnHelper = createColumnHelper();
 
@@ -426,12 +428,7 @@ function TenantDetailPanel({ tenant, isLoading, onClose }) {
             <p className="mt-1 text-xl font-bold text-[#EAECEF]">{tenant.ownerName}</p>
             <p className="mt-0.5 text-sm text-[#5E6673]">{tenant.ownerEmail}</p>
             <p className="mt-3 text-[10px] font-medium uppercase tracking-wide text-[#5E6673]">
-              Joined{' '}
-              {new Intl.DateTimeFormat('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              }).format(new Date(tenant.joinedAt))}
+              Joined {formatDate(tenant.joinedAt)}
             </p>
           </div>
 

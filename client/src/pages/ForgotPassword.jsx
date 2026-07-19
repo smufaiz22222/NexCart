@@ -176,6 +176,7 @@ export default function ForgotPassword() {
                     <input
                       type="email"
                       required
+                      aria-label="Email address"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -228,6 +229,7 @@ export default function ForgotPassword() {
                       type="text"
                       required
                       maxLength={6}
+                      aria-label="Verification Code"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                       placeholder="123456"
@@ -297,6 +299,7 @@ export default function ForgotPassword() {
                       <input
                         type={showPassword ? 'text' : 'password'}
                         required
+                        aria-label="New Password"
                         placeholder="Min. 8 characters"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -306,6 +309,7 @@ export default function ForgotPassword() {
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 text-[#8b857c] hover:text-[#161412]"
+                        aria-label={showPassword ? 'Hide new password' : 'Show new password'}
                       >
                         {showPassword ? (
                           <EyeOff className="h-5 w-5" />
@@ -321,6 +325,7 @@ export default function ForgotPassword() {
                       <input
                         type={showConfirmPassword ? 'text' : 'password'}
                         required
+                        aria-label="Confirm New Password"
                         placeholder="Repeat new password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
@@ -330,6 +335,11 @@ export default function ForgotPassword() {
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         className="absolute right-4 text-[#8b857c] hover:text-[#161412]"
+                        aria-label={
+                          showConfirmPassword
+                            ? 'Hide confirm new password'
+                            : 'Show confirm new password'
+                        }
                       >
                         {showConfirmPassword ? (
                           <EyeOff className="h-5 w-5" />

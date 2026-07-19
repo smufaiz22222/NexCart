@@ -147,6 +147,7 @@ export default function EcommerceAccounting() {
                 placeholder="Search Buyer, Order ID, or details..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search buyer, order ID, or details"
                 className="w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] pl-10 pr-4 py-3 text-sm text-white outline-none transition focus:border-amber-500 placeholder:text-zinc-600"
               />
             </div>

@@ -1,19 +1,24 @@
 import React from 'react';
 import { Minus, Plus, Package, Trash2 } from 'lucide-react';
 
-export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(Number(value || 0));
-  };
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
 
+const formatCurrency = (value) => {
+  return currencyFormatter.format(Number(value || 0));
+};
+
+export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
   return (
     <div className="mt-6 divide-y divide-[#e2e8f0]">
       {cart.map((item) => (
-        <div key={item.id} className="flex gap-4 py-5 first:pt-0 last:pb-0 group">
+        <div
+          key={item.id}
+          className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0 group sm:flex-row"
+        >
           {/* Product Image */}
           <div className="relative flex h-24 w-24 items-center justify-center rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-2 shrink-0">
             {item.selectedSize && (
@@ -39,10 +44,11 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
               </p>
             </div>
 
-            <div className="flex items-center justify-between mt-3">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               {/* Quantity Controls */}
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   disabled={item.quantity <= 1}
                   onClick={() => updateQuantity(item.id, item.quantity - 1).catch(() => {})}
                   className="w-7 h-7 rounded-lg bg-[#f1f5f9] border border-[#e2e8f0] flex items-center justify-center text-[#64748b] hover:bg-[#eef2ff] hover:text-[#4f46e5] hover:border-[#c7d2fe] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
@@ -53,6 +59,7 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
                   {item.quantity}
                 </span>
                 <button
+                  type="button"
                   onClick={() => updateQuantity(item.id, item.quantity + 1).catch(() => {})}
                   className="w-7 h-7 rounded-lg bg-[#f1f5f9] border border-[#e2e8f0] flex items-center justify-center text-[#64748b] hover:bg-[#eef2ff] hover:text-[#4f46e5] hover:border-[#c7d2fe] transition-all"
                 >
@@ -61,7 +68,7 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
               </div>
 
               {/* Price & Remove */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3 sm:justify-start">
                 <div className="text-right">
                   <p className="text-base font-black font-mono text-[#0f172a]">
                     {formatCurrency(item.price * item.quantity)}
@@ -71,6 +78,7 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
                   )}
                 </div>
                 <button
+                  type="button"
                   onClick={() => removeFromCart(item.id).catch(() => {})}
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-red-500 hover:bg-red-50 transition-all"
                   title="Remove item"

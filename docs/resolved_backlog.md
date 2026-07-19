@@ -623,5 +623,4 @@ This document catalogs the historical architectural, performance, security, and 
   - For `Ledger.jsx`: Extracted layouts and modals (`MetricCard`, `SectionCard`, `ModalShell`, `Field`, `PartyModal`, `SaleModal`, `PurchaseModal`, `SettlementModal`, `PartyDetailsModal`, `BillSummaryModal`, `AccountReportModal`) into `client/src/components/ledger/`.
   - For `RfqManager.jsx`: Extracted table/card elements and sub-forms (`RfqFilterTabs`, `SellerCounterForm`, `BuyerCounterForm`, `RfqCard`) into `client/src/components/rfq/`.
   - For `Storefront.jsx`: Extracted section panels, search/filters, and card skeletons (`HeroBanner`, `SearchBar`, `CategorySelector`, `DealsSection`, `TrendingSection`, `NewArrivalsSection`, `RecommendationsSection`, `FilterPanel`, `ProductCard`, `EmptyState`, `ProductGridSkeleton`, `NewsletterBanner`) into `client/src/components/storefront/`.
-  This separation dramatically reduced page file size and complexity, keeping main page files thin and focused on orchestrating queries and URL states.
-
+    This separation dramatically reduced page file size and complexity, keeping main page files thin and focused on orchestrating queries and URL states.

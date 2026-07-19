@@ -1,14 +1,14 @@
 import { Sparkles, Star, Store, Zap } from 'lucide-react';
 
+const handleScrollToProducts = () => {
+  document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
+};
+
+const handleScrollToCategories = () => {
+  document.getElementById('categories-section')?.scrollIntoView({ behavior: 'smooth' });
+};
+
 export default function HeroBanner() {
-  const handleScrollToProducts = () => {
-    document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleScrollToCategories = () => {
-    document.getElementById('categories-section')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
     <section className="bg-gradient-to-br from-[#1e1b4b] to-[#312e81] text-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

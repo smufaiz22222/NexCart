@@ -269,12 +269,16 @@ export default function B2BOnboarding() {
       <div className="rounded-2xl border border-[#e2e8f0] bg-white p-8 shadow-sm animate-slide-in">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#64748b] mb-2.5">
+            <label
+              htmlFor="b2b-onboarding-company-name"
+              className="block text-xs font-bold uppercase tracking-wider text-[#64748b] mb-2.5"
+            >
               Registered Company / Business Name *
             </label>
             <div className="relative">
               <Building2 className="absolute left-4 top-3.5 h-4 w-4 text-[#94a3b8]" />
               <input
+                id="b2b-onboarding-company-name"
                 required
                 type="text"
                 name="companyName"
@@ -287,12 +291,16 @@ export default function B2BOnboarding() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#64748b] mb-2.5">
+            <label
+              htmlFor="b2b-onboarding-tax-id"
+              className="block text-xs font-bold uppercase tracking-wider text-[#64748b] mb-2.5"
+            >
               Tax ID / GSTIN / Business License Code *
             </label>
             <div className="relative">
               <FileText className="absolute left-4 top-3.5 h-4 w-4 text-[#94a3b8]" />
               <input
+                id="b2b-onboarding-tax-id"
                 required
                 type="text"
                 name="taxId"
@@ -305,12 +313,16 @@ export default function B2BOnboarding() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#64748b] mb-2.5">
+            <label
+              htmlFor="b2b-onboarding-business-address"
+              className="block text-xs font-bold uppercase tracking-wider text-[#64748b] mb-2.5"
+            >
               Corporate / Business Address *
             </label>
             <div className="relative">
               <MapPin className="absolute left-4 top-3.5 h-4 w-4 text-[#94a3b8]" />
               <textarea
+                id="b2b-onboarding-business-address"
                 required
                 rows="3"
                 name="businessAddress"

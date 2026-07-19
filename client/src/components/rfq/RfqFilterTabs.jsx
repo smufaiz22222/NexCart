@@ -1,23 +1,23 @@
 import { cn } from '../../utils/cn';
 
+const FILTER_TABS = [
+  { id: 'ALL', label: 'All' },
+  { id: 'PENDING_ACTIONS', label: 'Pending Actions' },
+  { id: 'ACCEPTED', label: 'Accepted' },
+  { id: 'REJECTED', label: 'Rejected' },
+  { id: 'PAID', label: 'Paid / Processing' },
+  { id: 'COMPLETED', label: 'Completed' },
+];
+
 export default function RfqFilterTabs({
   selectedFilter,
   setSelectedFilter,
   counts,
   isWholesalerPath,
 }) {
-  const tabs = [
-    { id: 'ALL', label: 'All' },
-    { id: 'PENDING_ACTIONS', label: 'Pending Actions' },
-    { id: 'ACCEPTED', label: 'Accepted' },
-    { id: 'REJECTED', label: 'Rejected' },
-    { id: 'PAID', label: 'Paid / Processing' },
-    { id: 'COMPLETED', label: 'Completed' },
-  ];
-
   return (
     <div className="flex flex-wrap gap-2 p-1.5 rounded-xl border border-zinc-800/10 bg-zinc-950/5 max-w-max mb-6">
-      {tabs.map((tab) => {
+      {FILTER_TABS.map((tab) => {
         const count = counts[tab.id];
         const isActive = selectedFilter === tab.id;
         return (

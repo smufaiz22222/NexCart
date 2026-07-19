@@ -41,6 +41,15 @@ const formatMetricValue = (key, value) => {
   return value ?? 'N/A';
 };
 
+const METRIC_CARDS = [
+  { key: 'monthlySales', label: 'Current Month Sales' },
+  { key: 'lowStockProducts', label: 'Low Stock Products' },
+  { key: 'unsoldInventory', label: 'Unsold Inventory' },
+  { key: 'repeatCustomerRate', label: 'Repeat Customer Rate' },
+  { key: 'topSellingCategory', label: 'Top Category' },
+  { key: 'totalProducts', label: 'Total Products' },
+];
+
 export default function BusinessAdvisor() {
   const user = useAuthStore((state) => state.user);
   const [businessContext, setBusinessContext] = useState(null);
@@ -55,7 +64,17 @@ export default function BusinessAdvisor() {
   const [ingestMessage, setIngestMessage] = useState('');
 
   const [sessionId, setSessionId] = useState(() => getSessionId());
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState(() => {
+    const stored = localStorage.getItem('nexcart:advisorSessions');
+    if (!stored) return [];
+
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
   const [showHistory, setShowHistory] = useState(false);
 
   const fetchBusinessContext = async (active) => {
@@ -85,45 +104,32 @@ export default function BusinessAdvisor() {
     };
   }, []);
 
-  useEffect(() => {
-    const stored = localStorage.getItem('nexcart:advisorSessions');
-    if (stored) {
-      try {
-        setSessions(JSON.parse(stored));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!messages || messages.length === 0) return;
-    const firstUserMsg = messages.find((m) => m.role === 'user');
-    if (!firstUserMsg) return;
-
-    const stored = localStorage.getItem('nexcart:advisorSessions');
-    let currentSessions = [];
-    if (stored) {
-      try {
-        currentSessions = JSON.parse(stored);
-      } catch {
-        // ignore
-      }
-    }
-
-    const exists = currentSessions.some((s) => s.id === sessionId);
-    if (!exists) {
-      const title = firstUserMsg.text.slice(0, 45) + (firstUserMsg.text.length > 45 ? '...' : '');
-      const newSession = {
-        id: sessionId,
-        title,
-        timestamp: Date.now(),
-      };
-      const nextSessions = [newSession, ...currentSessions];
+  const updateSessions = (updater) => {
+    setSessions((currentSessions) => {
+      const nextSessions = typeof updater === 'function' ? updater(currentSessions) : updater;
       localStorage.setItem('nexcart:advisorSessions', JSON.stringify(nextSessions));
-      setSessions(nextSessions);
-    }
-  }, [messages, sessionId]);
+      return nextSessions;
+    });
+  };
+
+  const ensureSessionRecorded = (firstMessageText, targetSessionId = sessionId) => {
+    const title = firstMessageText.slice(0, 45) + (firstMessageText.length > 45 ? '...' : '');
+
+    updateSessions((currentSessions) => {
+      if (currentSessions.some((session) => session.id === targetSessionId)) {
+        return currentSessions;
+      }
+
+      return [
+        {
+          id: targetSessionId,
+          title,
+          timestamp: Date.now(),
+        },
+        ...currentSessions,
+      ];
+    });
+  };
 
   const handleNewChat = () => {
     const nextSessionId = generateSessionId();
@@ -133,12 +139,21 @@ export default function BusinessAdvisor() {
   };
 
   const handleDeleteSession = (idToDelete) => {
-    const nextSessions = sessions.filter((s) => s.id !== idToDelete);
-    localStorage.setItem('nexcart:advisorSessions', JSON.stringify(nextSessions));
-    setSessions(nextSessions);
+    updateSessions((currentSessions) =>
+      currentSessions.filter((session) => session.id !== idToDelete)
+    );
 
     if (idToDelete === sessionId) {
       handleNewChat();
+    }
+  };
+
+  const handleSessionKeyDown = (event, nextSessionId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSessionId(nextSessionId);
+      localStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
+      setShowHistory(false);
     }
   };
 
@@ -177,6 +192,8 @@ export default function BusinessAdvisor() {
     event.preventDefault();
     const nextQuery = query.trim();
     if (!nextQuery || !businessContext || isSending) return;
+
+    ensureSessionRecorded(nextQuery);
 
     const userMessage = { role: 'user', text: nextQuery };
     setMessages((current) => [...current, userMessage]);
@@ -229,15 +246,6 @@ export default function BusinessAdvisor() {
       setIsIngesting(false);
     }
   };
-
-  const metricCards = [
-    { key: 'monthlySales', label: 'Current Month Sales' },
-    { key: 'lowStockProducts', label: 'Low Stock Products' },
-    { key: 'unsoldInventory', label: 'Unsold Inventory' },
-    { key: 'repeatCustomerRate', label: 'Repeat Customer Rate' },
-    { key: 'topSellingCategory', label: 'Top Category' },
-    { key: 'totalProducts', label: 'Total Products' },
-  ];
 
   return (
     <div className="space-y-6 text-white">
@@ -303,7 +311,7 @@ export default function BusinessAdvisor() {
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {metricCards.map((card) => (
+        {METRIC_CARDS.map((card) => (
           <MetricCard
             key={card.key}
             label={card.label}
@@ -340,30 +348,34 @@ export default function BusinessAdvisor() {
                 </div>
               ) : (
                 sessions.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`group flex items-center justify-between rounded-xl p-3 text-left text-sm transition-all cursor-pointer ${
-                      s.id === sessionId
-                        ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300'
-                        : 'border border-transparent text-zinc-300 hover:bg-zinc-900'
-                    }`}
-                    onClick={() => {
-                      setSessionId(s.id);
-                      localStorage.setItem(SESSION_STORAGE_KEY, s.id);
-                      setShowHistory(false);
-                    }}
-                  >
-                    <div className="flex items-center overflow-hidden pr-2">
-                      <MessageSquare className="mr-2 h-4 w-4 shrink-0 text-zinc-500 group-hover:text-amber-400" />
-                      <span className="truncate font-medium">{s.title}</span>
-                    </div>
+                  <div key={s.id} className="relative group w-full">
+                    <button
+                      type="button"
+                      className={`flex items-center justify-between rounded-xl p-3 text-left text-sm transition-all cursor-pointer w-full ${
+                        s.id === sessionId
+                          ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300'
+                          : 'border border-transparent text-zinc-300 hover:bg-zinc-900'
+                      }`}
+                      onClick={() => {
+                        setSessionId(s.id);
+                        localStorage.setItem(SESSION_STORAGE_KEY, s.id);
+                        setShowHistory(false);
+                      }}
+                      onKeyDown={(event) => handleSessionKeyDown(event, s.id)}
+                    >
+                      <div className="flex items-center overflow-hidden pr-6">
+                        <MessageSquare className="mr-2 h-4 w-4 shrink-0 text-zinc-500 group-hover:text-amber-400" />
+                        <span className="truncate font-medium">{s.title}</span>
+                      </div>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteSession(s.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition-opacity"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition-opacity cursor-pointer z-10"
+                      aria-label="Delete session"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -422,6 +434,7 @@ export default function BusinessAdvisor() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 rows={3}
+                aria-label="Ask the business advisor a question"
                 placeholder="Ask about inventory pressure, retention risk, performance, or strategy..."
                 className="w-full resize-none bg-transparent px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:ring-0"
                 onKeyDown={(e) => {

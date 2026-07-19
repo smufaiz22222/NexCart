@@ -5,12 +5,13 @@ import { useMarketplaceProductsInfinite, useWishlist, useToggleWishlist } from '
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
 
 export default function TrendingProducts() {
   const navigate = useNavigate();

@@ -21,6 +21,7 @@ export default function BuyerCounterForm({
             required
             type="number"
             step="0.01"
+            aria-label="New Target Price Bid"
             value={buyerCounterState.targetPrice}
             onChange={(e) =>
               setBuyerCounterState({
@@ -38,6 +39,7 @@ export default function BuyerCounterForm({
           </label>
           <input
             type="number"
+            aria-label="New Target Quantity Bid"
             value={buyerCounterState.quantity}
             onChange={(e) =>
               setBuyerCounterState({
@@ -55,6 +57,7 @@ export default function BuyerCounterForm({
           </label>
           <input
             type="text"
+            aria-label="Notes / Message to Seller"
             value={buyerCounterState.notes}
             onChange={(e) => setBuyerCounterState({ ...buyerCounterState, notes: e.target.value })}
             placeholder="Suggest why this target fits, e.g. shipping adjustment"

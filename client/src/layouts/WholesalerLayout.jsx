@@ -21,6 +21,21 @@ import {
 import useAuthStore from '../store/authStore';
 import NotificationBell from '../components/NotificationBell';
 
+const WHOLESALER_NAVIGATION = [
+  { name: 'Dashboard', href: '/wholesaler', icon: LayoutDashboard },
+  { name: 'Analytics', href: '/wholesaler/analytics', icon: BarChart3 },
+  { name: 'Billing', href: '/wholesaler/billing', icon: CreditCard },
+  { name: 'Products', href: '/wholesaler/products', icon: Package },
+  { name: 'Inventory Logs', href: '/wholesaler/inventory', icon: Archive },
+  { name: 'Orders', href: '/wholesaler/orders', icon: ShoppingCart },
+  { name: 'Price Quotes (RFQs)', href: '/wholesaler/rfqs', icon: MessageSquare },
+  { name: 'Payment & Billing', href: '/wholesaler/ledger', icon: CreditCard },
+  { name: 'Ecommerce Accounting', href: '/wholesaler/ecommerce-accounting', icon: BookOpen },
+  { name: 'Withdrawals & Payouts', href: '/wholesaler/payouts', icon: Landmark },
+  { name: 'Business Advisor', href: '/wholesaler/advisor', icon: BrainCircuit },
+  { name: 'AI Khatta Scan', href: '/wholesaler/khatta', icon: Camera },
+];
+
 export default function WholesalerLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuthStore();
@@ -68,21 +83,6 @@ export default function WholesalerLayout() {
     navigate('/login');
   };
 
-  const navigation = [
-    { name: 'Dashboard', href: '/wholesaler', icon: LayoutDashboard },
-    { name: 'Analytics', href: '/wholesaler/analytics', icon: BarChart3 },
-    { name: 'Billing', href: '/wholesaler/billing', icon: CreditCard },
-    { name: 'Products', href: '/wholesaler/products', icon: Package },
-    { name: 'Inventory Logs', href: '/wholesaler/inventory', icon: Archive },
-    { name: 'Orders', href: '/wholesaler/orders', icon: ShoppingCart },
-    { name: 'Price Quotes (RFQs)', href: '/wholesaler/rfqs', icon: MessageSquare },
-    { name: 'Payment & Billing', href: '/wholesaler/ledger', icon: CreditCard },
-    { name: 'Ecommerce Accounting', href: '/wholesaler/ecommerce-accounting', icon: BookOpen },
-    { name: 'Withdrawals & Payouts', href: '/wholesaler/payouts', icon: Landmark },
-    { name: 'Business Advisor', href: '/wholesaler/advisor', icon: BrainCircuit },
-    { name: 'AI Khatta Scan', href: '/wholesaler/khatta', icon: Camera },
-  ];
-
   return (
     <div
       className={`wholesaler-theme ${theme === 'light' ? 'theme-light bg-[#f0fdf9]' : 'theme-dark bg-[#0B0F19]'} min-h-screen flex font-sans selection:bg-[#059669]/30 selection:text-[#0F172A] transition-colors duration-300`}
@@ -111,7 +111,7 @@ export default function WholesalerLayout() {
         </div>
 
         <nav className="flex-1 py-6 space-y-1.5 overflow-y-auto">
-          {navigation.map((item) => {
+          {WHOLESALER_NAVIGATION.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
             return (
@@ -245,7 +245,7 @@ export default function WholesalerLayout() {
             }`}
           >
             <div className="px-2 pt-2 pb-3 space-y-1">
-              {navigation.map((item) => {
+              {WHOLESALER_NAVIGATION.map((item) => {
                 const isActive = location.pathname === item.href;
                 const Icon = item.icon;
                 return (

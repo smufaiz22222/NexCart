@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -16,43 +16,50 @@ import {
   Sparkles,
   UserRound,
 } from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import apiClient from '../api/axios';
 
+const Area = React.lazy(() => import('recharts').then((m) => ({ default: m.Area })));
+const AreaChart = React.lazy(() => import('recharts').then((m) => ({ default: m.AreaChart })));
+const Bar = React.lazy(() => import('recharts').then((m) => ({ default: m.Bar })));
+const BarChart = React.lazy(() => import('recharts').then((m) => ({ default: m.BarChart })));
+const CartesianGrid = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.CartesianGrid }))
+);
+const Cell = React.lazy(() => import('recharts').then((m) => ({ default: m.Cell })));
+const Pie = React.lazy(() => import('recharts').then((m) => ({ default: m.Pie })));
+const PieChart = React.lazy(() => import('recharts').then((m) => ({ default: m.PieChart })));
+const ResponsiveContainer = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.ResponsiveContainer }))
+);
+const Tooltip = React.lazy(() => import('recharts').then((m) => ({ default: m.Tooltip })));
+const XAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.XAxis })));
+const YAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.YAxis })));
+
+const EMPTY_ARRAY = [];
 const statusColors = ['#bc6c25', '#386641', '#6a994e', '#9c6644', '#b56576', '#355070'];
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
 
-const formatCompactNumber = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(Number(value || 0));
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
 
-const formatDate = (value) =>
-  new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
+const compactNumberFormatter = new Intl.NumberFormat('en-IN', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const formatCompactNumber = (value) => compactNumberFormatter.format(Number(value || 0));
+
+const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+
+const formatDate = (value) => dateFormatter.format(new Date(value));
 
 export default function SuperAdminDashboard() {
   const [overview, setOverview] = useState(null);
@@ -369,49 +376,51 @@ export default function SuperAdminDashboard() {
         >
           <div className="space-y-3">
             {b2bApps.filter((app) => app.verification === 'APPLIED').length > 0 ? (
-              b2bApps
-                .filter((app) => app.verification === 'APPLIED')
-                .map((application) => (
-                  <div
-                    key={application.id}
-                    className="rounded-[24px] border border-[#eadfce] bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-base font-black tracking-tight text-[#221c16]">
-                          {application.companyName}
-                        </p>
-                        <p className="mt-1 text-sm text-[#6b6155]">
-                          <span className="font-semibold">Applicant Name:</span>{' '}
-                          {application.user?.name} · {application.user?.email}
-                        </p>
-                        <p className="mt-2 text-xs font-mono bg-[#fcf7f0] border border-[#eadfce] px-2.5 py-1 rounded inline-block text-[#8f5d31]">
-                          Tax ID / GSTIN: {application.taxId}
-                        </p>
-                        <p className="mt-3 text-sm text-[#6b6155]">
-                          <span className="font-semibold">Business Location:</span>{' '}
-                          {application.businessAddress}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleB2BAction(application.id, 'approve')}
-                          className="rounded-full bg-[#221c16] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#f5efe4] hover:bg-[#3e342a] transition-all"
-                        >
-                          Approve Application
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleB2BAction(application.id, 'reject')}
-                          className="rounded-full border border-[#e6b6b0] bg-[#fff3f1] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#9d3b30] hover:bg-rose-100 transition-all"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+              b2bApps.flatMap((application) =>
+                application.verification === 'APPLIED'
+                  ? [
+                      <div
+                        key={application.id}
+                        className="rounded-[24px] border border-[#eadfce] bg-white p-5 shadow-sm"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <p className="text-base font-black tracking-tight text-[#221c16]">
+                              {application.companyName}
+                            </p>
+                            <p className="mt-1 text-sm text-[#6b6155]">
+                              <span className="font-semibold">Applicant Name:</span>{' '}
+                              {application.user?.name} · {application.user?.email}
+                            </p>
+                            <p className="mt-2 text-xs font-mono bg-[#fcf7f0] border border-[#eadfce] px-2.5 py-1 rounded inline-block text-[#8f5d31]">
+                              Tax ID / GSTIN: {application.taxId}
+                            </p>
+                            <p className="mt-3 text-sm text-[#6b6155]">
+                              <span className="font-semibold">Business Location:</span>{' '}
+                              {application.businessAddress}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleB2BAction(application.id, 'approve')}
+                              className="rounded-full bg-[#221c16] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#f5efe4] hover:bg-[#3e342a] transition-all"
+                            >
+                              Approve Application
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleB2BAction(application.id, 'reject')}
+                              className="rounded-full border border-[#e6b6b0] bg-[#fff3f1] px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-[#9d3b30] hover:bg-rose-100 transition-all"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>,
+                    ]
+                  : []
+              )
             ) : (
               <div className="rounded-[24px] border border-dashed border-[#d8ccb9] bg-[#fcf7f0] px-4 py-6 text-sm text-[#6b6155]">
                 No pending B2B business verification requests.
@@ -424,70 +433,78 @@ export default function SuperAdminDashboard() {
       <section className="grid gap-6 xl:grid-cols-[1.25fr_0.95fr]">
         <Panel title="Revenue Trend" eyebrow="Last 6 Months" icon={Activity}>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={overview?.charts?.monthlyRevenue || []}>
-                <defs>
-                  <linearGradient id="adminRevenueFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#bc6c25" stopOpacity={0.45} />
-                    <stop offset="95%" stopColor="#bc6c25" stopOpacity={0.03} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#eadfce" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#6b6155' }}
-                />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b6155' }} />
-                <Tooltip
-                  formatter={(value) => formatCurrency(value)}
-                  contentStyle={{
-                    borderRadius: '18px',
-                    border: '1px solid #d8ccb9',
-                    backgroundColor: '#fff9f1',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#bc6c25"
-                  strokeWidth={3}
-                  fill="url(#adminRevenueFill)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <Suspense
+              fallback={<div className="h-full w-full bg-[#fcf7f0] animate-pulse rounded-[24px]" />}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={overview?.charts?.monthlyRevenue || EMPTY_ARRAY}>
+                  <defs>
+                    <linearGradient id="adminRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#bc6c25" stopOpacity={0.45} />
+                      <stop offset="95%" stopColor="#bc6c25" stopOpacity={0.03} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#eadfce" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#6b6155' }}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b6155' }} />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value)}
+                    contentStyle={{
+                      borderRadius: '18px',
+                      border: '1px solid #d8ccb9',
+                      backgroundColor: '#fff9f1',
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#bc6c25"
+                    strokeWidth={3}
+                    fill="url(#adminRevenueFill)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Suspense>
           </div>
         </Panel>
 
         <Panel title="Order Status Mix" eyebrow="Platform-wide" icon={ShoppingBag}>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={overview?.charts?.orderStatus || []}
-                  dataKey="count"
-                  nameKey="status"
-                  innerRadius={62}
-                  outerRadius={94}
-                  paddingAngle={3}
-                >
-                  {(overview?.charts?.orderStatus || []).map((entry, index) => (
-                    <Cell key={entry.status} fill={statusColors[index % statusColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '18px',
-                    border: '1px solid #d8ccb9',
-                    backgroundColor: '#fff9f1',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <Suspense
+              fallback={<div className="h-full w-full bg-[#fcf7f0] animate-pulse rounded-[24px]" />}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={overview?.charts?.orderStatus || EMPTY_ARRAY}
+                    dataKey="count"
+                    nameKey="status"
+                    innerRadius={62}
+                    outerRadius={94}
+                    paddingAngle={3}
+                  >
+                    {(overview?.charts?.orderStatus || EMPTY_ARRAY).map((entry, index) => (
+                      <Cell key={entry.status} fill={statusColors[index % statusColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '18px',
+                      border: '1px solid #d8ccb9',
+                      backgroundColor: '#fff9f1',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </Suspense>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {(overview?.charts?.orderStatus || []).map((item, index) => (
+            {(overview?.charts?.orderStatus || EMPTY_ARRAY).map((item, index) => (
               <div
                 key={item.status}
                 className="flex items-center justify-between rounded-2xl bg-[#f7efe3] px-4 py-3"
@@ -509,39 +526,48 @@ export default function SuperAdminDashboard() {
       <section className="grid gap-6 xl:grid-cols-[1fr_1.15fr]">
         <Panel title="Revenue Leaders" eyebrow="Top Wholesalers" icon={ReceiptText}>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={overview?.topWholesalers || []}
-                layout="vertical"
-                margin={{ left: 16, right: 8 }}
-              >
-                <CartesianGrid stroke="#eadfce" horizontal={false} />
-                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#6b6155' }} />
-                <YAxis
-                  type="category"
-                  dataKey="businessName"
-                  axisLine={false}
-                  tickLine={false}
-                  width={110}
-                  tick={{ fill: '#6b6155', fontSize: 12 }}
-                />
-                <Tooltip
-                  formatter={(value) => formatCurrency(value)}
-                  contentStyle={{
-                    borderRadius: '18px',
-                    border: '1px solid #d8ccb9',
-                    backgroundColor: '#fff9f1',
-                  }}
-                />
-                <Bar dataKey="revenue" fill="#386641" radius={[0, 14, 14, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense
+              fallback={<div className="h-full w-full bg-[#fcf7f0] animate-pulse rounded-[24px]" />}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={overview?.topWholesalers || EMPTY_ARRAY}
+                  layout="vertical"
+                  margin={{ left: 16, right: 8 }}
+                >
+                  <CartesianGrid stroke="#eadfce" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#6b6155' }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="businessName"
+                    axisLine={false}
+                    tickLine={false}
+                    width={110}
+                    tick={{ fill: '#6b6155', fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value)}
+                    contentStyle={{
+                      borderRadius: '18px',
+                      border: '1px solid #d8ccb9',
+                      backgroundColor: '#fff9f1',
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill="#386641" radius={[0, 14, 14, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Suspense>
           </div>
         </Panel>
 
         <Panel title="Wholesaler Directory" eyebrow="Drill Into a Seller" icon={Building2}>
           <div className="space-y-3">
-            {(overview?.wholesalers || []).map((wholesaler) => (
+            {(overview?.wholesalers || EMPTY_ARRAY).map((wholesaler) => (
               <button
                 key={wholesaler.id}
                 type="button"

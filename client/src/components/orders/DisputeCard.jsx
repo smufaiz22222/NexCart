@@ -200,50 +200,7 @@ export default function DisputeCard({ dispute, user, isWholesalerPath }) {
               Evidence: {dispute.evidence.map((entry) => entry.url).join(', ')}
             </div>
           )}
-          {!!dispute.timeline?.length && (
-            <div
-              className={cn(
-                'rounded-md border p-3',
-                isWholesalerPath
-                  ? 'border-zinc-800 bg-zinc-950'
-                  : 'border-[#C0C0C0] bg-[#EFEFEF]/50'
-              )}
-            >
-              <div
-                className={cn(
-                  'text-[10px] uppercase tracking-wider font-bold mb-2',
-                  isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
-                )}
-              >
-                Timeline
-              </div>
-              <div className="space-y-2 font-mono">
-                {dispute.timeline.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className={cn('text-xs', isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]')}
-                  >
-                    <span
-                      className={cn(
-                        'font-semibold',
-                        isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
-                      )}
-                    >
-                      {entry.type.replaceAll('_', ' ')}
-                    </span>{' '}
-                    on{' '}
-                    {new Date(entry.occurredAt).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                    {entry.notes ? ` - ${entry.notes}` : ''}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <DisputeTimeline timeline={dispute.timeline} isWholesalerPath={isWholesalerPath} />
           {user?.role === 'WHOLESALER' && !!dispute.internalNotes?.length && (
             <div
               className={cn(
@@ -284,54 +241,112 @@ export default function DisputeCard({ dispute, user, isWholesalerPath }) {
         </div>
 
         {user?.role === 'WHOLESALER' && (
+          <DisputeActions
+            dispute={dispute}
+            isWholesalerPath={isWholesalerPath}
+            onMoveToReview={handleMoveDisputeToReview}
+            onResolve={handleResolveDispute}
+            onAddNote={handleAddDisputeNote}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DisputeTimeline({ timeline, isWholesalerPath }) {
+  if (!timeline?.length) return null;
+  return (
+    <div
+      className={cn(
+        'rounded-md border p-3',
+        isWholesalerPath ? 'border-zinc-800 bg-zinc-950' : 'border-[#C0C0C0] bg-[#EFEFEF]/50'
+      )}
+    >
+      <div
+        className={cn(
+          'text-[10px] uppercase tracking-wider font-bold mb-2',
+          isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
+        )}
+      >
+        Timeline
+      </div>
+      <div className="space-y-2 font-mono">
+        {timeline.map((entry) => (
           <div
+            key={entry.id}
+            className={cn('text-xs', isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]')}
+          >
+            <span
+              className={cn('font-semibold', isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]')}
+            >
+              {entry.type.replaceAll('_', ' ')}
+            </span>{' '}
+            on{' '}
+            {new Date(entry.occurredAt).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+            {entry.notes ? ` - ${entry.notes}` : ''}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DisputeActions({ dispute, isWholesalerPath, onMoveToReview, onResolve, onAddNote }) {
+  return (
+    <div
+      className={cn(
+        'w-full lg:w-[260px] rounded-md border p-3',
+        isWholesalerPath ? 'border-zinc-800 bg-zinc-950' : 'border-[#C0C0C0] bg-[#EFEFEF]/30'
+      )}
+    >
+      <div className="grid grid-cols-1 gap-3">
+        {dispute.status === 'OPEN' && (
+          <button
+            type="button"
+            onClick={onMoveToReview}
             className={cn(
-              'w-full lg:w-[260px] rounded-md border p-3',
-              isWholesalerPath ? 'border-zinc-800 bg-zinc-950' : 'border-[#C0C0C0] bg-[#EFEFEF]/30'
+              'text-xs font-semibold uppercase tracking-wider px-4 py-2.5 rounded-md transition-colors',
+              isWholesalerPath
+                ? 'bg-amber-600 hover:bg-amber-500 text-black font-bold'
+                : 'bg-[#0047AB] hover:bg-[#003B91] text-white'
             )}
           >
-            <div className="grid grid-cols-1 gap-3">
-              {dispute.status === 'OPEN' && (
-                <button
-                  onClick={handleMoveDisputeToReview}
-                  className={cn(
-                    'text-xs font-semibold uppercase tracking-wider px-4 py-2.5 rounded-md transition-colors',
-                    isWholesalerPath
-                      ? 'bg-amber-600 hover:bg-amber-500 text-black font-bold'
-                      : 'bg-[#0047AB] hover:bg-[#003B91] text-white'
-                  )}
-                >
-                  Move to Review
-                </button>
-              )}
-              {dispute.status !== 'RESOLVED' && (
-                <button
-                  onClick={handleResolveDispute}
-                  className={cn(
-                    'text-xs font-semibold uppercase tracking-wider border px-4 py-2.5 rounded-md transition-colors',
-                    isWholesalerPath
-                      ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
-                      : 'bg-white text-[#16171a] hover:bg-[#EFEFEF] border-[#C0C0C0]'
-                  )}
-                >
-                  Resolve Dispute
-                </button>
-              )}
-              {dispute.status !== 'RESOLVED' && (
-                <button
-                  onClick={handleAddDisputeNote}
-                  className={cn(
-                    'text-xs font-semibold uppercase tracking-wider border px-4 py-2.5 rounded-md transition-colors',
-                    isWholesalerPath
-                      ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
-                      : 'bg-white text-[#16171a] border-[#C0C0C0]'
-                  )}
-                >
-                  Add Internal Note
-                </button>
-              )}
-            </div>
-          </div>
+            Move to Review
+          </button>
+        )}
+        {dispute.status !== 'RESOLVED' && (
+          <button
+            type="button"
+            onClick={onResolve}
+            className={cn(
+              'text-xs font-semibold uppercase tracking-wider border px-4 py-2.5 rounded-md transition-colors',
+              isWholesalerPath
+                ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+                : 'bg-white text-[#16171a] hover:bg-[#EFEFEF] border-[#C0C0C0]'
+            )}
+          >
+            Resolve Dispute
+          </button>
+        )}
+        {dispute.status !== 'RESOLVED' && (
+          <button
+            type="button"
+            onClick={onAddNote}
+            className={cn(
+              'text-xs font-semibold uppercase tracking-wider border px-4 py-2.5 rounded-md transition-colors',
+              isWholesalerPath
+                ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+                : 'bg-white text-[#16171a] border-[#C0C0C0]'
+            )}
+          >
+            Add Internal Note
+          </button>
         )}
       </div>
     </div>

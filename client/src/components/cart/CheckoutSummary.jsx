@@ -2,6 +2,16 @@ import React from 'react';
 import { ArrowRight, Lock, ShieldCheck, Truck } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value) => {
+  return currencyFormatter.format(Number(value || 0));
+};
+
 export default function CheckoutSummary({
   isAuthenticated,
   isCustomer,
@@ -13,14 +23,6 @@ export default function CheckoutSummary({
   isProcessing,
   handleCheckout,
 }) {
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(Number(value || 0));
-  };
-
   const grandTotal = Number(totals.subtotal) + deliveryDetails.totalDeliveryFee;
 
   return (
@@ -52,8 +54,8 @@ export default function CheckoutSummary({
           {deliveryDetails.breakdown.length > 1 && (
             <div className="pl-3 space-y-1 border-l-2 border-[#e2e8f0]">
               {deliveryDetails.breakdown.map((g) => (
-                <div key={g.sellerId} className="flex justify-between text-xs text-[#94a3b8]">
-                  <span className="truncate max-w-[60%]">{g.sellerName}</span>
+                <div key={g.sellerId} className="flex justify-between gap-3 text-xs text-[#94a3b8]">
+                  <span className="min-w-0 flex-1 truncate">{g.sellerName}</span>
                   <span>
                     {g.deliveryFee > 0 ? (
                       formatCurrency(g.deliveryFee)
@@ -81,6 +83,7 @@ export default function CheckoutSummary({
 
         {/* Checkout Button */}
         <button
+          type="button"
           onClick={() => {
             if (!isAuthenticated) {
               window.dispatchEvent(new CustomEvent('open-auth-modal'));
@@ -114,7 +117,7 @@ export default function CheckoutSummary({
       </div>
 
       {/* Trust Signals */}
-      <div className="flex items-center justify-center gap-4 py-3 text-[#94a3b8]">
+      <div className="flex flex-wrap items-center justify-center gap-4 py-3 text-[#94a3b8]">
         <div className="flex items-center gap-1">
           <ShieldCheck className="h-3.5 w-3.5" />
           <span className="text-[10px] font-semibold">Secure</span>

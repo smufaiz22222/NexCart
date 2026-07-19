@@ -26,6 +26,13 @@ import ProfileDropdown from '../components/ProfileDropdown';
 import NotificationBell from '../components/NotificationBell';
 import categoryData from '../data/categoryData';
 
+const STOREFRONT_INFO_LINKS = [
+  { label: 'About', to: '/store/about' },
+  { label: 'FAQ', to: '/store/faq' },
+  { label: 'Contact', to: '/store/contact' },
+  { label: 'Privacy', to: '/store/privacy' },
+];
+
 export default function CustomerLayout() {
   const { logout, isAuthenticated, user } = useAuthStore();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -41,6 +48,21 @@ export default function CustomerLayout() {
   const b2bTotalItems = useB2BCartStore((state) => state.totals.itemCount);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const storefrontPrimaryLinks = [
+    { label: 'Shop', to: '/store' },
+    { label: 'All Products', to: '/store#products-section' },
+    ...(isAuthenticated && isCustomer
+      ? [{ label: 'Business', to: '/store/dashboard/b2b-onboarding' }]
+      : []),
+  ];
+
+  const handleMobileCategoryNavigate = (categoryName) => {
+    const params = new URLSearchParams();
+    params.set('category', categoryName);
+    setIsMobileMenuOpen(false);
+    navigate(`/store?${params.toString()}`);
+  };
 
   useEffect(() => {
     if (isAuthenticated && !isCustomer) {
@@ -63,6 +85,10 @@ export default function CustomerLayout() {
     window.addEventListener('open-auth-modal', handleOpen);
     return () => window.removeEventListener('open-auth-modal', handleOpen);
   }, []);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname, location.search]);
 
   const handleLogout = () => {
     resetCartState();
@@ -267,8 +293,8 @@ export default function CustomerLayout() {
 
           {/* Mobile Navigation Drawer */}
           {isMobileMenuOpen && (
-            <nav className="md:hidden bg-[#1e1b4b] text-white border-b border-[#312e81] shadow-2xl absolute w-full z-20">
-              <div className="px-4 pt-2 pb-4 space-y-1">
+            <nav className="fixed inset-x-0 top-16 bottom-0 overflow-y-auto md:hidden bg-[#1e1b4b] text-white border-b border-[#312e81] shadow-2xl z-20">
+              <div className="px-4 pt-2 pb-6 space-y-1">
                 {sidebarNavigation.map((item) => {
                   const isActive = location.pathname === item.href;
                   const Icon = item.icon;
@@ -295,7 +321,7 @@ export default function CustomerLayout() {
                     </Link>
                   );
                 })}
-                <div className="pt-4 border-t border-[#312e81] mt-4 flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[#6366f1] px-2">
+                <div className="pt-4 border-t border-[#312e81] mt-4 grid grid-cols-2 gap-3 text-[10px] font-bold uppercase tracking-wider text-[#6366f1] px-2">
                   <Link to="/store/about" onClick={() => setIsMobileMenuOpen(false)}>
                     About
                   </Link>
@@ -367,11 +393,19 @@ export default function CustomerLayout() {
       </div>
 
       <header className="sticky top-0 z-40 border-b border-[#e2e8f0] bg-white/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-8">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 lg:px-8">
+          <div className="flex items-center gap-3 sm:gap-8">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              className="rounded-full border border-[#e2e8f0] bg-white p-2.5 text-[#1e293b] transition hover:border-[#4f46e5] hover:text-[#4f46e5] md:hidden"
+              aria-label="Toggle storefront menu"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
             <button
               onClick={() => navigate('/store')}
-              className="text-3xl font-black tracking-tight text-[#1e293b]"
+              className="text-2xl font-black tracking-tight text-[#1e293b] sm:text-3xl"
             >
               Nex<span className="text-[#4f46e5]">Cart</span>
             </button>
@@ -395,10 +429,10 @@ export default function CustomerLayout() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => navigate('/store/cart')}
-              className="relative rounded-full border border-[#e2e8f0] bg-white p-3 text-[#1e293b] transition hover:border-[#4f46e5] hover:text-[#4f46e5]"
+              className="relative rounded-full border border-[#e2e8f0] bg-white p-2.5 text-[#1e293b] transition hover:border-[#4f46e5] hover:text-[#4f46e5] sm:p-3"
               aria-label="Cart"
             >
               <ShoppingBag className="h-5 w-5" />
@@ -415,6 +449,56 @@ export default function CustomerLayout() {
           </div>
         </div>
       </header>
+
+      {isMobileMenuOpen && (
+        <nav className="sticky top-[73px] z-30 border-b border-[#e2e8f0] bg-white shadow-lg md:hidden">
+          <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6">
+            <div className="space-y-1">
+              {storefrontPrimaryLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block rounded-xl px-4 py-3 text-sm font-bold text-[#1e293b] transition hover:bg-[#eef2ff] hover:text-[#4f46e5]"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="border-t border-[#e2e8f0] pt-4">
+              <p className="px-1 text-[10px] font-bold uppercase tracking-[0.24em] text-[#94a3b8]">
+                Browse by category
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {categoryData.slice(0, 8).map((category) => (
+                  <button
+                    key={category.slug}
+                    type="button"
+                    onClick={() => handleMobileCategoryNavigate(category.name)}
+                    className="rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1.5 text-xs font-semibold text-[#475569] transition hover:border-[#4f46e5] hover:bg-[#eef2ff] hover:text-[#4f46e5]"
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-[#e2e8f0] pt-4">
+              {STOREFRONT_INFO_LINKS.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="rounded-xl border border-[#e2e8f0] px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-[#64748b] transition hover:border-[#4f46e5] hover:text-[#4f46e5]"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </nav>
+      )}
 
       <main className={isStoreRoute ? '' : 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'}>
         <Outlet />

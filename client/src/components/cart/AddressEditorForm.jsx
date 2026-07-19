@@ -45,7 +45,7 @@ export default function AddressEditorForm({
       className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-5"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#eef2ff] border border-[#c7d2fe] flex items-center justify-center">
             <MapPin className="h-4 w-4 text-[#4f46e5]" />
@@ -61,6 +61,7 @@ export default function AddressEditorForm({
           type="button"
           onClick={resetAddressEditor}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-[#ef4444] hover:bg-red-50 transition-all"
+          aria-label="Close address form"
         >
           <X className="h-4 w-4" />
         </button>
@@ -70,6 +71,7 @@ export default function AddressEditorForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <InputField label="Full Name">
           <input
+            aria-label="Full Name"
             value={addressForm.fullName}
             onChange={(e) => setAddressForm((c) => ({ ...c, fullName: e.target.value }))}
             className={inputClass}
@@ -80,6 +82,7 @@ export default function AddressEditorForm({
 
         <InputField label="Mobile Number">
           <input
+            aria-label="Mobile Number"
             value={addressForm.phone}
             onChange={(e) =>
               setAddressForm((c) => ({
@@ -96,6 +99,7 @@ export default function AddressEditorForm({
 
         <InputField label="Address Line 1" className="sm:col-span-2">
           <input
+            aria-label="Address Line 1"
             value={addressForm.addressLine1}
             onChange={(e) => setAddressForm((c) => ({ ...c, addressLine1: e.target.value }))}
             className={inputClass}
@@ -106,6 +110,7 @@ export default function AddressEditorForm({
 
         <InputField label="Postal Code">
           <input
+            aria-label="Postal Code"
             value={addressForm.postalCode}
             onChange={(e) =>
               setAddressForm((c) => ({
@@ -138,6 +143,7 @@ export default function AddressEditorForm({
           {postalLookup.resolved ? (
             <>
               <select
+                aria-label="Area / Locality"
                 value={isManualLocality ? postalLookup.otherValue : selectedLocality}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -166,6 +172,7 @@ export default function AddressEditorForm({
               </select>
               {isManualLocality && (
                 <input
+                  aria-label="Manual Locality"
                   value={manualLocality}
                   onChange={(e) => setManualLocality(e.target.value)}
                   className={cn(inputClass, 'mt-2')}
@@ -176,6 +183,7 @@ export default function AddressEditorForm({
             </>
           ) : (
             <input
+              aria-label="Area / Locality"
               value={addressForm.addressLine2}
               onChange={(e) => setAddressForm((c) => ({ ...c, addressLine2: e.target.value }))}
               className={cn(inputClass, 'bg-[#f1f5f9]')}
@@ -186,15 +194,16 @@ export default function AddressEditorForm({
         </InputField>
 
         <InputField label="City">
-          <input value={addressForm.city} readOnly className={readonlyClass} />
+          <input aria-label="City" value={addressForm.city} readOnly className={readonlyClass} />
         </InputField>
 
         <InputField label="State">
-          <input value={addressForm.state} readOnly className={readonlyClass} />
+          <input aria-label="State" value={addressForm.state} readOnly className={readonlyClass} />
         </InputField>
 
         <InputField label="Landmark (optional)" className="sm:col-span-2">
           <input
+            aria-label="Landmark"
             value={addressForm.landmark}
             onChange={(e) => setAddressForm((c) => ({ ...c, landmark: e.target.value }))}
             className={inputClass}
@@ -206,18 +215,18 @@ export default function AddressEditorForm({
       {addressError && <p className="mt-3 text-xs font-semibold text-red-500">{addressError}</p>}
 
       {/* Actions */}
-      <div className="mt-5 flex gap-3">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
           disabled={isSavingAddress}
-          className="rounded-xl bg-[#4f46e5] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#4338ca] disabled:opacity-50 transition-all btn-press"
+          className="w-full rounded-xl bg-[#4f46e5] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#4338ca] disabled:opacity-50 transition-all btn-press sm:w-auto"
         >
           {isSavingAddress ? 'Saving...' : editingAddressId ? 'Update' : 'Save Address'}
         </button>
         <button
           type="button"
           onClick={resetAddressEditor}
-          className="rounded-xl border border-[#e2e8f0] px-5 py-2.5 text-xs font-bold text-[#64748b] hover:text-[#1e293b] hover:border-[#1e293b] transition-all"
+          className="w-full rounded-xl border border-[#e2e8f0] px-5 py-2.5 text-xs font-bold text-[#64748b] hover:text-[#1e293b] hover:border-[#1e293b] transition-all sm:w-auto"
         >
           Cancel
         </button>

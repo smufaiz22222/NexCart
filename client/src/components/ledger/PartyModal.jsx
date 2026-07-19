@@ -3,7 +3,7 @@ import { useCreateBusinessParty } from '../../api/queries';
 import { toast } from 'sonner';
 import { ModalShell, Field } from './LayoutComponents';
 
-const inputClassName =
+const inputClassName = () =>
   'w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-amber-500';
 
 const PARTY_TYPES = ['CUSTOMER', 'SUPPLIER', 'BOTH'];
@@ -22,7 +22,9 @@ const emptyPartyForm = {
   notes: '',
 };
 
-export default function PartyModal({ onClose, buyers = [] }) {
+const EMPTY_BUYERS = [];
+
+export default function PartyModal({ onClose, buyers = EMPTY_BUYERS }) {
   const [partyForm, setPartyForm] = useState(emptyPartyForm);
   const createPartyMutation = useCreateBusinessParty();
 
@@ -80,6 +82,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
         <Field label="Name">
           <input
             required
+            aria-label="Name"
             value={partyForm.name}
             onChange={(event) =>
               setPartyForm((current) => ({ ...current, name: event.target.value }))
@@ -89,6 +92,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
         </Field>
         <Field label="Phone">
           <input
+            aria-label="Phone"
             value={partyForm.phone}
             onChange={(event) =>
               setPartyForm((current) => ({ ...current, phone: event.target.value }))
@@ -98,6 +102,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
         </Field>
         <Field label="Email">
           <input
+            aria-label="Email"
             value={partyForm.email}
             onChange={(event) =>
               setPartyForm((current) => ({ ...current, email: event.target.value }))
@@ -107,6 +112,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
         </Field>
         <Field label="Tax ID / GSTIN">
           <input
+            aria-label="Tax ID / GSTIN"
             value={partyForm.taxId}
             onChange={(event) =>
               setPartyForm((current) => ({ ...current, taxId: event.target.value }))
@@ -118,6 +124,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
           <input
             type="number"
             step="0.01"
+            aria-label="Opening balance"
             value={partyForm.openingBalance}
             onChange={(event) =>
               setPartyForm((current) => ({ ...current, openingBalance: event.target.value }))
@@ -147,6 +154,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
           <Field label="Address">
             <textarea
               rows="3"
+              aria-label="Address"
               value={partyForm.address}
               onChange={(event) =>
                 setPartyForm((current) => ({ ...current, address: event.target.value }))
@@ -159,6 +167,7 @@ export default function PartyModal({ onClose, buyers = [] }) {
           <Field label="Notes">
             <textarea
               rows="3"
+              aria-label="Notes"
               value={partyForm.notes}
               onChange={(event) =>
                 setPartyForm((current) => ({ ...current, notes: event.target.value }))

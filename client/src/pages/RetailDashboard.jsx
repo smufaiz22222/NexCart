@@ -27,6 +27,48 @@ import { useOrders, useUserRecommendations } from '../api/queries';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
 
+const getStepperStatus = (status) => {
+  const steps = [
+    { key: 'PENDING', label: 'Order Placed', desc: 'Awaiting seller acceptance' },
+    { key: 'PROCESSING', label: 'Processing', desc: 'Packing & inspection' },
+    { key: 'SHIPPED', label: 'In Transit', desc: 'Dispatched with logistics' },
+    { key: 'DELIVERED', label: 'Delivered', desc: 'Receipt confirmed' },
+  ];
+
+  const statusIndexMap = {
+    PENDING: 0,
+    PROCESSING: 1,
+    SHIPPED: 2,
+    DELIVERED: 3,
+    RETURN_COMPLETED: 3,
+    CANCELLED: -1,
+  };
+
+  const currentIndex = statusIndexMap[status] ?? 0;
+
+  return steps.map((step, idx) => ({
+    ...step,
+    isCompleted: idx < currentIndex,
+    isActive: idx === currentIndex,
+    isPending: idx > currentIndex,
+  }));
+};
+
+const SUPPORT_FAQS = [
+  {
+    q: 'How do I request a return or a refund?',
+    a: 'Go to your Orders panel, select the specific item in your purchase history, and click "Request Return". Fill in the reason and return quantity.',
+  },
+  {
+    q: 'How long does shipment and delivery take?',
+    a: 'Processing takes 24-48 hours. Transit time ranges from 3 to 5 business days depending on your postal code location.',
+  },
+  {
+    q: 'How do I upgrade to B2B Wholesale status?',
+    a: 'Click on the "Join B2B Wholesale" banner at the top of the dashboard and submit your company GST details and verification info.',
+  },
+];
+
 export default function RetailDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -214,47 +256,6 @@ export default function RetailDashboard() {
   }, [orders]);
 
   // Support FAQs
-  const faqs = [
-    {
-      q: 'How do I request a return or a refund?',
-      a: 'Go to your Orders panel, select the specific item in your purchase history, and click "Request Return". Fill in the reason and return quantity.',
-    },
-    {
-      q: 'How long does shipment and delivery take?',
-      a: 'Processing takes 24-48 hours. Transit time ranges from 3 to 5 business days depending on your postal code location.',
-    },
-    {
-      q: 'How do I upgrade to B2B Wholesale status?',
-      a: 'Click on the "Join B2B Wholesale" banner at the top of the dashboard and submit your company GST details and verification info.',
-    },
-  ];
-
-  const getStepperStatus = (status) => {
-    const steps = [
-      { key: 'PENDING', label: 'Order Placed', desc: 'Awaiting seller acceptance' },
-      { key: 'PROCESSING', label: 'Processing', desc: 'Packing & inspection' },
-      { key: 'SHIPPED', label: 'In Transit', desc: 'Dispatched with logistics' },
-      { key: 'DELIVERED', label: 'Delivered', desc: 'Receipt confirmed' },
-    ];
-
-    const statusIndexMap = {
-      PENDING: 0,
-      PROCESSING: 1,
-      SHIPPED: 2,
-      DELIVERED: 3,
-      RETURN_COMPLETED: 3,
-      CANCELLED: -1,
-    };
-
-    const currentIndex = statusIndexMap[status] ?? 0;
-
-    return steps.map((step, idx) => ({
-      ...step,
-      isCompleted: idx < currentIndex,
-      isActive: idx === currentIndex,
-      isPending: idx > currentIndex,
-    }));
-  };
 
   const trackingSteps = latestOrder ? getStepperStatus(latestOrder.status) : [];
   const latestOrderItems = latestOrder?.items || [];
@@ -442,8 +443,11 @@ export default function RetailDashboard() {
               </div>
             ) : (
               <div className="flex items-end justify-between h-44 px-2 pt-4 border-b border-[#e2e8f0]">
-                {monthlySpendData.map((data, index) => (
-                  <div key={index} className="flex flex-col items-center flex-1 group relative">
+                {monthlySpendData.map((data) => (
+                  <div
+                    key={data.label}
+                    className="flex flex-col items-center flex-1 group relative"
+                  >
                     {/* Tooltip on hover */}
                     <div className="absolute mb-20 bg-[#1e293b] text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-md font-mono z-20">
                       ₹{data.amount.toLocaleString()}
@@ -488,10 +492,10 @@ export default function RetailDashboard() {
               </div>
             ) : (
               <div className="space-y-4 py-1">
-                {categorySplit.map((split, index) => {
+                {categorySplit.map((split, pos) => {
                   const barColors = ['bg-[#4f46e5]', 'bg-[#64748b]', 'bg-[#1e293b]'];
                   return (
-                    <div key={index} className="space-y-1">
+                    <div key={split.category} className="space-y-1">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-semibold flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#1e293b]" />
@@ -504,7 +508,7 @@ export default function RetailDashboard() {
                       <div className="h-2 w-full bg-[#f1f5f9] rounded-md overflow-hidden border border-[#e2e8f0]/40">
                         <div
                           style={{ width: `${split.percentage}%` }}
-                          className={`h-full rounded-md transition-all duration-500 ${barColors[index % barColors.length]}`}
+                          className={`h-full rounded-md transition-all duration-500 ${barColors[pos % barColors.length]}`}
                         />
                       </div>
                     </div>
@@ -780,15 +784,15 @@ export default function RetailDashboard() {
           </div>
 
           <div className="space-y-2.5">
-            {faqs.map((faq, idx) => {
-              const isOpen = openFaqIndex === idx;
+            {SUPPORT_FAQS.map((faq, pos) => {
+              const isOpen = openFaqIndex === pos;
               return (
                 <div
-                  key={idx}
+                  key={faq.q}
                   className="border border-[#e2e8f0]/60 rounded-md overflow-hidden bg-[#f1f5f9]/20"
                 >
                   <button
-                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    onClick={() => setOpenFaqIndex(isOpen ? null : pos)}
                     className="w-full px-4 py-3 flex items-center justify-between text-left text-xs font-bold text-[#1e293b] hover:bg-[#f1f5f9]/40 transition-colors"
                   >
                     <span>{faq.q}</span>
@@ -856,8 +860,9 @@ export default function RetailDashboard() {
               const reason = item.reasons?.[0] || 'Popular choice';
 
               return (
-                <div
+                <button
                   key={product.id}
+                  type="button"
                   onClick={() => navigate(`/store/product/${product.id}`)}
                   className="min-w-[240px] max-w-[240px] swiss-card p-4 hover:border-[#4f46e5] transition-all cursor-pointer group flex flex-col justify-between"
                 >
@@ -890,7 +895,7 @@ export default function RetailDashboard() {
                       <Sparkles className="w-3.5 h-3.5 text-[#4f46e5]" /> {reason}
                     </p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -905,10 +910,12 @@ export default function RetailDashboard() {
   );
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  return currencyFormatter.format(Number(value || 0));
 }

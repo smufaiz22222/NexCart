@@ -20,9 +20,8 @@ export function useAddressManager(userId, shouldFetch) {
     ? `nexcart:selectedAddressId:${userId}`
     : 'nexcart:selectedAddressId';
 
-  const [addresses, setAddresses] = useState([]);
+  const [addresses, setAddresses] = useState(() => (shouldFetch ? null : []));
   const [selectedAddressId, setSelectedAddressId] = useState('');
-  const [isAddressLoading, setIsAddressLoading] = useState(true);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState('');
   const [editingAddressId, setEditingAddressId] = useState(null);
@@ -48,6 +47,7 @@ export function useAddressManager(userId, shouldFetch) {
     addressForm.city &&
     addressForm.state &&
     (isManualLocality ? manualLocality.trim() : addressForm.addressLine2.trim());
+  const isAddressLoading = shouldFetch && addresses === null;
 
   const syncSelectedAddress = useCallback(
     (nextAddresses) => {
@@ -67,40 +67,58 @@ export function useAddressManager(userId, shouldFetch) {
   );
 
   const fetchAddresses = useCallback(async () => {
-    setIsAddressLoading(true);
     try {
       const response = await apiClient.get('/addresses');
       const nextAddresses = response.data.addresses || [];
       setAddresses(nextAddresses);
       syncSelectedAddress(nextAddresses);
     } catch (error) {
+      setAddresses([]);
       setAddressError(error.response?.data?.error || 'Failed to load saved addresses');
-    } finally {
-      setIsAddressLoading(false);
     }
   }, [syncSelectedAddress]);
 
   useEffect(() => {
+    let active = true;
     if (shouldFetch) {
-      fetchAddresses();
-    } else {
-      setAddresses([]);
-      setSelectedAddressId('');
-      setIsAddressLoading(false);
+      setAddresses(null);
+      const run = async () => {
+        try {
+          const response = await apiClient.get('/addresses');
+          if (!active) return;
+          const nextAddresses = response.data.addresses || [];
+          setAddresses(nextAddresses);
+          syncSelectedAddress(nextAddresses);
+        } catch (error) {
+          if (!active) return;
+          setAddresses([]);
+          setAddressError(error.response?.data?.error || 'Failed to load saved addresses');
+        }
+      };
+      void run();
     }
-  }, [shouldFetch, fetchAddresses]);
+    return () => {
+      active = false;
+    };
+  }, [shouldFetch, syncSelectedAddress]);
 
   useEffect(() => {
     if (!selectedAddressId) return;
     localStorage.setItem(selectedAddressStorageKey, selectedAddressId);
   }, [selectedAddressId, selectedAddressStorageKey]);
 
+  const changePostalLookup = (val) => setPostalLookup(val);
+  const changeSelectedLocality = (val) => setSelectedLocality(val);
+  const changeManualLocality = (val) => setManualLocality(val);
+  const changeIsManualLocality = (val) => setIsManualLocality(val);
+  const changeAddressForm = (val) => setAddressForm(val);
+
   // Postal code lookup effect
   useEffect(() => {
     const postalCode = addressForm.postalCode.trim();
 
     if (!/^\d{6}$/.test(postalCode)) {
-      setPostalLookup((current) => ({
+      changePostalLookup((current) => ({
         ...current,
         status: postalCode.length ? 'invalid' : 'idle',
         message: postalCode.length ? 'Postal code must be exactly 6 digits.' : '',
@@ -112,15 +130,15 @@ export function useAddressManager(userId, shouldFetch) {
         resolved: false,
       }));
 
-      setSelectedLocality('');
-      setManualLocality('');
-      setIsManualLocality(false);
-      setAddressForm((current) => ({ ...current, city: '', state: '' }));
+      changeSelectedLocality('');
+      changeManualLocality('');
+      changeIsManualLocality(false);
+      changeAddressForm((current) => ({ ...current, city: '', state: '' }));
       return undefined;
     }
 
     const timer = setTimeout(async () => {
-      setPostalLookup((current) => ({
+      changePostalLookup((current) => ({
         ...current,
         status: 'loading',
         message: 'Fetching city and state from your postal code...',
@@ -134,24 +152,24 @@ export function useAddressManager(userId, shouldFetch) {
         const firstKnownLocality =
           localityOptions.find((locality) => locality !== lookup.otherValue) || '';
 
-        setPostalLookup({
+        changePostalLookup({
           ...lookup,
           status: lookup.resolved ? 'resolved' : 'error',
           message: lookup.message,
         });
 
-        setAddressForm((current) => ({
+        changeAddressForm((current) => ({
           ...current,
           postalCode,
           city: lookup.city || '',
           state: lookup.state || '',
           addressLine2: firstKnownLocality || '',
         }));
-        setSelectedLocality(firstKnownLocality || lookup.otherValue || OTHER_LOCALITY_VALUE);
-        setManualLocality('');
-        setIsManualLocality(false);
+        changeSelectedLocality(firstKnownLocality || lookup.otherValue || OTHER_LOCALITY_VALUE);
+        changeManualLocality('');
+        changeIsManualLocality(false);
       } catch (error) {
-        setPostalLookup({
+        changePostalLookup({
           status: 'error',
           message:
             error.response?.data?.message ||
@@ -165,10 +183,10 @@ export function useAddressManager(userId, shouldFetch) {
           postalCode,
           resolved: false,
         });
-        setSelectedLocality('');
-        setManualLocality('');
-        setIsManualLocality(false);
-        setAddressForm((current) => ({ ...current, city: '', state: '', addressLine2: '' }));
+        changeSelectedLocality('');
+        changeManualLocality('');
+        changeIsManualLocality(false);
+        changeAddressForm((current) => ({ ...current, city: '', state: '', addressLine2: '' }));
       }
     }, 450);
 
@@ -272,9 +290,12 @@ export function useAddressManager(userId, shouldFetch) {
     }
   };
 
+  const activeAddresses = shouldFetch ? (addresses ?? []) : [];
+  const activeSelectedAddressId = shouldFetch ? selectedAddressId : '';
+
   return {
-    addresses,
-    selectedAddressId,
+    addresses: activeAddresses,
+    selectedAddressId: activeSelectedAddressId,
     setSelectedAddressId,
     isAddressLoading,
     isSavingAddress,

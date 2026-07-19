@@ -6,22 +6,24 @@ import apiClient from '../api/axios';
 import DataTable from '../components/DataTable';
 import { PageHeader, StatusBadge } from '../components/admin';
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
 
-const formatDate = (value) =>
-  new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date(value));
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
+const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true,
+});
+
+const formatDate = (value) => dateFormatter.format(new Date(value));
 
 const statusVariantMap = {
   PENDING: 'warning',
@@ -179,6 +181,7 @@ export default function AdminOrders() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by buyer, seller, or ID..."
+            aria-label="Search orders"
             className="w-full rounded-lg border border-[#2B3139] bg-[#1E2329] py-2.5 pl-10 pr-4 text-sm text-[#EAECEF] placeholder-[#5E6673] focus:border-[#F0B90B]/50 focus:outline-none"
           />
         </div>
@@ -194,11 +197,15 @@ export default function AdminOrders() {
             className="rounded-lg border border-[#2B3139] bg-[#1E2329] px-3 py-2.5 text-sm font-medium text-[#EAECEF] focus:border-[#F0B90B]/50 focus:outline-none"
           >
             <option value="">All Statuses</option>
-            {ORDER_STATUSES.filter(Boolean).map((s) => (
-              <option key={s} value={s}>
-                {s.replace(/_/g, ' ')}
-              </option>
-            ))}
+            {ORDER_STATUSES.flatMap((s) =>
+              s
+                ? [
+                    <option key={s} value={s}>
+                      {s.replace(/_/g, ' ')}
+                    </option>,
+                  ]
+                : []
+            )}
           </select>
 
           <div className="rounded-lg border border-[#2B3139] bg-[#1E2329] px-3 py-2.5 text-sm font-bold text-[#F0B90B]">

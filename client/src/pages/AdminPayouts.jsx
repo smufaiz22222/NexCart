@@ -178,6 +178,7 @@ export default function AdminPayouts() {
             placeholder="Search by supplier name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search payouts by supplier name"
             className="w-full sm:w-64 rounded-xl border border-[#2B3139] bg-[#12161C] pl-9 pr-4 py-2 text-sm text-[#EAECEF] placeholder-[#5E6673] focus:border-[#F0B90B]/50 focus:outline-none"
           />
         </div>

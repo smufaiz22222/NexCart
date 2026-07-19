@@ -21,23 +21,26 @@ import {
 import { toast } from 'sonner';
 import apiClient from '../api/axios';
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
+const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true,
+});
 
 const formatDate = (value) => {
   if (!value) return 'N/A';
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date(value));
+  return dateFormatter.format(new Date(value));
 };
 
 const _createDefaultStartDateTime = () => {
@@ -54,6 +57,15 @@ const filters = [
   { value: 'TRIAL', label: 'Trial Active' },
   { value: 'PAST_DUE', label: 'Past Due' },
 ];
+
+const generateRandomCouponCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'NEX-';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
 
 export default function SuperAdminSubscriptions() {
   const [wholesalers, setWholesalers] = useState([]);
@@ -331,25 +343,18 @@ export default function SuperAdminSubscriptions() {
     });
   }, [searchValue, selectedFilter, wholesalers]);
 
-  useEffect(() => {
-    if (!selectedWholesalerId && filteredWholesalers.length > 0) {
-      setSelectedWholesalerId(filteredWholesalers[0].id);
-      return;
+  const activeWholesalerId = useMemo(() => {
+    if (filteredWholesalers.length === 0) return '';
+
+    if (filteredWholesalers.some((item) => item.id === selectedWholesalerId)) {
+      return selectedWholesalerId;
     }
 
-    if (filteredWholesalers.length === 0) {
-      setSelectedWholesalerId('');
-      return;
-    }
-
-    const stillVisible = filteredWholesalers.some((item) => item.id === selectedWholesalerId);
-    if (!stillVisible) {
-      setSelectedWholesalerId(filteredWholesalers[0].id);
-    }
+    return filteredWholesalers[0].id;
   }, [filteredWholesalers, selectedWholesalerId]);
 
   useEffect(() => {
-    if (!selectedWholesalerId) {
+    if (!activeWholesalerId) {
       setSelectedTenant(null);
       return;
     }
@@ -357,7 +362,7 @@ export default function SuperAdminSubscriptions() {
     const loadTenant = async () => {
       try {
         setIsTenantLoading(true);
-        const response = await apiClient.get(`/admin/wholesalers/${selectedWholesalerId}`);
+        const response = await apiClient.get(`/admin/wholesalers/${activeWholesalerId}`);
         setSelectedTenant(response.data.tenant);
       } catch (fetchError) {
         setError(fetchError.response?.data?.error || 'Failed to load seller subscription details.');
@@ -367,16 +372,7 @@ export default function SuperAdminSubscriptions() {
     };
 
     loadTenant();
-  }, [selectedWholesalerId]);
-
-  const generateRandomCouponCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = 'NEX-';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
+  }, [activeWholesalerId]);
 
   const handleCreateCoupon = async () => {
     try {
@@ -509,7 +505,7 @@ export default function SuperAdminSubscriptions() {
           <div className="mt-4 space-y-2 overflow-y-auto flex-1 pr-1">
             {filteredWholesalers.length > 0 ? (
               filteredWholesalers.map((wholesaler) => {
-                const isSelected = wholesaler.id === selectedWholesalerId;
+                const isSelected = wholesaler.id === activeWholesalerId;
                 return (
                   <button
                     key={wholesaler.id}
@@ -830,6 +826,7 @@ export default function SuperAdminSubscriptions() {
                           <div className="flex gap-2 items-end">
                             <AdminField label="Coupon Code" className="flex-1">
                               <input
+                                aria-label="Coupon Code"
                                 value={couponForm.code}
                                 onChange={(e) =>
                                   setCouponForm({
@@ -876,6 +873,7 @@ export default function SuperAdminSubscriptions() {
                               <input
                                 type="number"
                                 min="1"
+                                aria-label="Duration in days"
                                 value={couponForm.durationDays}
                                 onChange={(e) =>
                                   setCouponForm({
@@ -891,6 +889,7 @@ export default function SuperAdminSubscriptions() {
                           <AdminField label="Coupon Expiry Date">
                             <input
                               type="date"
+                              aria-label="Coupon Expiry Date"
                               value={couponForm.expiryDate}
                               onChange={(e) =>
                                 setCouponForm({ ...couponForm, expiryDate: e.target.value })
@@ -1142,14 +1141,32 @@ export default function SuperAdminSubscriptions() {
   );
 }
 
-function TopCard({ title, value, icon: Icon, accent }) {
-  const accents = {
-    yellow: 'bg-[#F0B90B]/10 text-[#F0B90B]',
-    blue: 'bg-[#1E9CF1]/10 text-[#1E9CF1]',
-    red: 'bg-[#F6465D]/10 text-[#F6465D]',
-    green: 'bg-[#0ECB81]/10 text-[#0ECB81]',
-  };
+const ACCENTS = {
+  yellow: 'bg-[#F0B90B]/10 text-[#F0B90B]',
+  blue: 'bg-[#1E9CF1]/10 text-[#1E9CF1]',
+  red: 'bg-[#F6465D]/10 text-[#F6465D]',
+  green: 'bg-[#0ECB81]/10 text-[#0ECB81]',
+};
 
+const HIGHLIGHT_STYLES = {
+  success: 'text-[#0ECB81] bg-[#0ECB81]/10 border-[#0ECB81]/20',
+  info: 'text-[#1E9CF1] bg-[#1E9CF1]/10 border-[#1E9CF1]/20',
+  warning: 'text-[#F0B90B] bg-[#F0B90B]/10 border-[#F0B90B]/20',
+  danger: 'text-[#F6465D] bg-[#F6465D]/10 border-[#F6465D]/20',
+};
+
+const ACCENT_BORDERS = {
+  yellow: 'border-l-[#F0B90B]',
+  green: 'border-l-[#0ECB81]',
+  blue: 'border-l-[#1E9CF1]',
+  purple: 'border-l-[#7B61FF]',
+  amber: 'border-l-[#F0B90B]',
+  emerald: 'border-l-[#0ECB81]',
+  sky: 'border-l-[#1E9CF1]',
+  violet: 'border-l-[#7B61FF]',
+};
+
+function TopCard({ title, value, icon: Icon, accent }) {
   return (
     <div className="rounded-lg border border-[#2B3139] bg-[#1E2329] p-4">
       <div className="flex items-center justify-between gap-3">
@@ -1157,7 +1174,7 @@ function TopCard({ title, value, icon: Icon, accent }) {
           <p className="text-[10px] font-bold uppercase tracking-wide text-[#848E9C]">{title}</p>
           <p className="mt-2 text-2xl font-bold text-[#EAECEF]">{value}</p>
         </div>
-        <div className={`rounded-lg p-2.5 ${accents[accent] || accents.yellow}`}>
+        <div className={`rounded-lg p-2.5 ${ACCENTS[accent] || ACCENTS.yellow}`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
@@ -1175,20 +1192,13 @@ function AdminField({ label, children, className = '' }) {
 }
 
 function StateRow({ label, value, highlight }) {
-  const highlightStyles = {
-    success: 'text-[#0ECB81] bg-[#0ECB81]/10 border-[#0ECB81]/20',
-    info: 'text-[#1E9CF1] bg-[#1E9CF1]/10 border-[#1E9CF1]/20',
-    warning: 'text-[#F0B90B] bg-[#F0B90B]/10 border-[#F0B90B]/20',
-    danger: 'text-[#F6465D] bg-[#F6465D]/10 border-[#F6465D]/20',
-  };
-
   return (
     <div className="flex items-center justify-between gap-4 rounded-md bg-[#12161C] px-3 py-2.5 text-sm">
       <span className="text-[#848E9C]">{label}</span>
       <span
         className={`text-right font-medium truncate max-w-[200px] ${
           highlight
-            ? `${highlightStyles[highlight]} rounded-md px-2 py-0.5 text-xs border`
+            ? `${HIGHLIGHT_STYLES[highlight]} rounded-md px-2 py-0.5 text-xs border`
             : 'text-[#EAECEF]'
         }`}
       >
@@ -1199,20 +1209,9 @@ function StateRow({ label, value, highlight }) {
 }
 
 function FinancialStat({ label, value, accent }) {
-  const accentBorders = {
-    yellow: 'border-l-[#F0B90B]',
-    green: 'border-l-[#0ECB81]',
-    blue: 'border-l-[#1E9CF1]',
-    purple: 'border-l-[#7B61FF]',
-    amber: 'border-l-[#F0B90B]',
-    emerald: 'border-l-[#0ECB81]',
-    sky: 'border-l-[#1E9CF1]',
-    violet: 'border-l-[#7B61FF]',
-  };
-
   return (
     <div
-      className={`rounded-md bg-[#12161C] p-3 border border-[#2B3139] border-l-2 ${accentBorders[accent] || 'border-l-[#F0B90B]'}`}
+      className={`rounded-md bg-[#12161C] p-3 border border-[#2B3139] border-l-2 ${ACCENT_BORDERS[accent] || 'border-l-[#F0B90B]'}`}
     >
       <p className="text-[10px] font-bold uppercase tracking-wide text-[#5E6673]">{label}</p>
       <p className="mt-1.5 text-lg font-bold text-[#EAECEF]">{value}</p>

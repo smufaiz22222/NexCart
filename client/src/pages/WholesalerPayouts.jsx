@@ -30,13 +30,23 @@ export default function WholesalerPayouts() {
   const [payoutUpiId, setPayoutUpiId] = useState(profile?.payoutUpiId || '');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+  const updatePayoutSettings = (p, name, account, ifsc, upi) => {
+    setUseSameAsB2B(p);
+    setPayoutBankName(name);
+    setPayoutBankAccountNo(account);
+    setPayoutBankIfsc(ifsc);
+    setPayoutUpiId(upi);
+  };
+
   useEffect(() => {
     if (profile) {
-      setUseSameAsB2B(profile.useSameAsB2B ?? true);
-      setPayoutBankName(profile.payoutBankName || '');
-      setPayoutBankAccountNo(profile.payoutBankAccountNo || '');
-      setPayoutBankIfsc(profile.payoutBankIfsc || '');
-      setPayoutUpiId(profile.payoutUpiId || '');
+      updatePayoutSettings(
+        profile.useSameAsB2B ?? true,
+        profile.payoutBankName || '',
+        profile.payoutBankAccountNo || '',
+        profile.payoutBankIfsc || '',
+        profile.payoutUpiId || ''
+      );
     }
   }, [profile]);
 
@@ -283,6 +293,12 @@ export default function WholesalerPayouts() {
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     useSameAsB2B ? 'bg-amber-500' : 'bg-zinc-800'
                   }`}
+                  aria-label={
+                    useSameAsB2B
+                      ? 'Use B2B account for withdrawals'
+                      : 'Use custom account for withdrawals'
+                  }
+                  aria-pressed={useSameAsB2B}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
@@ -354,6 +370,7 @@ export default function WholesalerPayouts() {
                       </label>
                       <input
                         type="text"
+                        aria-label="Payout Bank Name"
                         value={payoutBankName}
                         onChange={(e) => setPayoutBankName(e.target.value)}
                         placeholder="e.g. HDFC Bank"
@@ -366,6 +383,7 @@ export default function WholesalerPayouts() {
                       </label>
                       <input
                         type="text"
+                        aria-label="Payout Account Number"
                         value={payoutBankAccountNo}
                         onChange={(e) => setPayoutBankAccountNo(e.target.value)}
                         placeholder="e.g. 9876543210"
@@ -378,6 +396,7 @@ export default function WholesalerPayouts() {
                       </label>
                       <input
                         type="text"
+                        aria-label="Payout IFSC Code"
                         value={payoutBankIfsc}
                         onChange={(e) => setPayoutBankIfsc(e.target.value)}
                         placeholder="e.g. HDFC0000123"
@@ -390,6 +409,7 @@ export default function WholesalerPayouts() {
                       </label>
                       <input
                         type="text"
+                        aria-label="Payout UPI ID"
                         value={payoutUpiId}
                         onChange={(e) => setPayoutUpiId(e.target.value)}
                         placeholder="e.g. supplier@upi"

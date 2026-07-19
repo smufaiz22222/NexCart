@@ -537,8 +537,14 @@ export default function Dashboard() {
 
               <form onSubmit={handleSaveBankDetails} className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Bank Name</label>
+                  <label
+                    htmlFor="dashboard-bank-name"
+                    className="block text-sm font-medium text-zinc-400 mb-1"
+                  >
+                    Bank Name
+                  </label>
                   <input
+                    id="dashboard-bank-name"
                     type="text"
                     value={bankDetails.bankName}
                     onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
@@ -547,10 +553,14 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                  <label
+                    htmlFor="dashboard-account-number"
+                    className="block text-sm font-medium text-zinc-400 mb-1"
+                  >
                     Account Number
                   </label>
                   <input
+                    id="dashboard-account-number"
                     type="text"
                     value={bankDetails.bankAccountNo}
                     onChange={(e) =>
@@ -561,8 +571,14 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">IFSC Code</label>
+                  <label
+                    htmlFor="dashboard-ifsc-code"
+                    className="block text-sm font-medium text-zinc-400 mb-1"
+                  >
+                    IFSC Code
+                  </label>
                   <input
+                    id="dashboard-ifsc-code"
                     type="text"
                     value={bankDetails.bankIfsc}
                     onChange={(e) => setBankDetails({ ...bankDetails, bankIfsc: e.target.value })}
@@ -571,8 +587,14 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">UPI ID</label>
+                  <label
+                    htmlFor="dashboard-upi-id"
+                    className="block text-sm font-medium text-zinc-400 mb-1"
+                  >
+                    UPI ID
+                  </label>
                   <input
+                    id="dashboard-upi-id"
                     type="text"
                     value={bankDetails.upiId}
                     onChange={(e) => setBankDetails({ ...bankDetails, upiId: e.target.value })}
@@ -608,10 +630,14 @@ export default function Dashboard() {
 
               <form onSubmit={handleSaveDeliveryDetails} className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                  <label
+                    htmlFor="dashboard-delivery-fee"
+                    className="block text-sm font-medium text-zinc-400 mb-1"
+                  >
                     Flat Delivery Fee (₹)
                   </label>
                   <input
+                    id="dashboard-delivery-fee"
                     type="number"
                     step="0.01"
                     min="0"
@@ -625,10 +651,14 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">
+                  <label
+                    htmlFor="dashboard-free-delivery-threshold"
+                    className="block text-sm font-medium text-zinc-400 mb-1"
+                  >
                     Free Delivery Threshold (₹)
                   </label>
                   <input
+                    id="dashboard-free-delivery-threshold"
                     type="number"
                     step="0.01"
                     min="0"

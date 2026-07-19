@@ -51,6 +51,7 @@ export default function ProfileDropdown({ onLoginClick }) {
   if (!isAuthenticated) {
     return (
       <button
+        type="button"
         onClick={onLoginClick}
         className="flex items-center gap-2 rounded-full border border-[#e2e8f0] bg-white px-4 py-2 text-xs font-bold text-[#1e293b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all shadow-sm"
       >
@@ -72,6 +73,7 @@ export default function ProfileDropdown({ onLoginClick }) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2.5 rounded-full border border-[#e2e8f0] bg-white px-3 py-1.5 hover:border-[#4f46e5] hover:shadow-md hover:shadow-[#4f46e5]/5 transition-all group"
         aria-expanded={isOpen}
@@ -251,6 +253,7 @@ export default function ProfileDropdown({ onLoginClick }) {
           {/* Logout */}
           <div className="px-4 py-3 border-t border-[#e2e8f0] bg-[#f8fafc] rounded-b-2xl">
             <button
+              type="button"
               onClick={handleLogout}
               className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 transition-all text-left btn-press"
             >

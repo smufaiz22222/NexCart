@@ -41,8 +41,9 @@ export default function RecommendationsSection({
             const reason = item.reasons?.[0] || 'Based on products you explored';
 
             return (
-              <div
+              <button
                 key={product.id}
+                type="button"
                 onClick={() => handleProductClick(product, 'recommended_for_you')}
                 className="min-w-[220px] max-w-[220px] flex-shrink-0 rounded-xl border border-[#e2e8f0] bg-white p-4 shadow-sm hover:border-[#4f46e5] hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
               >
@@ -75,7 +76,7 @@ export default function RecommendationsSection({
                     <Sparkles className="h-3.5 w-3.5 text-[#4f46e5] flex-shrink-0" /> {reason}
                   </p>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -84,10 +85,12 @@ export default function RecommendationsSection({
   );
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  return currencyFormatter.format(Number(value || 0));
 }

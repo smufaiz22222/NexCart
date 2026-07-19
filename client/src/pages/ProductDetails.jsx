@@ -73,6 +73,9 @@ export default function ProductDetails() {
   const { data: similarData, isLoading: isLoadingSimilarData } = useSimilarProducts(id);
 
   const [attributionRecommendationContext, setAttributionRecommendationContext] = useState(null);
+  const updateAttributionContext = (context) => {
+    setAttributionRecommendationContext(context);
+  };
   const [selectedSize, setSelectedSize] = useState(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -95,20 +98,21 @@ export default function ProductDetails() {
     }
   }, [product]);
 
+  useEffect(() => {
+    if (product) {
+      if (product.sizes?.length > 0 && !selectedSize) {
+        setSelectedSize(product.sizes[0]);
+      } else if (!product.sizes?.length) {
+        setSelectedSize(null);
+      }
+    }
+  }, [product, selectedSize]);
+
   const similarProducts = useMemo(() => similarData?.recommendations || [], [similarData]);
   const similarRecommendationId = similarData?.recommendationId || null;
 
   const isLoading = isLoadingProduct;
   const isLoadingSimilar = isLoadingSimilarData;
-
-  useEffect(() => {
-    if (!product) return;
-    if (product.sizes?.length > 0 && !selectedSize) {
-      setSelectedSize(product.sizes[0]);
-    } else if (!product.sizes?.length) {
-      setSelectedSize(null);
-    }
-  }, [product, selectedSize]);
 
   useEffect(() => {
     if (!id || !isAuthenticated) return;
@@ -127,7 +131,7 @@ export default function ProductDetails() {
     if (isValidAttributionContext(incomingContext, id)) {
       sessionStorage.setItem(getAttributionStorageKey(id), JSON.stringify(incomingContext));
       startTransition(() => {
-        setAttributionRecommendationContext(incomingContext);
+        updateAttributionContext(incomingContext);
       });
       return;
     }
@@ -135,7 +139,7 @@ export default function ProductDetails() {
     const storedContext = sessionStorage.getItem(getAttributionStorageKey(id));
     if (!storedContext) {
       startTransition(() => {
-        setAttributionRecommendationContext(null);
+        updateAttributionContext(null);
       });
       return;
     }
@@ -143,7 +147,7 @@ export default function ProductDetails() {
     try {
       const parsedContext = JSON.parse(storedContext);
       startTransition(() => {
-        setAttributionRecommendationContext(
+        updateAttributionContext(
           isValidAttributionContext(parsedContext, id) ? parsedContext : null
         );
       });
@@ -151,7 +155,7 @@ export default function ProductDetails() {
       console.error('Failed to read attribution context:', error);
       sessionStorage.removeItem(getAttributionStorageKey(id));
       startTransition(() => {
-        setAttributionRecommendationContext(null);
+        updateAttributionContext(null);
       });
     }
   }, [id, location.state]);
@@ -314,7 +318,7 @@ export default function ProductDetails() {
   }
 
   return (
-    <div className="space-y-12 pb-16 text-[#1e293b] animate-slide-in">
+    <div className="space-y-10 pb-16 text-[#1e293b] animate-slide-in sm:space-y-12">
       <button
         onClick={() => navigate('/store')}
         className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2.5 text-sm font-semibold text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all shadow-sm"
@@ -327,8 +331,8 @@ export default function ProductDetails() {
       <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] items-start">
         {/* Image Panel */}
         <div>
-          <div className="rounded-2xl bg-gradient-to-br from-[#f8fafc] via-[#eef2ff] to-[#f5f3ff] p-6 border border-[#e2e8f0] shadow-sm overflow-hidden relative">
-            <div className="absolute top-4 left-4 z-10 flex gap-2">
+          <div className="rounded-2xl bg-gradient-to-br from-[#f8fafc] via-[#eef2ff] to-[#f5f3ff] border border-[#e2e8f0] p-4 shadow-sm overflow-hidden relative sm:p-6">
+            <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100%-5rem)] flex-wrap gap-2">
               {product.originalPrice > product.price && (
                 <span className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
                   -{product.discountPercent}% OFF
@@ -352,7 +356,7 @@ export default function ProductDetails() {
             >
               <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
             </button>
-            <div className="flex aspect-square items-center justify-center p-8">
+            <div className="flex aspect-square items-center justify-center p-5 sm:p-8">
               {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
@@ -509,9 +513,9 @@ export default function ProductDetails() {
         </div>
 
         {/* Product Info Panel */}
-        <div className="rounded-2xl bg-white border border-[#e2e8f0] shadow-sm p-7 space-y-6">
+        <div className="rounded-2xl bg-white border border-[#e2e8f0] shadow-sm p-5 space-y-6 sm:p-7">
           {/* Breadcrumb / Category */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#eef2ff] border border-[#c7d2fe] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#4f46e5]">
               {product.category || 'General'}
             </span>
@@ -523,12 +527,12 @@ export default function ProductDetails() {
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl lg:text-4xl font-black leading-tight tracking-tight text-[#0f172a]">
+          <h1 className="text-2xl font-black leading-tight tracking-tight text-[#0f172a] sm:text-3xl lg:text-4xl">
             {product.name}
           </h1>
 
           {/* Rating */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-0.5">
               {Array.from({ length: 5 }).map((_, index) => (
                 <Star
@@ -547,8 +551,8 @@ export default function ProductDetails() {
           </div>
 
           {/* Price */}
-          <div className="flex items-baseline gap-3 pt-2">
-            <span className="text-4xl font-black tracking-tight text-[#0f172a]">
+          <div className="flex flex-wrap items-baseline gap-3 pt-2">
+            <span className="text-3xl font-black tracking-tight text-[#0f172a] sm:text-4xl">
               {formatCurrency(product.price)}
             </span>
             {product.originalPrice > product.price && (
@@ -563,7 +567,7 @@ export default function ProductDetails() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7c3aed] mb-3">
                 Wholesale Volume Price Tiers
               </p>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid gap-3 text-xs sm:grid-cols-2">
                 {product.priceTiers.map((tier) => (
                   <div
                     key={tier.id}
@@ -585,7 +589,7 @@ export default function ProductDetails() {
           </p>
 
           {/* Seller Info */}
-          <div className="flex items-center justify-between rounded-xl bg-[#f8fafc] border border-[#e2e8f0] px-5 py-4">
+          <div className="flex flex-col gap-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
                 Sold by
@@ -596,7 +600,7 @@ export default function ProductDetails() {
             </div>
             <button
               onClick={() => navigate('/store/dashboard/rfqs')}
-              className="text-[10px] font-bold uppercase tracking-wider text-[#4f46e5] hover:text-[#4338ca] bg-[#eef2ff] border border-[#c7d2fe] px-3 py-1.5 rounded-lg transition-colors btn-press"
+              className="w-full rounded-lg border border-[#c7d2fe] bg-[#eef2ff] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#4f46e5] transition-colors btn-press hover:text-[#4338ca] sm:w-auto sm:py-1.5"
             >
               Request Quote
             </button>
@@ -626,8 +630,8 @@ export default function ProductDetails() {
           )}
 
           {/* Quantity selector and checkout */}
-          <div className="flex flex-wrap gap-4 items-end pt-4 border-t border-[#e2e8f0]">
-            <div className="w-[130px]">
+          <div className="flex flex-col gap-4 pt-4 border-t border-[#e2e8f0] sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="w-full sm:w-[130px]">
               <p className="text-xs font-bold uppercase tracking-wider text-[#1e293b] mb-2">
                 Quantity
               </p>
@@ -654,7 +658,7 @@ export default function ProductDetails() {
 
             <button
               onClick={handleAddToCart}
-              className="flex-1 min-w-[220px] flex items-center justify-center gap-3 rounded-xl bg-[#4f46e5] px-6 py-4 text-sm font-bold text-white transition-all hover:bg-[#4338ca] shadow-lg shadow-[#4f46e5]/25 hover:shadow-xl hover:shadow-[#4f46e5]/30 hover:-translate-y-0.5 btn-press"
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#4f46e5] px-6 py-4 text-sm font-bold text-white transition-all hover:bg-[#4338ca] shadow-lg shadow-[#4f46e5]/25 hover:shadow-xl hover:shadow-[#4f46e5]/30 hover:-translate-y-0.5 btn-press sm:flex-1 sm:min-w-[220px]"
             >
               <ShoppingBag className="h-5 w-5" />
               Add to Cart
@@ -677,12 +681,16 @@ export default function ProductDetails() {
                 Propose your target bid directly to the wholesaler for bulk pricing.
               </p>
               <form onSubmit={handleRfqSubmit} className="mt-3 space-y-2.5">
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#64748b] uppercase tracking-wider mb-1">
+                    <label
+                      htmlFor="product-details-rfq-quantity"
+                      className="block text-[10px] font-bold text-[#64748b] uppercase tracking-wider mb-1"
+                    >
                       Quantity
                     </label>
                     <input
+                      id="product-details-rfq-quantity"
                       required
                       type="number"
                       min={product.minOrderQty || 1}
@@ -693,10 +701,14 @@ export default function ProductDetails() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-[#64748b] uppercase tracking-wider mb-1">
+                    <label
+                      htmlFor="product-details-rfq-price"
+                      className="block text-[10px] font-bold text-[#64748b] uppercase tracking-wider mb-1"
+                    >
                       Price (₹/unit)
                     </label>
                     <input
+                      id="product-details-rfq-price"
                       required
                       type="number"
                       step="0.01"
@@ -711,6 +723,7 @@ export default function ProductDetails() {
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  aria-label="Notes"
                   placeholder="Notes (logistics, contracts, etc.)"
                   className="w-full px-3 py-2 bg-white border border-[#e2e8f0] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] text-[#1e293b] transition-all"
                 />
@@ -728,7 +741,7 @@ export default function ProductDetails() {
       </section>
 
       {/* You might also like — horizontal scroll */}
-      <section className="rounded-2xl bg-white p-7 border border-[#e2e8f0] shadow-sm">
+      <section className="rounded-2xl bg-white border border-[#e2e8f0] p-5 shadow-sm sm:p-7">
         <h2 className="text-xl font-black tracking-tight text-[#0f172a]">You might also like</h2>
         <div className="mt-5 flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
           {isLoadingSimilar ? (
@@ -740,7 +753,7 @@ export default function ProductDetails() {
               <button
                 key={item.product.id}
                 onClick={() => handleRecommendationClick(item.product)}
-                className="min-w-[180px] max-w-[180px] flex-shrink-0 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-3 text-left transition-all hover:border-[#4f46e5] hover:shadow-md hover:shadow-[#4f46e5]/5 card-hover-subtle"
+                className="min-w-[160px] max-w-[160px] flex-shrink-0 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-3 text-left transition-all hover:border-[#4f46e5] hover:shadow-md hover:shadow-[#4f46e5]/5 card-hover-subtle sm:min-w-[180px] sm:max-w-[180px]"
               >
                 <div className="flex h-28 w-full items-center justify-center rounded-lg bg-white border border-[#e2e8f0] p-2 mb-3">
                   {item.product.imageUrl ? (
@@ -773,8 +786,8 @@ export default function ProductDetails() {
       </section>
 
       {/* Customer Reviews — with pagination */}
-      <section className="rounded-2xl bg-white p-7 border border-[#e2e8f0] shadow-sm">
-        <h2 className="text-xl font-black tracking-tight text-[#0f172a] flex items-center gap-2">
+      <section className="rounded-2xl bg-white border border-[#e2e8f0] p-5 shadow-sm sm:p-7">
+        <h2 className="flex flex-wrap items-center gap-2 text-xl font-black tracking-tight text-[#0f172a]">
           <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
           Customer Reviews
           {(product.reviews || []).length > 0 && (
@@ -808,6 +821,7 @@ export default function ProductDetails() {
             <textarea
               value={comment}
               onChange={(event) => setComment(event.target.value)}
+              aria-label="Review comment"
               placeholder="Share your product experience"
               rows={3}
               className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#4f46e5]/20 focus:border-[#4f46e5] transition-all"
@@ -864,7 +878,7 @@ export default function ProductDetails() {
 
               {/* Pagination controls */}
               {(product.reviews || []).length > reviewsPerPage && (
-                <div className="mt-5 flex items-center justify-center gap-2">
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                   <button
                     onClick={() => setReviewPage((p) => Math.max(1, p - 1))}
                     disabled={reviewPage === 1}
@@ -915,10 +929,12 @@ export default function ProductDetails() {
   );
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  return currencyFormatter.format(Number(value || 0));
 }

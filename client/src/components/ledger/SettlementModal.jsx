@@ -3,7 +3,7 @@ import { useRecordPartyTransaction } from '../../api/queries';
 import { toast } from 'sonner';
 import { ModalShell, Field } from './LayoutComponents';
 
-const inputClassName =
+const inputClassName = () =>
   'w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-amber-500';
 
 const PAYMENT_METHODS = ['CASH', 'CREDIT', 'UPI', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'OTHER'];
@@ -59,6 +59,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
             type="number"
             step="0.01"
             min="0.01"
+            aria-label="Amount"
             value={settlementForm.amount}
             onChange={(event) =>
               setSettlementForm((current) => ({ ...current, amount: event.target.value }))
@@ -77,11 +78,15 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
             }
             className={inputClassName()}
           >
-            {PAYMENT_METHODS.filter((method) => method !== 'CREDIT').map((method) => (
-              <option key={method} value={method}>
-                {method}
-              </option>
-            ))}
+            {PAYMENT_METHODS.flatMap((method) =>
+              method !== 'CREDIT'
+                ? [
+                    <option key={method} value={method}>
+                      {method}
+                    </option>,
+                  ]
+                : []
+            )}
           </select>
         </Field>
         {['CHEQUE', 'UPI', 'BANK_TRANSFER', 'CARD'].includes(settlementForm.paymentMethod) && (
@@ -91,6 +96,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  aria-label="Awaiting Bank Clearance"
                   checked={settlementForm.awaitingClearance}
                   onChange={(event) =>
                     setSettlementForm((current) => ({
@@ -108,6 +114,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
             <Field label="Reference / Instrument Number">
               <input
                 placeholder="Cheque # / UTR / Transaction ID"
+                aria-label="Reference / Instrument Number"
                 value={settlementForm.instrumentNumber}
                 onChange={(event) =>
                   setSettlementForm((current) => ({
@@ -121,6 +128,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
             <Field label="Bank Name">
               <input
                 placeholder="e.g. HDFC Bank"
+                aria-label="Bank Name"
                 value={settlementForm.bankName}
                 onChange={(event) =>
                   setSettlementForm((current) => ({ ...current, bankName: event.target.value }))
@@ -131,6 +139,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
             <Field label="Instrument Date">
               <input
                 type="date"
+                aria-label="Instrument Date"
                 value={settlementForm.dueDate}
                 onChange={(event) =>
                   setSettlementForm((current) => ({ ...current, dueDate: event.target.value }))
@@ -143,6 +152,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
                 <Field label="Whose cheque is this? (Drawer Name)">
                   <input
                     placeholder="e.g. Self, or Customer/Party Name (if forwarding)"
+                    aria-label="Drawer Name"
                     value={settlementForm.drawerName || ''}
                     onChange={(event) =>
                       setSettlementForm((current) => ({
@@ -160,6 +170,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
         <div className="md:col-span-2">
           <Field label="Description">
             <input
+              aria-label="Description"
               value={settlementForm.description}
               onChange={(event) =>
                 setSettlementForm((current) => ({
@@ -174,6 +185,7 @@ export default function SettlementModal({ onClose, selectedParty, initialDirecti
         <div className="md:col-span-2">
           <Field label="Reference ID">
             <input
+              aria-label="Reference ID"
               value={settlementForm.referenceId}
               onChange={(event) =>
                 setSettlementForm((current) => ({

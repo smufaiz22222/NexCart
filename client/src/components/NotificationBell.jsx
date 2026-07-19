@@ -14,6 +14,37 @@ import useNotificationStore from '../store/notificationStore';
 import useAuthStore from '../store/authStore';
 import { cn } from '../utils/cn';
 
+const getIcon = (type) => {
+  switch (type) {
+    case 'ORDER':
+      return <ShoppingBag className="h-5 w-5 text-indigo-500" />;
+    case 'RFQ':
+      return <MessageSquare className="h-5 w-5 text-amber-500" />;
+    case 'DISPUTE':
+      return <AlertTriangle className="h-5 w-5 text-rose-500" />;
+    case 'STOCK_ALERT':
+      return <Archive className="h-5 w-5 text-amber-600" />;
+    case 'ONBOARDING':
+      return <Shield className="h-5 w-5 text-emerald-500" />;
+    default:
+      return <Bell className="h-5 w-5 text-slate-500" />;
+  }
+};
+
+const formatTimeAgo = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
+
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -43,12 +74,15 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch once on open just to ensure up-to-date state
-  useEffect(() => {
-    if (isOpen) {
-      fetchNotifications();
-    }
-  }, [isOpen, fetchNotifications]);
+  const handleToggleOpen = () => {
+    setIsOpen((current) => {
+      const nextIsOpen = !current;
+      if (nextIsOpen) {
+        void fetchNotifications();
+      }
+      return nextIsOpen;
+    });
+  };
 
   const handleNotificationClick = async (n) => {
     await markAsRead(n.id);
@@ -58,42 +92,18 @@ export default function NotificationBell() {
     }
   };
 
-  const getIcon = (type) => {
-    switch (type) {
-      case 'ORDER':
-        return <ShoppingBag className="h-5 w-5 text-indigo-500" />;
-      case 'RFQ':
-        return <MessageSquare className="h-5 w-5 text-amber-500" />;
-      case 'DISPUTE':
-        return <AlertTriangle className="h-5 w-5 text-rose-500" />;
-      case 'STOCK_ALERT':
-        return <Archive className="h-5 w-5 text-amber-600" />;
-      case 'ONBOARDING':
-        return <Shield className="h-5 w-5 text-emerald-500" />;
-      default:
-        return <Bell className="h-5 w-5 text-slate-500" />;
+  const handleNotificationKeyDown = (event, notification) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      void handleNotificationClick(notification);
     }
-  };
-
-  const formatTimeAgo = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
-    if (seconds < 60) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
   };
 
   return (
     <div className="relative z-50 flex" ref={dropdownRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggleOpen}
         className={cn(
           'relative rounded-xl border p-2.5 transition-all duration-300 focus:outline-none cursor-pointer',
           isDark
@@ -167,70 +177,73 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={cn(
-                    'group relative flex items-start gap-3 p-3 rounded-xl transition duration-200 cursor-pointer border border-transparent',
-                    isDark
-                      ? !n.isRead
-                        ? 'bg-zinc-900/30 border-zinc-800/50 hover:bg-zinc-900/60'
-                        : 'hover:bg-zinc-900/60'
-                      : !n.isRead
-                        ? 'bg-[#f4ebd9]/30 border-[#eadaa2]/50 hover:bg-[#f4ebd9]/55'
-                        : 'hover:bg-[#f2efe6]'
-                  )}
-                  onClick={() => handleNotificationClick(n)}
-                >
-                  <div
+                <div key={n.id} className="relative group w-full">
+                  <button
+                    type="button"
                     className={cn(
-                      'mt-0.5 rounded-lg p-2 border',
-                      isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#ddd7cc]'
+                      'flex items-start gap-3 p-3 rounded-xl transition duration-200 cursor-pointer border border-transparent w-full text-left',
+                      isDark
+                        ? !n.isRead
+                          ? 'bg-zinc-900/30 border-zinc-800/50 hover:bg-zinc-900/60'
+                          : 'hover:bg-zinc-900/60'
+                        : !n.isRead
+                          ? 'bg-[#f4ebd9]/30 border-[#eadaa2]/50 hover:bg-[#f4ebd9]/55'
+                          : 'hover:bg-[#f2efe6]'
                     )}
+                    onClick={() => handleNotificationClick(n)}
+                    onKeyDown={(event) => handleNotificationKeyDown(event, n)}
                   >
-                    {getIcon(n.type)}
-                  </div>
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <p
-                        className={cn(
-                          'text-xs truncate font-bold',
-                          isDark
-                            ? !n.isRead
-                              ? 'text-white'
-                              : 'text-zinc-300'
-                            : !n.isRead
-                              ? 'text-[#161412]'
-                              : 'text-zinc-700'
-                        )}
-                      >
-                        {n.title}
-                      </p>
-                      <span className="text-[10px] text-zinc-500 font-semibold whitespace-nowrap shrink-0">
-                        {formatTimeAgo(n.createdAt)}
-                      </span>
-                    </div>
-                    <p
+                    <div
                       className={cn(
-                        'text-xs mt-1 leading-relaxed break-words line-clamp-2',
-                        isDark
-                          ? !n.isRead
-                            ? 'text-zinc-200 font-medium'
-                            : 'text-zinc-400'
-                          : !n.isRead
-                            ? 'text-zinc-800 font-medium'
-                            : 'text-zinc-500'
+                        'mt-0.5 rounded-lg p-2 border shrink-0',
+                        isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#ddd7cc]'
                       )}
                     >
-                      {n.message}
-                    </p>
-                  </div>
+                      {getIcon(n.type)}
+                    </div>
+                    <div className="flex-1 min-w-0 pr-4">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <p
+                          className={cn(
+                            'text-xs truncate font-bold',
+                            isDark
+                              ? !n.isRead
+                                ? 'text-white'
+                                : 'text-zinc-300'
+                              : !n.isRead
+                                ? 'text-[#161412]'
+                                : 'text-zinc-700'
+                          )}
+                        >
+                          {n.title}
+                        </p>
+                        <span className="text-[10px] text-zinc-500 font-semibold whitespace-nowrap shrink-0">
+                          {formatTimeAgo(n.createdAt)}
+                        </span>
+                      </div>
+                      <p
+                        className={cn(
+                          'text-xs mt-1 leading-relaxed break-words text-left line-clamp-2',
+                          isDark
+                            ? !n.isRead
+                              ? 'text-zinc-200 font-medium'
+                              : 'text-zinc-400'
+                            : !n.isRead
+                              ? 'text-zinc-800 font-medium'
+                              : 'text-zinc-500'
+                        )}
+                      >
+                        {n.message}
+                      </p>
+                    </div>
 
-                  {/* Dot indicator */}
-                  {!n.isRead && (
-                    <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-500" />
-                  )}
+                    {/* Dot indicator */}
+                    {!n.isRead && (
+                      <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-500" />
+                    )}
+                  </button>
 
-                  {/* Delete button */}
+                  {/* Delete button (rendered as sibling button to avoid nesting interactive elements) */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -238,7 +251,7 @@ export default function NotificationBell() {
                       deleteNotification(n.id);
                     }}
                     className={cn(
-                      'absolute right-2 bottom-2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer',
+                      'absolute right-2 bottom-2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer z-10',
                       isDark
                         ? 'text-zinc-650 hover:text-red-400 hover:bg-zinc-900'
                         : 'text-zinc-450 hover:text-red-500 hover:bg-zinc-100'

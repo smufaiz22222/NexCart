@@ -1,4 +1,4 @@
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { X, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
@@ -250,9 +250,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           />
         ) : activeTab === 'login' ? (
           <LoginForm
+            key={tempVerifyData?.email || 'login'}
             onSubmit={handleLoginSubmit}
             isPending={isPending}
-            tempVerifyData={tempVerifyData}
+            initialEmail={tempVerifyData?.email || ''}
           />
         ) : (
           <RegisterForm onSubmit={handleRegisterSubmit} isPending={isPending} />
@@ -273,18 +274,12 @@ function FormField({ label, children }) {
   );
 }
 
-function LoginForm({ onSubmit, isPending, tempVerifyData }) {
+function LoginForm({ onSubmit, isPending, initialEmail }) {
   const [loginData, setLoginData] = useState({
-    email: tempVerifyData?.email || '',
+    email: initialEmail,
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    if (tempVerifyData?.email) {
-      setLoginData((prev) => ({ ...prev, email: tempVerifyData.email }));
-    }
-  }, [tempVerifyData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -297,6 +292,7 @@ function LoginForm({ onSubmit, isPending, tempVerifyData }) {
         <input
           type="email"
           required
+          aria-label="Email Address"
           value={loginData.email}
           onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
           placeholder="you@example.com"
@@ -309,6 +305,7 @@ function LoginForm({ onSubmit, isPending, tempVerifyData }) {
           <input
             type={showPassword ? 'text' : 'password'}
             required
+            aria-label="Password"
             value={loginData.password}
             onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
             placeholder="Enter your password"
@@ -318,6 +315,7 @@ function LoginForm({ onSubmit, isPending, tempVerifyData }) {
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b857c] hover:text-[#161412]"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
@@ -393,6 +391,7 @@ function RegisterForm({ onSubmit, isPending }) {
         <input
           type="text"
           required
+          aria-label="Full Name"
           value={registerData.name}
           onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
           placeholder="John Doe"
@@ -404,6 +403,7 @@ function RegisterForm({ onSubmit, isPending }) {
         <input
           type="email"
           required
+          aria-label="Email Address"
           value={registerData.email}
           onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
           placeholder="you@example.com"
@@ -415,6 +415,7 @@ function RegisterForm({ onSubmit, isPending }) {
         <input
           type="password"
           required
+          aria-label="Password"
           value={registerData.password}
           onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
           placeholder="Create password"
@@ -426,6 +427,7 @@ function RegisterForm({ onSubmit, isPending }) {
         <input
           type="password"
           required
+          aria-label="Confirm Password"
           value={registerData.confirmPassword}
           onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
           placeholder="Confirm password"
@@ -438,6 +440,7 @@ function RegisterForm({ onSubmit, isPending }) {
           <input
             type="text"
             required
+            aria-label="Business / Shop Name"
             value={registerData.businessName}
             onChange={(e) => setRegisterData({ ...registerData, businessName: e.target.value })}
             placeholder="Brand / Wholesaler Name"
@@ -478,6 +481,7 @@ function VerifyOtpForm({ onSubmit, onResendOtp, onBackToSignIn, isPending, tempV
           type="text"
           required
           maxLength={6}
+          aria-label="Verification Code"
           value={otpCode}
           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
           placeholder="123456"

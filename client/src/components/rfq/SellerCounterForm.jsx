@@ -32,6 +32,7 @@ export default function SellerCounterForm({
             required
             type="number"
             step="0.01"
+            aria-label="Counter Offer Price"
             value={counterState.counterPrice}
             onChange={(e) => setCounterState({ ...counterState, counterPrice: e.target.value })}
             placeholder={`Bid is ₹${rfq.targetPrice}`}
@@ -54,6 +55,7 @@ export default function SellerCounterForm({
           </label>
           <input
             type="number"
+            aria-label="Counter Quantity"
             value={counterState.counterQuantity}
             onChange={(e) => setCounterState({ ...counterState, counterQuantity: e.target.value })}
             placeholder={`Original is ${rfq.quantity}`}
@@ -76,6 +78,7 @@ export default function SellerCounterForm({
           </label>
           <input
             type="text"
+            aria-label="Counter Notes / Justification"
             value={counterState.sellerNotes}
             onChange={(e) => setCounterState({ ...counterState, sellerNotes: e.target.value })}
             placeholder="Why this price? e.g. shipping/freight costs"

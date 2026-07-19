@@ -1,18 +1,18 @@
-export default function PromptSelector({ onSelectPrompt }) {
-  const prompts = [
-    'How is my business performing?',
-    'What inventory issues should I focus on?',
-    'What does my repeat customer rate indicate?',
-    'What is inventory turnover?',
-  ];
+const PROMPTS = [
+  'How is my business performing?',
+  'What inventory issues should I focus on?',
+  'What does my repeat customer rate indicate?',
+  'What is inventory turnover?',
+];
 
+export default function PromptSelector({ onSelectPrompt }) {
   return (
     <div className="rounded-[28px] border border-zinc-700 bg-[#141414] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.28)]">
       <p className="text-xs font-bold uppercase tracking-[0.32em] text-zinc-300">
         Suggested Prompts
       </p>
       <div className="mt-4 space-y-3">
-        {prompts.map((prompt) => (
+        {PROMPTS.map((prompt) => (
           <button
             key={prompt}
             type="button"
