@@ -173,7 +173,7 @@ export default function EcommerceAccounting() {
           </div>
 
           {/* Ledger Table */}
-          <div className="overflow-hidden rounded-2xl border border-zinc-800">
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
             <table className="min-w-full divide-y divide-zinc-800 text-sm">
               <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                 <tr>

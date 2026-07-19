@@ -237,39 +237,46 @@ export default function WholesalerLayout() {
         </header>
 
         {isMobileMenuOpen && (
-          <nav
-            className={`md:hidden shadow-2xl absolute w-full z-20 border-b transition-colors duration-300 ${
-              theme === 'light'
-                ? 'bg-white text-teal-900 border-teal-100'
-                : 'bg-[#0F172A] text-white border-[#1E293B]'
-            }`}
-          >
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {WHOLESALER_NAVIGATION.map((item) => {
-                const isActive = location.pathname === item.href;
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center px-4 py-3 text-sm font-semibold tracking-wide rounded-md transition-all duration-200 ${
-                      isActive
-                        ? theme === 'light'
-                          ? 'bg-teal-50 text-teal-900 border border-teal-200'
-                          : 'bg-[#1E293B] text-white border border-[#1E293B]'
-                        : theme === 'light'
-                          ? 'text-slate-500 hover:bg-teal-50/60 hover:text-teal-800'
-                          : 'text-slate-400 hover:bg-[#1E293B]/50 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5 mr-3 text-[#059669]" />
-                    {item.name}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
+          <>
+            {/* Mobile Backdrop Overlay */}
+            <div
+              className="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-10 md:hidden animate-fade-in"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <nav
+              className={`md:hidden shadow-2xl absolute w-full z-20 border-b transition-colors duration-300 ${
+                theme === 'light'
+                  ? 'bg-white text-teal-900 border-teal-100'
+                  : 'bg-[#0F172A] text-white border-[#1E293B]'
+              }`}
+            >
+              <div className="px-2 pt-2 pb-3 space-y-1">
+                {WHOLESALER_NAVIGATION.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`flex items-center px-4 py-3 text-sm font-semibold tracking-wide rounded-md transition-all duration-200 ${
+                        isActive
+                          ? theme === 'light'
+                            ? 'bg-teal-50 text-teal-900 border border-teal-200'
+                            : 'bg-[#1E293B] text-white border border-[#1E293B]'
+                          : theme === 'light'
+                            ? 'text-slate-500 hover:bg-teal-50/60 hover:text-teal-800'
+                            : 'text-slate-400 hover:bg-[#1E293B]/50 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5 mr-3 text-[#059669]" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+          </>
         )}
 
         <main

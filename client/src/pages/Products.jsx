@@ -263,7 +263,7 @@ export default function Products() {
       {/* Add Product Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-bg-card rounded-lg shadow-2xl border border-border-subtle w-full max-w-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
+          <div className="bg-bg-card rounded-lg shadow-2xl border border-border-subtle w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
             <div className="px-8 py-5 border-b border-border-subtle bg-bg-main flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-text-title tracking-tight flex items-center">

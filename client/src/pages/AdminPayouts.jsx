@@ -185,7 +185,7 @@ export default function AdminPayouts() {
       </div>
 
       {/* Requests Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#2B3139] bg-[#12161C] shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-[#2B3139] bg-[#12161C] shadow-sm">
         <table className="w-full text-left text-sm text-[#EAECEF]">
           <thead className="bg-[#f8f2e8] text-xs font-bold uppercase tracking-wider text-[#848E9C] border-b border-[#2B3139]">
             <tr>

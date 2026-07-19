@@ -49,7 +49,7 @@ export default function BillSummaryModal({ onClose, selectedBill, formatCurrency
           <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400 mb-3">
             Item Summary
           </h4>
-          <div className="overflow-hidden rounded-2xl border border-zinc-800">
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
             <table className="min-w-full divide-y divide-zinc-800 text-sm">
               <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                 <tr>

@@ -337,7 +337,7 @@ export default function Ledger() {
             title="Accounts"
             description="System books summarise your cash, bank, UPI, receivables, payables, and sales balances."
           >
-            <div className="overflow-hidden rounded-2xl border border-zinc-800">
+            <div className="overflow-x-auto rounded-2xl border border-zinc-800">
               <table className="min-w-full divide-y divide-zinc-800 text-sm">
                 <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                   <tr>
@@ -449,7 +449,7 @@ export default function Ledger() {
                 title="Pending E-commerce Payments"
                 description={`${pendingEcomOrders.length} marketplace order(s) with outstanding payment.`}
               >
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
+                <div className="overflow-x-auto rounded-2xl border border-zinc-800">
                   <table className="min-w-full divide-y divide-zinc-800 text-sm">
                     <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                       <tr>
@@ -510,7 +510,7 @@ export default function Ledger() {
             </button>
           }
         >
-          <div className="overflow-hidden rounded-2xl border border-zinc-800">
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
             <table className="min-w-full divide-y divide-zinc-800 text-sm">
               <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                 <tr>
@@ -620,7 +620,7 @@ export default function Ledger() {
             </div>
           }
         >
-          <div className="overflow-hidden rounded-2xl border border-zinc-800">
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
             <table className="min-w-full divide-y divide-zinc-800 text-sm">
               <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                 <tr>
@@ -674,7 +674,7 @@ export default function Ledger() {
             title="Received Instruments (Inward Cheques & Deposits)"
             description="Clear cheques, reconcile UPI transfers, card settlements, or bank transfers received from buyers."
           >
-            <div className="overflow-hidden rounded-2xl border border-zinc-800">
+            <div className="overflow-x-auto rounded-2xl border border-zinc-800">
               <table className="min-w-full divide-y divide-zinc-800 text-sm">
                 <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                   <tr>
@@ -763,7 +763,7 @@ export default function Ledger() {
             title="Issued Instruments (Outward Cheques & Outflows)"
             description="Clear cheques, reconcile bank transfers, or card settlements given to suppliers."
           >
-            <div className="overflow-hidden rounded-2xl border border-zinc-800">
+            <div className="overflow-x-auto rounded-2xl border border-zinc-800">
               <table className="min-w-full divide-y divide-zinc-800 text-sm">
                 <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                   <tr>
@@ -891,7 +891,7 @@ export default function Ledger() {
             ))}
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-zinc-800">
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
             <table className="min-w-full divide-y divide-zinc-800 text-sm">
               <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                 <tr>
@@ -1051,7 +1051,7 @@ export default function Ledger() {
                   </div>
                 }
               >
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
+                <div className="overflow-x-auto rounded-2xl border border-zinc-800">
                   <table className="min-w-full divide-y divide-zinc-800 text-sm">
                     <thead className="bg-[#0d0d0d] text-left text-zinc-400">
                       <tr>

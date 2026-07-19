@@ -4,8 +4,63 @@ import { TextField, TextAreaField, FormError } from './FormFields';
 import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import apiClient from '../api/axios';
+import categoryData from '../data/categoryData';
 
 const generateAttributeId = () => `attr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+function SelectField({ field, label, options, placeholder, className, disabled, onChange }) {
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      {label && (
+        <label
+          htmlFor={field.name}
+          className="text-[10px] font-bold uppercase tracking-wider text-text-muted"
+        >
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        <select
+          id={field.name}
+          name={field.name}
+          aria-label={label || placeholder || field.name}
+          value={field.state.value}
+          onBlur={field.handleBlur}
+          disabled={disabled}
+          onChange={(e) => {
+            const val = e.target.value;
+            field.handleChange(val);
+            if (onChange) onChange(val);
+          }}
+          className={cn(
+            'w-full rounded-md border border-border-subtle bg-bg-main px-4 py-2.5 text-sm text-text-title outline-none transition-all focus:border-brand-primary/50 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+            field.state.meta.isTouched &&
+              field.state.meta.errors.length > 0 &&
+              'border-semantic-danger/50'
+          )}
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundPosition: `right 1rem center`,
+            backgroundRepeat: `no-repeat`,
+            backgroundSize: `1.2em 1.2em`,
+          }}
+        >
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value} className="bg-bg-card text-text-title">
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {field.state.meta.isTouched && field.state.meta.errors.length > 0 ? (
+        <p className="text-[11px] font-medium text-semantic-danger pl-1">
+          {field.state.meta.errors.join(', ')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * A robust Product Form built with TanStack Form.
@@ -146,12 +201,58 @@ function PricingSection({ form }) {
 function InventorySection({ form, defaultDeliveryFee }) {
   return (
     <>
-      {/* Category & Delivery Settings */}
+      {/* Category & Subcategory Settings */}
       <div className="grid gap-6 sm:grid-cols-2">
-        <form.Field name="category">
-          {(field) => <TextField field={field} label="Category" placeholder="e.g. Outerwear" />}
+        <form.Field
+          name="category"
+          validators={{
+            onChange: ({ value }) => (!value ? 'Category is required' : undefined),
+          }}
+        >
+          {(field) => {
+            const categoryOptions = categoryData.map((c) => ({
+              value: c.dbCategory,
+              label: c.name,
+            }));
+            return (
+              <SelectField
+                field={field}
+                label="Category *"
+                placeholder="Select Category"
+                options={categoryOptions}
+                onChange={() => {
+                  form.setFieldValue('subcategory', '');
+                }}
+              />
+            );
+          }}
         </form.Field>
 
+        <form.Subscribe selector={(state) => [state.values.category]}>
+          {([categoryValue]) => {
+            const selectedCat = categoryData.find((c) => c.dbCategory === categoryValue);
+            const subcategories = selectedCat ? selectedCat.subcategories : [];
+            const subcategoryOptions = subcategories.map((sub) => ({ value: sub, label: sub }));
+
+            return (
+              <form.Field name="subcategory">
+                {(field) => (
+                  <SelectField
+                    field={field}
+                    label="Subcategory"
+                    placeholder={categoryValue ? 'Select Subcategory' : 'Select Category first'}
+                    options={subcategoryOptions}
+                    disabled={!categoryValue}
+                  />
+                )}
+              </form.Field>
+            );
+          }}
+        </form.Subscribe>
+      </div>
+
+      {/* Delivery Settings */}
+      <div className="grid gap-6 sm:grid-cols-2">
         <form.Field
           name="deliveryFee"
           validators={{
@@ -289,6 +390,7 @@ export function ProductForm({ initialData, onSubmit, onCancel }) {
       actualPrice: initialData?.actualPrice || '',
       sku: initialData?.sku || '',
       category: initialData?.category || '',
+      subcategory: initialData?.subcategory || '',
       currentStock: initialData?.currentStock !== undefined ? initialData.currentStock : '',
       minStock: initialData?.minStock !== undefined ? initialData.minStock : '',
       deliveryFee:

@@ -259,3 +259,12 @@ export default function Login() {
     </div>
   );
 }
+
+function FeatureStat({ title, value }) {
+  return (
+    <div className="rounded-[28px] border border-white/12 bg-white/6 px-5 py-5 backdrop-blur">
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b6ae9d]">{title}</p>
+      <p className="mt-3 text-lg font-black tracking-tight">{value}</p>
+    </div>
+  );
+}

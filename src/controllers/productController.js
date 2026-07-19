@@ -50,6 +50,7 @@ const normalizeProductInput = (body) => {
     description: body.description || null,
     imageUrl: body.imageUrl || null,
     category: body.category || undefined,
+    subcategory: body.subcategory || null,
     price,
     costPrice,
     actualPrice,
