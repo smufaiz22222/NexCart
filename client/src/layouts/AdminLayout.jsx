@@ -64,8 +64,8 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0E11] text-[#EAECEF] selection:bg-[#F0B90B] selection:text-[#0B0E11]">
-      <div className="relative flex min-h-screen">
+    <div className="h-screen overflow-hidden bg-[#0B0E11] text-[#EAECEF] selection:bg-[#F0B90B] selection:text-[#0B0E11]">
+      <div className="relative flex h-full overflow-hidden">
         {/* Sidebar */}
         <aside className="hidden w-[260px] shrink-0 border-r border-[#2B3139] bg-[#12161C] md:flex md:flex-col">
           <div className="border-b border-[#2B3139] px-5 py-5">
@@ -133,7 +133,7 @@ export default function AdminLayout() {
         </aside>
 
         {/* Main Area */}
-        <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-w-0 flex-1 flex-col h-full overflow-hidden">
           {/* Header */}
           <header className="sticky top-0 z-30 border-b border-[#2B3139] bg-[#12161C]/95 backdrop-blur-md">
             <div className="flex items-center justify-between px-4 py-3 sm:px-6">
@@ -190,7 +190,7 @@ export default function AdminLayout() {
             )}
           </header>
 
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 overflow-y-auto">
             <Outlet />
           </main>
         </div>

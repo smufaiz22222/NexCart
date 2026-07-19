@@ -11,6 +11,8 @@ const useAuthStore = create((set) => ({
   isBootstrapping: true,
   error: null,
 
+  clearError: () => set({ error: null }),
+
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {

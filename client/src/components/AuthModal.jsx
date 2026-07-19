@@ -1,4 +1,4 @@
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { X, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
@@ -40,13 +40,22 @@ function validateRegistrationForm(formData) {
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
-  const { login, register } = useAuthStore();
+  const { login, register, clearError } = useAuthStore();
   const [activeTab, setActiveTab] = useState('login'); // 'login', 'register', or 'verify-otp'
   const [isPending, startTransition] = useTransition();
 
   // OTP Verification state
   const [tempVerifyData, setTempVerifyData] = useState(null); // { email, password }
   const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormError('');
+      setActiveTab('login');
+      setTempVerifyData(null);
+      clearError();
+    }
+  }, [isOpen, clearError]);
 
   if (!isOpen) return null;
 

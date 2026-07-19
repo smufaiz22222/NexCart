@@ -140,7 +140,7 @@ export default function CustomerLayout() {
     const sidebarLabel = showB2BSidebar ? 'B2B' : 'B2C';
 
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-[#4f46e5] selection:text-white">
+      <div className="h-screen overflow-hidden bg-[#f8fafc] flex font-sans selection:bg-[#4f46e5] selection:text-white">
         {/* Desktop Left Sidebar */}
         <aside className="hidden md:flex w-72 flex-col bg-[#1e1b4b] text-[#e0e7ff] border-r border-[#312e81] z-20 shrink-0">
           <div className="h-20 flex items-center justify-between px-8 border-b border-[#312e81]">
@@ -261,7 +261,7 @@ export default function CustomerLayout() {
         </aside>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-full overflow-hidden">
           {/* Mobile Header */}
           <header className="md:hidden h-16 bg-[#1e1b4b] text-white flex items-center justify-between px-4 sticky top-0 z-30 shadow-md">
             <button
@@ -374,7 +374,7 @@ export default function CustomerLayout() {
           )}
 
           <main
-            className={isStoreRoute ? '' : 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'}
+            className={`${isStoreRoute ? '' : 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'} flex-1 overflow-y-auto`}
           >
             <Outlet />
           </main>

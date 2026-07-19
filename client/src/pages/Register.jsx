@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowRight, Check, ShoppingBag, Store } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
@@ -54,7 +54,11 @@ export default function Register() {
   const [resendLoading, setResendLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { register, login, isLoading, error } = useAuthStore();
+  const { register, login, isLoading, error, clearError } = useAuthStore();
+
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
   const handleChange = (e) => {
     setFormData((c) => ({ ...c, [e.target.name]: e.target.value }));

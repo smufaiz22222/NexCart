@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import apiClient from '../api/axios';
 import aiAdvisorClient from '../api/aiAdvisor';
-import MetricCard from '../components/advisor/MetricCard';
 import PromptSelector from '../components/advisor/PromptSelector';
 import AdvisorTranscript from '../components/advisor/AdvisorTranscript';
 import useAuthStore from '../store/authStore';
@@ -34,21 +33,6 @@ const getSessionId = () => {
   localStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
   return nextSessionId;
 };
-
-const formatMetricValue = (key, value) => {
-  if (key === 'monthlySales') return `Rs. ${Number(value || 0).toLocaleString()}`;
-  if (key === 'repeatCustomerRate') return `${Number(value || 0).toFixed(1)}%`;
-  return value ?? 'N/A';
-};
-
-const METRIC_CARDS = [
-  { key: 'monthlySales', label: 'Current Month Sales' },
-  { key: 'lowStockProducts', label: 'Low Stock Products' },
-  { key: 'unsoldInventory', label: 'Unsold Inventory' },
-  { key: 'repeatCustomerRate', label: 'Repeat Customer Rate' },
-  { key: 'topSellingCategory', label: 'Top Category' },
-  { key: 'totalProducts', label: 'Total Products' },
-];
 
 export default function BusinessAdvisor() {
   const user = useAuthStore((state) => state.user);
@@ -309,17 +293,6 @@ export default function BusinessAdvisor() {
           {error}
         </div>
       ) : null}
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {METRIC_CARDS.map((card) => (
-          <MetricCard
-            key={card.key}
-            label={card.label}
-            value={formatMetricValue(card.key, businessContext?.[card.key])}
-            isLoading={isLoadingContext}
-          />
-        ))}
-      </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="relative flex flex-col overflow-hidden rounded-[28px] border border-zinc-800 bg-[#101010] shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
