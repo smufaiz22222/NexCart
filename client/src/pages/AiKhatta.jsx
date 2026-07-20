@@ -178,6 +178,7 @@ export default function AiKhatta() {
             </label>
 
             <button
+              type="button"
               onClick={handleProcessImage}
               disabled={!selectedFile || isProcessing}
               className="w-full mt-5 py-3.5 bg-amber-500 text-[#0a0a0a] font-extrabold tracking-wide rounded-xl disabled:bg-zinc-800 disabled:text-zinc-500 transition-all duration-300 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] disabled:shadow-none disabled:cursor-not-allowed active:scale-[0.98]"
@@ -276,12 +277,14 @@ export default function AiKhatta() {
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800/50">
               <button
+                type="button"
                 onClick={handleDownloadPDF}
                 className="flex-1 py-3 border border-zinc-700 text-zinc-300 font-bold tracking-wide rounded-xl flex justify-center items-center hover:bg-zinc-800 hover:text-white transition-colors"
               >
                 <Download className="w-4 h-4 mr-2" /> Download PDF
               </button>
               <button
+                type="button"
                 onClick={handleSaveToDatabase}
                 className="flex-1 py-3 bg-emerald-600 text-[#0a0a0a] font-extrabold tracking-wide rounded-xl flex justify-center items-center hover:bg-emerald-500 transition-colors shadow-[0_0_10px_rgba(16,185,129,0.2)]"
               >

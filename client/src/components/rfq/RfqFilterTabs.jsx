@@ -23,6 +23,7 @@ export default function RfqFilterTabs({
         return (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setSelectedFilter(tab.id)}
             className={cn(
               'px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 border',

@@ -123,6 +123,7 @@ export default function AdminLayout() {
             </div>
 
             <button
+              type="button"
               onClick={handleLogout}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#2B3139] bg-[#1E2329] px-3 py-2.5 text-sm font-medium text-[#848E9C] transition hover:border-[#F0B90B]/30 hover:text-[#F0B90B]"
             >
@@ -139,6 +140,8 @@ export default function AdminLayout() {
             <div className="flex items-center justify-between px-4 py-3 sm:px-6">
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
+                  aria-label="Toggle navigation menu"
                   onClick={() => setIsMobileMenuOpen((v) => !v)}
                   className="rounded-lg border border-[#2B3139] bg-[#1E2329] p-2 text-[#848E9C] md:hidden"
                 >

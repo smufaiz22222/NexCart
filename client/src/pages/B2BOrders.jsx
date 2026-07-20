@@ -113,6 +113,7 @@ export default function B2BOrders() {
       {/* Header */}
       <div className="mb-8">
         <button
+          type="button"
           onClick={() => navigate('/store/dashboard/b2b')}
           className="flex items-center text-sm font-semibold text-[#64748b] hover:text-[#7c3aed] transition-colors group mb-6"
         >
@@ -155,6 +156,7 @@ export default function B2BOrders() {
           return (
             <button
               key={stat.id}
+              type="button"
               onClick={() => setSelectedStatus(isActive ? 'ALL' : stat.id)}
               className={cn(
                 'relative rounded-xl border p-4 text-left transition-all duration-200 stat-card-glow stat-card-glow-purple animate-slide-in btn-press',
@@ -197,6 +199,7 @@ export default function B2BOrders() {
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setSelectedStatus(tab.id)}
               className={cn(
                 'px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 btn-press',
@@ -232,6 +235,7 @@ export default function B2BOrders() {
             Once you complete a wholesale purchase through the RFQ process, orders will appear here.
           </p>
           <button
+            type="button"
             onClick={() => navigate('/store/dashboard/rfqs')}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
           >
@@ -249,6 +253,7 @@ export default function B2BOrders() {
             Try selecting another status filter above.
           </p>
           <button
+            type="button"
             onClick={() => setSelectedStatus('ALL')}
             className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 border border-[#e2e8f0] hover:border-[#7c3aed] text-[#64748b] hover:text-[#7c3aed] rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
           >

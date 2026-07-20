@@ -5,6 +5,7 @@ export default function EmptyState({ title, description, onClear }) {
       <p className="mt-3 text-sm leading-7 text-[#64748b]">{description}</p>
       {onClear && (
         <button
+          type="button"
           onClick={onClear}
           className="mt-5 rounded-full bg-[#4f46e5] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#4338ca]"
         >

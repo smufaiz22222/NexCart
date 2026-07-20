@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Star, Store, Heart } from 'lucide-react';
+import ProductImage from '../components/ProductImage';
 import { useMarketplaceProductsInfinite, useWishlist, useToggleWishlist } from '../api/queries';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
@@ -60,6 +61,7 @@ export default function TrendingProducts() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <button
+            type="button"
             onClick={() => navigate('/store')}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2e8f0] bg-white hover:bg-[#f1f5f9] transition"
             aria-label="Back to store"
@@ -96,12 +98,19 @@ export default function TrendingProducts() {
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {products.map((product) => (
-                <button
+                <div
                   key={product.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigate(`/store/product/${product.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/store/product/${product.id}`);
+                    }
+                  }}
                   aria-label={`View details for ${product.name}`}
-                  className="group rounded-2xl bg-white p-3.5 text-left shadow-sm border border-[#e2e8f0]/60 transition hover:-translate-y-1 hover:shadow-md hover:border-[#4f46e5]/30 relative"
+                  className="group rounded-2xl bg-white p-3.5 text-left shadow-sm border border-[#e2e8f0]/60 transition hover:-translate-y-1 hover:shadow-md hover:border-[#4f46e5]/30 relative cursor-pointer"
                 >
                   <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-[#f1f5f9] p-3">
                     {product.discountPercent > 0 && (
@@ -127,15 +136,12 @@ export default function TrendingProducts() {
                         className={`w-4 h-4 ${wishlist.some((item) => item.id === product.id) ? 'fill-current' : ''}`}
                       />
                     </button>
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <Store className="h-10 w-10 text-[#94a3b8]" />
-                    )}
+                    <ProductImage
+                      src={product.imageUrl}
+                      alt={product.name}
+                      category={product.category}
+                      className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                    />
                   </div>
                   <div className="px-1 pb-1 pt-3.5">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4f46e5]">
@@ -171,7 +177,7 @@ export default function TrendingProducts() {
                       by {product.wholesaler?.businessName || 'Unknown seller'}
                     </p>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
 

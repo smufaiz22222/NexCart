@@ -26,12 +26,14 @@ export default function HeroBanner() {
             </p>
             <div className="mt-6 flex gap-3">
               <button
+                type="button"
                 onClick={handleScrollToProducts}
                 className="rounded-full bg-[#f97316] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#ea580c]"
               >
                 Shop Now
               </button>
               <button
+                type="button"
                 onClick={handleScrollToCategories}
                 className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10"
               >

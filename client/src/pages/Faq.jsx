@@ -60,6 +60,7 @@ export default function Faq() {
           return (
             <div key={item.question} className="py-5 first:pt-0 last:pb-0">
               <button
+                type="button"
                 onClick={() => toggleAccordion(index)}
                 className="flex w-full items-center justify-between text-left focus:outline-none"
               >

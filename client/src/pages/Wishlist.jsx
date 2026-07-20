@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Heart, Package, ShoppingBag, Star, Trash2 } from 'lucide-react';
+import ProductImage from '../components/ProductImage';
 import { useWishlist, useToggleWishlist } from '../api/queries';
 import useCartStore from '../store/cartStore';
 import { toast } from 'sonner';
@@ -60,6 +61,7 @@ export default function Wishlist() {
       {/* Header */}
       <div className="mb-8">
         <button
+          type="button"
           onClick={() => navigate('/store/dashboard')}
           className="flex items-center text-sm font-semibold text-[#64748b] hover:text-[#4f46e5] transition-colors group mb-6"
         >
@@ -93,6 +95,7 @@ export default function Wishlist() {
             Explore the storefront and tap the heart icon on items you love to save them here.
           </p>
           <button
+            type="button"
             onClick={() => navigate('/store')}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
           >
@@ -109,6 +112,7 @@ export default function Wishlist() {
             >
               {/* Remove from Wishlist */}
               <button
+                type="button"
                 onClick={() => handleRemoveFromWishlist(product.id, product.name)}
                 className="absolute right-3 top-3 z-10 p-2 rounded-full bg-white/90 backdrop-blur-sm hover:bg-red-50 text-[#94a3b8] hover:text-red-500 shadow-sm border border-[#e2e8f0] hover:border-red-200 transition-all duration-200 hover:scale-110"
                 title="Remove from Wishlist"
@@ -122,15 +126,12 @@ export default function Wishlist() {
                 onClick={() => navigate(`/store/product/${product.id}`)}
                 className="h-44 bg-[#f8fafc] flex items-center justify-center border-b border-[#e2e8f0] cursor-pointer overflow-hidden relative"
               >
-                {product.imageUrl ? (
-                  <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="h-full w-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <Package className="w-10 h-10 text-[#94a3b8]" />
-                )}
+                <ProductImage
+                  src={product.imageUrl}
+                  alt={product.name}
+                  category={product.category}
+                  className="h-full w-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                />
                 {product.currentStock <= 0 && (
                   <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
@@ -175,6 +176,7 @@ export default function Wishlist() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => handleAddToCart(product)}
                   disabled={product.currentStock <= 0}
                   className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1e293b] hover:bg-[#4f46e5] disabled:bg-[#e2e8f0] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all btn-press"

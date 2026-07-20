@@ -30,6 +30,7 @@ export default function SearchBar({
           </div>
           {isSearchOrFilterActive && (
             <button
+              type="button"
               onClick={clearFilters}
               className="w-full rounded-full border border-[#e2e8f0] bg-white px-4 py-3 text-xs font-bold text-[#64748b] transition hover:bg-[#4f46e5] hover:text-white hover:border-[#4f46e5] sm:w-auto"
             >
@@ -46,6 +47,7 @@ export default function SearchBar({
               <span className="flex items-center gap-1 rounded-full bg-[#4f46e5] px-3 py-1 text-xs font-bold text-white">
                 {selectedCategory}
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedCategory('All');
                     setSelectedSubcategory(null);
@@ -63,6 +65,7 @@ export default function SearchBar({
                 <span className="flex items-center gap-1 rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white">
                   {selectedSubcategory}
                   <button
+                    type="button"
                     onClick={() => setSelectedSubcategory(null)}
                     className="ml-0.5 rounded-full hover:bg-white/20 p-0.5"
                     aria-label="Remove subcategory filter"
@@ -76,6 +79,7 @@ export default function SearchBar({
               <span className="flex items-center gap-1 text-xs">
                 &mdash; &quot;{debouncedSearch}&quot;
                 <button
+                  type="button"
                   onClick={() => {
                     setSearchTerm('');
                     setDebouncedSearch('');
@@ -89,6 +93,7 @@ export default function SearchBar({
             )}
             {(selectedCategory !== 'All' || selectedSubcategory || debouncedSearch) && (
               <button
+                type="button"
                 onClick={resetCategory}
                 className="ml-2 text-xs font-bold text-[#4f46e5] hover:underline"
               >

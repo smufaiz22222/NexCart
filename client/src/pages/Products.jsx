@@ -200,6 +200,7 @@ export default function Products() {
           <p className="text-sm text-text-muted mt-1">Add and manage your inventory catalog.</p>
         </div>
         <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center justify-center px-4 py-2.5 bg-brand-primary text-white font-semibold rounded-md hover:bg-brand-primary-hover transition-colors shadow-sm"
         >
@@ -216,6 +217,7 @@ export default function Products() {
             {error?.response?.data?.error || error?.message || 'Unknown error'}
           </p>
           <button
+            type="button"
             onClick={() => refetch()}
             className="px-5 py-2 bg-semantic-danger hover:bg-semantic-danger/90 text-white font-semibold rounded-md transition-colors"
           >
@@ -275,6 +277,8 @@ export default function Products() {
                 </p>
               </div>
               <button
+                type="button"
+                aria-label="Close modal"
                 onClick={() => setIsModalOpen(false)}
                 className="rounded-full p-2 text-text-muted hover:bg-bg-card-hover hover:text-text-title transition-all"
               >

@@ -78,6 +78,7 @@ export default function BuyAgain() {
       {/* Header */}
       <div className="mb-8">
         <button
+          type="button"
           onClick={() => navigate('/store/dashboard')}
           className="flex items-center text-sm font-semibold text-[#64748b] hover:text-[#4f46e5] transition-colors group mb-6"
         >
@@ -113,6 +114,7 @@ export default function BuyAgain() {
             Once you receive your first order, products will appear here for easy reordering.
           </p>
           <button
+            type="button"
             onClick={() => navigate('/store')}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
           >
@@ -193,6 +195,7 @@ export default function BuyAgain() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => handleAddToCart(product)}
                   disabled={product.currentStock <= 0}
                   className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1e293b] hover:bg-[#4f46e5] disabled:bg-[#e2e8f0] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all btn-press"

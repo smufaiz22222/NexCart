@@ -42,6 +42,7 @@ export default function CategorySelector({
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-black tracking-tight">Shop by Category</h2>
         <button
+          type="button"
           onClick={clearFilters}
           className="text-sm font-semibold text-[#4f46e5] transition hover:underline"
         >
@@ -55,6 +56,7 @@ export default function CategorySelector({
           return (
             <button
               key={category.slug}
+              type="button"
               onClick={() => handleCategoryClick(category.name)}
               className={`flex flex-col items-center gap-2 rounded-2xl border p-4 transition hover:-translate-y-0.5 ${
                 isActive
@@ -93,6 +95,7 @@ export default function CategorySelector({
             {activeCategoryData.subcategories.map((sub) => (
               <button
                 key={sub}
+                type="button"
                 onClick={() => handleSubcategoryClick(sub)}
                 className={`rounded-full px-3.5 py-2 text-xs font-semibold transition ${
                   selectedSubcategory === sub

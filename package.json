@@ -25,6 +25,8 @@
     "recommendations:seed-demo": "node prisma/seedRecommendationDemo.js",
     "recommendations:prepare-demo": "node src/jobs/prepareRecommendationDemo.js",
     "recommendations:test-access": "node src/jobs/testRecommendationAccess.js",
+    "db:clear": "node scripts/clearDb.js",
+    "db:seed:8k": "node scripts/seed8kProducts.js",
     "db:reset": "prisma migrate reset --force",
     "test": "node --test src/**/*.test.js"
   },

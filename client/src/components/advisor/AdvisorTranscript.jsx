@@ -176,13 +176,13 @@ const TextBlock = ({ text }) => {
     currentAlert = null;
   };
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const key = `line-${i}`;
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    const itemKey = `md-${lineIndex}-${line.trim().slice(0, 15)}`;
 
     // Blockquote & Alerts
     if (line.startsWith('>')) {
-      flushList(`flush-list-before-alert-${i}`);
+      flushList(`flush-list-before-alert-${lineIndex}`);
       const content = line.slice(1).trim();
       if (!currentAlert) {
         let type = 'NOTE';
@@ -206,7 +206,7 @@ const TextBlock = ({ text }) => {
       }
       continue;
     } else {
-      flushAlert(`flush-alert-before-text-${i}`);
+      flushAlert(`flush-alert-before-text-${lineIndex}`);
     }
 
     // Bullet Lists
@@ -214,7 +214,7 @@ const TextBlock = ({ text }) => {
     if (bulletMatch) {
       const itemContent = bulletMatch[1];
       if (!currentList || currentList.type !== 'ul') {
-        flushList(`flush-list-change-${i}`);
+        flushList(`flush-list-change-${lineIndex}`);
         currentList = { type: 'ul', items: [itemContent] };
       } else {
         currentList.items.push(itemContent);
@@ -227,7 +227,7 @@ const TextBlock = ({ text }) => {
     if (numMatch) {
       const itemContent = numMatch[1];
       if (!currentList || currentList.type !== 'ol') {
-        flushList(`flush-list-change-${i}`);
+        flushList(`flush-list-change-${lineIndex}`);
         currentList = { type: 'ol', items: [itemContent] };
       } else {
         currentList.items.push(itemContent);
@@ -236,13 +236,13 @@ const TextBlock = ({ text }) => {
     }
 
     // Flush active list on text line
-    flushList(`flush-list-text-${i}`);
+    flushList(`flush-list-text-${lineIndex}`);
 
     // Headers
     if (line.startsWith('### ')) {
       elements.push(
         <h4
-          key={key}
+          key={itemKey}
           className="text-sm font-black uppercase tracking-wider text-zinc-100 mt-4 mb-2"
         >
           <InlineText text={line.slice(4)} />
@@ -250,21 +250,21 @@ const TextBlock = ({ text }) => {
       );
     } else if (line.startsWith('## ')) {
       elements.push(
-        <h3 key={key} className="text-base font-black tracking-tight text-white mt-5 mb-2">
+        <h3 key={itemKey} className="text-base font-black tracking-tight text-white mt-5 mb-2">
           <InlineText text={line.slice(3)} />
         </h3>
       );
     } else if (line.startsWith('# ')) {
       elements.push(
-        <h2 key={key} className="text-lg font-black tracking-tight text-white mt-6 mb-2.5">
+        <h2 key={itemKey} className="text-lg font-black tracking-tight text-white mt-6 mb-2.5">
           <InlineText text={line.slice(2)} />
         </h2>
       );
     } else if (line.trim() === '') {
-      elements.push(<div key={key} className="h-2" />);
+      elements.push(<div key={itemKey} className="h-2" />);
     } else {
       elements.push(
-        <p key={key} className="text-sm leading-relaxed text-zinc-300 my-1">
+        <p key={itemKey} className="text-sm leading-relaxed text-zinc-300 my-1">
           <InlineText text={line} />
         </p>
       );

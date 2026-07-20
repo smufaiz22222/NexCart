@@ -160,16 +160,21 @@ export default function SaleModal({ onClose, parties = EMPTY_PARTIES, products =
           </div>
 
           <div className="space-y-4">
-            {saleForm.items.map((item, index) => (
+            {saleForm.items.map((item, itemIndex) => (
               <div
-                key={`${index}-${item.productId}`}
+                key={
+                  item.id ||
+                  (item.productId
+                    ? `sale-${item.productId}`
+                    : `sale-item-${item.quantity}-${item.unitPrice}`)
+                }
                 className="grid gap-4 rounded-2xl border border-zinc-800 bg-[#111111] p-4 md:grid-cols-[1.4fr_0.6fr_0.8fr_auto]"
               >
-                <Field label={`Product ${index + 1}`}>
+                <Field label={`Product ${itemIndex + 1}`}>
                   <select
                     required
                     value={item.productId}
-                    onChange={(event) => updateSaleItem(index, 'productId', event.target.value)}
+                    onChange={(event) => updateSaleItem(itemIndex, 'productId', event.target.value)}
                     className={inputClassName()}
                   >
                     <option value="">Select product</option>
@@ -187,7 +192,7 @@ export default function SaleModal({ onClose, parties = EMPTY_PARTIES, products =
                     min="1"
                     aria-label="Quantity"
                     value={item.quantity}
-                    onChange={(event) => updateSaleItem(index, 'quantity', event.target.value)}
+                    onChange={(event) => updateSaleItem(itemIndex, 'quantity', event.target.value)}
                     className={inputClassName()}
                   />
                 </Field>
@@ -199,14 +204,14 @@ export default function SaleModal({ onClose, parties = EMPTY_PARTIES, products =
                     step="0.01"
                     aria-label="Unit price"
                     value={item.unitPrice}
-                    onChange={(event) => updateSaleItem(index, 'unitPrice', event.target.value)}
+                    onChange={(event) => updateSaleItem(itemIndex, 'unitPrice', event.target.value)}
                     className={inputClassName()}
                   />
                 </Field>
                 <div className="flex items-end">
                   <button
                     type="button"
-                    onClick={() => removeSaleItem(index)}
+                    onClick={() => removeSaleItem(itemIndex)}
                     disabled={saleForm.items.length === 1}
                     className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-xs font-bold text-rose-300 disabled:opacity-40"
                   >

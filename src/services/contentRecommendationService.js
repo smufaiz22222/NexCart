@@ -79,9 +79,9 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
     return { productId: doc.product.id, textCorpus: doc.textCorpus, vector };
   });
 
-  await prisma.$transaction(async (tx) => {
-    for (const item of vectors) {
-      await tx.productFeature.upsert({
+  await Promise.all(
+    vectors.map((item) =>
+      prisma.productFeature.upsert({
         where: { productId: item.productId },
         update: {
           textCorpus: item.textCorpus,
@@ -93,36 +93,40 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
           textCorpus: item.textCorpus,
           tfidfVector: item.vector,
         },
-      });
-    }
+      })
+    )
+  );
 
-    await tx.productSimilarity.deleteMany({ where: { method: 'CONTENT' } });
+  const similarityRows = [];
+  for (const source of vectors) {
+    const ranked = vectors
+      .filter((candidate) => candidate.productId !== source.productId)
+      .map((candidate) => ({
+        productId: source.productId,
+        similarProductId: candidate.productId,
+        score: cosineSimilarity(source.vector, candidate.vector),
+      }))
+      .filter((candidate) => candidate.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+      .map((candidate, index) => ({
+        ...candidate,
+        method: 'CONTENT',
+        rank: index + 1,
+      }));
 
-    const similarityRows = [];
-    for (const source of vectors) {
-      const ranked = vectors
-        .filter((candidate) => candidate.productId !== source.productId)
-        .map((candidate) => ({
-          productId: source.productId,
-          similarProductId: candidate.productId,
-          score: cosineSimilarity(source.vector, candidate.vector),
-        }))
-        .filter((candidate) => candidate.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, topK)
-        .map((candidate, index) => ({
-          ...candidate,
-          method: 'CONTENT',
-          rank: index + 1,
-        }));
+    similarityRows.push(...ranked);
+  }
 
-      similarityRows.push(...ranked);
-    }
-
-    if (similarityRows.length > 0) {
-      await tx.productSimilarity.createMany({ data: similarityRows });
-    }
-  });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.productSimilarity.deleteMany({ where: { method: 'CONTENT' } });
+      if (similarityRows.length > 0) {
+        await tx.productSimilarity.createMany({ data: similarityRows });
+      }
+    },
+    { timeout: 60000 }
+  );
 
   const similaritiesCreated = vectors.length * Math.min(topK, Math.max(products.length - 1, 0));
   return { productsProcessed: products.length, similaritiesCreated };

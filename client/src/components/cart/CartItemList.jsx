@@ -1,5 +1,6 @@
 import React from 'react';
-import { Minus, Plus, Package, Trash2 } from 'lucide-react';
+import { Minus, Plus, Trash2 } from 'lucide-react';
+import ProductImage from '../ProductImage';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -22,15 +23,16 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
           {/* Product Image */}
           <div className="relative flex h-24 w-24 items-center justify-center rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-2 shrink-0">
             {item.selectedSize && (
-              <span className="absolute -right-1.5 -top-1.5 rounded-md bg-[#4f46e5] px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm">
+              <span className="absolute -right-1.5 -top-1.5 rounded-md bg-[#4f46e5] px-1.5 py-0.5 text-[8px] font-bold text-white shadow-sm z-10">
                 {item.selectedSize}
               </span>
             )}
-            {item.imageUrl ? (
-              <img src={item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
-            ) : (
-              <Package className="h-8 w-8 text-[#c7d2fe]" />
-            )}
+            <ProductImage
+              src={item.imageUrl}
+              alt={item.name}
+              category={item.category}
+              className="h-full w-full object-contain"
+            />
           </div>
 
           {/* Product Details */}
@@ -49,6 +51,7 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
+                  aria-label="Decrease quantity"
                   disabled={item.quantity <= 1}
                   onClick={() => updateQuantity(item.id, item.quantity - 1).catch(() => {})}
                   className="w-7 h-7 rounded-lg bg-[#f1f5f9] border border-[#e2e8f0] flex items-center justify-center text-[#64748b] hover:bg-[#eef2ff] hover:text-[#4f46e5] hover:border-[#c7d2fe] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
@@ -60,6 +63,7 @@ export default function CartItemList({ cart, updateQuantity, removeFromCart }) {
                 </span>
                 <button
                   type="button"
+                  aria-label="Increase quantity"
                   onClick={() => updateQuantity(item.id, item.quantity + 1).catch(() => {})}
                   className="w-7 h-7 rounded-lg bg-[#f1f5f9] border border-[#e2e8f0] flex items-center justify-center text-[#64748b] hover:bg-[#eef2ff] hover:text-[#4f46e5] hover:border-[#c7d2fe] transition-all"
                 >

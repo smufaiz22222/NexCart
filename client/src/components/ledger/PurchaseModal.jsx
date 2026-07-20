@@ -165,16 +165,23 @@ export default function PurchaseModal({
           </div>
 
           <div className="space-y-4">
-            {purchaseForm.items.map((item, index) => (
+            {purchaseForm.items.map((item, itemIndex) => (
               <div
-                key={`${index}-${item.productId}`}
+                key={
+                  item.id ||
+                  (item.productId
+                    ? `purchase-${item.productId}`
+                    : `purchase-item-${item.quantity}-${item.unitPrice}`)
+                }
                 className="grid gap-4 rounded-2xl border border-zinc-800 bg-[#111111] p-4 md:grid-cols-[1.4fr_0.6fr_0.8fr_auto]"
               >
-                <Field label={`Product ${index + 1}`}>
+                <Field label={`Product ${itemIndex + 1}`}>
                   <select
                     required
                     value={item.productId}
-                    onChange={(event) => updatePurchaseItem(index, 'productId', event.target.value)}
+                    onChange={(event) =>
+                      updatePurchaseItem(itemIndex, 'productId', event.target.value)
+                    }
                     className={inputClassName()}
                   >
                     <option value="">Select product</option>
@@ -192,7 +199,9 @@ export default function PurchaseModal({
                     min="1"
                     aria-label="Quantity"
                     value={item.quantity}
-                    onChange={(event) => updatePurchaseItem(index, 'quantity', event.target.value)}
+                    onChange={(event) =>
+                      updatePurchaseItem(itemIndex, 'quantity', event.target.value)
+                    }
                     className={inputClassName()}
                   />
                 </Field>
@@ -204,14 +213,16 @@ export default function PurchaseModal({
                     step="0.01"
                     aria-label="Unit price"
                     value={item.unitPrice}
-                    onChange={(event) => updatePurchaseItem(index, 'unitPrice', event.target.value)}
+                    onChange={(event) =>
+                      updatePurchaseItem(itemIndex, 'unitPrice', event.target.value)
+                    }
                     className={inputClassName()}
                   />
                 </Field>
                 <div className="flex items-end">
                   <button
                     type="button"
-                    onClick={() => removePurchaseItem(index)}
+                    onClick={() => removePurchaseItem(itemIndex)}
                     disabled={purchaseForm.items.length === 1}
                     className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-3 text-xs font-bold text-rose-300 disabled:opacity-40"
                   >

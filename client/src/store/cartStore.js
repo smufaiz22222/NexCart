@@ -239,17 +239,19 @@ const useCartStore = create(
 
         set({ isMutating: true });
         try {
-          for (const item of localCart) {
-            try {
-              await apiClient.post('/cart/items', {
-                productId: item.productId,
-                selectedSize: item.selectedSize,
-                quantity: item.quantity,
-              });
-            } catch (err) {
-              console.error(`Failed to sync item ${item.name} to backend:`, err);
-            }
-          }
+          await Promise.all(
+            localCart.map(async (item) => {
+              try {
+                await apiClient.post('/cart/items', {
+                  productId: item.productId,
+                  selectedSize: item.selectedSize,
+                  quantity: item.quantity,
+                });
+              } catch (err) {
+                console.error(`Failed to sync item ${item.name} to backend:`, err);
+              }
+            })
+          );
           const response = await apiClient.get('/cart');
           set({
             ...normalizeCartResponse(response.data),

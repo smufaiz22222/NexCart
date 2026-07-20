@@ -1,12 +1,20 @@
-import { Heart, Star, Store } from 'lucide-react';
+import { Heart, Star } from 'lucide-react';
+import ProductImage from '../ProductImage';
 
 export default function ProductCard({ product, onClick, isWishlisted, onWishlistToggle }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       aria-label={`View details for ${product.name}`}
-      className="group rounded-2xl bg-white p-3.5 text-left shadow-sm border border-[#e2e8f0]/60 transition hover:-translate-y-1 hover:shadow-md hover:border-[#4f46e5]/30 relative"
+      className="group rounded-2xl bg-white p-3.5 text-left shadow-sm border border-[#e2e8f0]/60 transition hover:-translate-y-1 hover:shadow-md hover:border-[#4f46e5]/30 relative cursor-pointer"
     >
       <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-[#f1f5f9] p-3">
         {product.discountPercent > 0 && (
@@ -17,7 +25,10 @@ export default function ProductCard({ product, onClick, isWishlisted, onWishlist
         {onWishlistToggle && (
           <button
             type="button"
-            onClick={onWishlistToggle}
+            onClick={(e) => {
+              e.stopPropagation();
+              onWishlistToggle(e);
+            }}
             aria-label={
               isWishlisted
                 ? `Remove ${product.name} from wishlist`
@@ -30,15 +41,12 @@ export default function ProductCard({ product, onClick, isWishlisted, onWishlist
             <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
           </button>
         )}
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <Store className="h-10 w-10 text-[#94a3b8]" />
-        )}
+        <ProductImage
+          src={product.imageUrl}
+          alt={product.name}
+          category={product.category}
+          className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+        />
       </div>
       <div className="px-1 pb-1 pt-3.5">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4f46e5]">
@@ -72,7 +80,7 @@ export default function ProductCard({ product, onClick, isWishlisted, onWishlist
           by {product.wholesaler?.businessName || 'Unknown seller'}
         </p>
       </div>
-    </button>
+    </div>
   );
 }
 

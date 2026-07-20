@@ -237,7 +237,19 @@ export default function DataTable({
                           isSortable && 'cursor-pointer hover:opacity-80 transition-colors',
                           metaClassName || 'text-left'
                         )}
-                        onClick={header.column.getToggleSortingHandler()}
+                        onClick={isSortable ? header.column.getToggleSortingHandler() : undefined}
+                        onKeyDown={
+                          isSortable
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  header.column.getToggleSortingHandler()?.(e);
+                                }
+                              }
+                            : undefined
+                        }
+                        tabIndex={isSortable ? 0 : undefined}
+                        role={isSortable ? 'button' : undefined}
                       >
                         {header.isPlaceholder ? null : (
                           <div
@@ -280,10 +292,23 @@ export default function DataTable({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? 'button' : undefined}
                     onClick={() => onRowClick && onRowClick(row.original)}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onRowClick(row.original);
+                            }
+                          }
+                        : undefined
+                    }
                     className={cn(
                       'hover:bg-bg-card-hover/20 transition-colors group',
-                      onRowClick && 'cursor-pointer',
+                      onRowClick &&
+                        'cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-primary',
                       row.getIsSelected() &&
                         'bg-brand-primary-light hover:bg-brand-primary-light/80',
                       rowClassName
@@ -412,6 +437,7 @@ function TablePagination({ table, tableState, totalRowsCount }) {
         <div className="flex items-center gap-2">
           <span>Show</span>
           <select
+            aria-label="Rows per page"
             value={tableState.pagination.pageSize}
             onChange={(e) => table.setPageSize(Number(e.target.value))}
             className="bg-bg-main border border-border-subtle text-text-body rounded-md py-1.5 px-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary cursor-pointer"

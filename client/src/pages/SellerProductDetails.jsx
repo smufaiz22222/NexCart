@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../api/axios';
+import ProductImage from '../components/ProductImage';
 import { ProductForm } from '../components/ProductForm';
 import { toast } from 'sonner';
 
@@ -169,17 +170,12 @@ export default function SellerProductDetails() {
         <section className="rounded-[28px] border border-zinc-800 bg-[#141414] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div className="grid gap-6 md:grid-cols-[220px_1fr]">
             <div className="rounded-[24px] border border-zinc-800 bg-[#f5f5f0] p-4">
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <div className="flex h-full min-h-[220px] items-center justify-center text-sm font-bold uppercase tracking-[0.3em] text-zinc-500">
-                  No Image
-                </div>
-              )}
+              <ProductImage
+                src={product.imageUrl}
+                alt={product.name}
+                category={product.category}
+                className="h-full w-full object-contain min-h-[220px]"
+              />
             </div>
 
             <div className="space-y-4">
@@ -281,6 +277,8 @@ export default function SellerProductDetails() {
             <div className="border-b border-zinc-800 bg-[#0a0a0a] px-6 py-4 flex justify-between items-center">
               <h2 className="text-lg font-bold tracking-wide text-white">Edit Product</h2>
               <button
+                type="button"
+                aria-label="Close edit product modal"
                 onClick={() => setIsModalOpen(false)}
                 className="rounded-full p-2 text-zinc-500 hover:bg-zinc-800 hover:text-white transition-all"
               >
@@ -427,7 +425,7 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
           <div className="space-y-3">
             {editedTiers.map((tier, index) => (
               <div
-                key={tier.id || index}
+                key={tier.id || `tier-edit-${tier.minQuantity}-${tier.unitPrice}`}
                 className="grid grid-cols-[1fr_1fr_auto] gap-4 items-center animate-in fade-in slide-in-from-top-1 duration-200"
               >
                 <input
@@ -521,14 +519,14 @@ function VolumeTiersSection({ product, onUpdateTiers }) {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-              {product.priceTiers.map((tier, idx) => {
+              {product.priceTiers.map((tier) => {
                 const savings =
                   product.price > 0
                     ? Math.round(((product.price - tier.unitPrice) / product.price) * 100)
                     : 0;
                 return (
                   <div
-                    key={tier.id || idx}
+                    key={tier.id || `tier-view-${tier.minQuantity}-${tier.unitPrice}`}
                     className="rounded-2xl border border-zinc-800/80 bg-zinc-900/20 p-5 flex flex-col justify-between hover:border-zinc-700 transition duration-300"
                   >
                     <div>

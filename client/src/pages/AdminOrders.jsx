@@ -4,7 +4,8 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { ShoppingBag, Search, Filter } from 'lucide-react';
 import apiClient from '../api/axios';
 import DataTable from '../components/DataTable';
-import { PageHeader, StatusBadge } from '../components/admin';
+import PageHeader from '../components/admin/PageHeader';
+import StatusBadge from '../components/admin/StatusBadge';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -189,6 +190,7 @@ export default function AdminOrders() {
         <div className="flex items-center gap-3">
           <Filter className="h-4 w-4 text-[#5E6673]" />
           <select
+            aria-label="Filter orders by status"
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);

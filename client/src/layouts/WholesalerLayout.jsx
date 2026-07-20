@@ -158,6 +158,8 @@ export default function WholesalerLayout() {
         >
           <div className="md:hidden">
             <button
+              type="button"
+              aria-label="Toggle mobile menu"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className={`focus:outline-none transition-all p-2 -ml-2 rounded-md ${
                 theme === 'light'
@@ -185,6 +187,7 @@ export default function WholesalerLayout() {
               }`}
             >
               <button
+                type="button"
                 onClick={() => toggleTheme('light')}
                 className={`flex items-center px-2.5 py-1 rounded-md text-xs font-semibold tracking-wide transition-all duration-300 ${
                   theme === 'light'
@@ -198,6 +201,7 @@ export default function WholesalerLayout() {
                 Light
               </button>
               <button
+                type="button"
                 onClick={() => toggleTheme('dark')}
                 className={`flex items-center px-2.5 py-1 rounded-md text-xs font-semibold tracking-wide transition-all duration-300 ${
                   theme === 'dark'
@@ -223,6 +227,7 @@ export default function WholesalerLayout() {
             </span>
             <NotificationBell />
             <button
+              type="button"
               onClick={handleLogout}
               className={`flex items-center text-xs font-bold uppercase tracking-wider px-3.5 py-2 rounded-md transition-all duration-300 border ${
                 theme === 'light'
@@ -239,8 +244,10 @@ export default function WholesalerLayout() {
         {isMobileMenuOpen && (
           <>
             {/* Mobile Backdrop Overlay */}
-            <div
-              className="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-10 md:hidden animate-fade-in"
+            <button
+              type="button"
+              aria-label="Close mobile navigation backdrop"
+              className="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-10 md:hidden animate-fade-in cursor-default"
               onClick={() => setIsMobileMenuOpen(false)}
             />
             <nav

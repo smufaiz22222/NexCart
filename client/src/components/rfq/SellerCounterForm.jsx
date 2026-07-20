@@ -21,6 +21,7 @@ export default function SellerCounterForm({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label
+            htmlFor="seller-counter-price"
             className={cn(
               'block text-xs font-semibold uppercase tracking-wider mb-2',
               isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
@@ -29,6 +30,7 @@ export default function SellerCounterForm({
             Counter Offer Price (₹ per unit) *
           </label>
           <input
+            id="seller-counter-price"
             required
             type="number"
             step="0.01"
@@ -46,6 +48,7 @@ export default function SellerCounterForm({
         </div>
         <div>
           <label
+            htmlFor="seller-counter-quantity"
             className={cn(
               'block text-xs font-semibold uppercase tracking-wider mb-2',
               isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
@@ -54,6 +57,7 @@ export default function SellerCounterForm({
             Counter Quantity (units)
           </label>
           <input
+            id="seller-counter-quantity"
             type="number"
             aria-label="Counter Quantity"
             value={counterState.counterQuantity}
@@ -69,6 +73,7 @@ export default function SellerCounterForm({
         </div>
         <div>
           <label
+            htmlFor="seller-counter-notes"
             className={cn(
               'block text-xs font-semibold uppercase tracking-wider mb-2',
               isWholesalerPath ? 'text-zinc-400' : 'text-[#6C757D]'
@@ -77,6 +82,7 @@ export default function SellerCounterForm({
             Counter Notes / Justification
           </label>
           <input
+            id="seller-counter-notes"
             type="text"
             aria-label="Counter Notes / Justification"
             value={counterState.sellerNotes}
@@ -93,6 +99,7 @@ export default function SellerCounterForm({
       </div>
       <div className="flex justify-end gap-2">
         <button
+          type="button"
           onClick={onCancel}
           className={cn(
             'px-4 py-2 rounded-md text-xs font-medium transition-all border',
@@ -104,6 +111,7 @@ export default function SellerCounterForm({
           Cancel
         </button>
         <button
+          type="button"
           onClick={() =>
             onSubmit(rfq.id, 'COUNTER_OFFERED', {
               counterPrice: counterState.counterPrice,

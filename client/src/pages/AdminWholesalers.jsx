@@ -17,7 +17,10 @@ import {
 } from 'lucide-react';
 import apiClient from '../api/axios';
 import DataTable from '../components/DataTable';
-import { Panel, PageHeader, StatusBadge, EmptyState } from '../components/admin';
+import Panel from '../components/admin/Panel';
+import PageHeader from '../components/admin/PageHeader';
+import StatusBadge from '../components/admin/StatusBadge';
+import EmptyState from '../components/admin/EmptyState';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -139,154 +142,15 @@ export default function AdminWholesalers() {
     [b2bActionMutation]
   );
 
-  const directoryColumns = useMemo(
-    () => [
-      columnHelper.accessor('businessName', {
-        header: 'Business',
-        cell: (info) => (
-          <div>
-            <p className="font-semibold text-[#EAECEF]">{info.getValue()}</p>
-            <p className="text-xs text-[#5E6673]">{info.row.original.ownerEmail}</p>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('productCount', {
-        header: 'Products',
-        cell: (info) => <span className="font-medium text-[#EAECEF]">{info.getValue()}</span>,
-      }),
-      columnHelper.accessor('orderCount', {
-        header: 'Orders',
-        cell: (info) => <span className="font-medium text-[#EAECEF]">{info.getValue()}</span>,
-      }),
-      columnHelper.accessor('revenue', {
-        header: 'Revenue',
-        cell: (info) => (
-          <span className="font-bold text-[#0ECB81]">{formatCurrency(info.getValue())}</span>
-        ),
-        meta: { className: 'text-right' },
-      }),
-      columnHelper.accessor('lowStockCount', {
-        header: 'Low Stock',
-        cell: (info) => {
-          const val = info.getValue();
-          return (
-            <StatusBadge variant={val > 0 ? 'warning' : 'success'}>
-              {val > 0 ? `${val} items` : 'OK'}
-            </StatusBadge>
-          );
-        },
-      }),
-      columnHelper.display({
-        id: 'actions',
-        header: '',
-        cell: (info) => (
-          <button
-            onClick={() => setSelectedWholesalerId(info.row.original.id)}
-            className="rounded-md bg-[#F0B90B]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F0B90B] transition hover:bg-[#F0B90B]/20"
-          >
-            <Eye className="mr-1 inline h-3 w-3" />
-            Inspect
-          </button>
-        ),
-      }),
-    ],
-    []
-  );
+  const directoryColumns = useMemo(() => getDirectoryColumns(setSelectedWholesalerId), []);
 
   const applicationColumns = useMemo(
-    () => [
-      columnHelper.accessor('businessName', {
-        header: 'Business',
-        cell: (info) => <p className="font-semibold text-[#EAECEF]">{info.getValue()}</p>,
-      }),
-      columnHelper.accessor('user.email', {
-        header: 'Email',
-        cell: (info) => <span className="text-[#848E9C]">{info.getValue()}</span>,
-      }),
-      columnHelper.accessor('onboardingStatus', {
-        header: 'Status',
-        cell: (info) => <StatusBadge variant="warning">{info.getValue()}</StatusBadge>,
-      }),
-      columnHelper.accessor('businessPhone', {
-        header: 'Phone',
-        cell: (info) => <span className="text-[#848E9C]">{info.getValue() || 'N/A'}</span>,
-      }),
-      columnHelper.display({
-        id: 'actions',
-        header: 'Actions',
-        cell: (info) => (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleApproveWholesaler(info.row.original.id)}
-              className="rounded-md bg-[#0ECB81]/10 px-3 py-1.5 text-[11px] font-semibold text-[#0ECB81] transition hover:bg-[#0ECB81]/20"
-            >
-              <CheckCircle2 className="mr-1 inline h-3 w-3" />
-              Approve
-            </button>
-            <button
-              onClick={() => handleRejectWholesaler(info.row.original.id)}
-              className="rounded-md bg-[#F6465D]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F6465D] transition hover:bg-[#F6465D]/20"
-            >
-              <XCircle className="mr-1 inline h-3 w-3" />
-              Reject
-            </button>
-          </div>
-        ),
-      }),
-    ],
+    () => getApplicationColumns(handleApproveWholesaler, handleRejectWholesaler),
     [handleApproveWholesaler, handleRejectWholesaler]
   );
 
   const b2bColumns = useMemo(
-    () => [
-      columnHelper.accessor('companyName', {
-        header: 'Company',
-        cell: (info) => (
-          <div>
-            <p className="font-semibold text-[#EAECEF]">{info.getValue()}</p>
-            <p className="text-xs text-[#5E6673]">{info.row.original.user?.name}</p>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('user.email', {
-        header: 'Email',
-        cell: (info) => <span className="text-[#848E9C]">{info.getValue()}</span>,
-      }),
-      columnHelper.accessor('taxId', {
-        header: 'Tax ID',
-        cell: (info) => (
-          <span className="rounded bg-[#2B3139] px-2 py-0.5 font-mono text-xs text-[#F0B90B]">
-            {info.getValue()}
-          </span>
-        ),
-      }),
-      columnHelper.accessor('businessAddress', {
-        header: 'Address',
-        cell: (info) => (
-          <span className="max-w-[180px] truncate text-xs text-[#848E9C]">{info.getValue()}</span>
-        ),
-      }),
-      columnHelper.display({
-        id: 'actions',
-        header: 'Actions',
-        cell: (info) => (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleB2BApprove(info.row.original.id)}
-              className="rounded-md bg-[#0ECB81]/10 px-3 py-1.5 text-[11px] font-semibold text-[#0ECB81] transition hover:bg-[#0ECB81]/20"
-            >
-              Approve
-            </button>
-            <button
-              onClick={() => handleB2BReject(info.row.original.id)}
-              className="rounded-md bg-[#F6465D]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F6465D] transition hover:bg-[#F6465D]/20"
-            >
-              Reject
-            </button>
-          </div>
-        ),
-      }),
-    ],
+    () => getB2BColumns(handleB2BApprove, handleB2BReject),
     [handleB2BApprove, handleB2BReject]
   );
 
@@ -313,6 +177,7 @@ export default function AdminWholesalers() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
               activeTab === tab.id
@@ -338,56 +203,30 @@ export default function AdminWholesalers() {
 
       {/* Tab Content */}
       {activeTab === 'directory' && (
-        <div className="space-y-6">
-          <Panel title="All Wholesalers" eyebrow="Seller directory" icon={Building2}>
-            <DataTable
-              columns={directoryColumns}
-              data={wholesalersData || []}
-              isLoading={isLoadingWholesalers}
-              searchPlaceholder="Search wholesalers..."
-              emptyStateMessage="No wholesalers found."
-            />
-          </Panel>
-
-          {selectedWholesalerId && (
-            <TenantDetailPanel
-              tenant={tenantData}
-              isLoading={isLoadingTenant}
-              onClose={() => setSelectedWholesalerId(null)}
-            />
-          )}
-        </div>
+        <WholesalersDirectoryTab
+          directoryColumns={directoryColumns}
+          wholesalersData={wholesalersData}
+          isLoadingWholesalers={isLoadingWholesalers}
+          selectedWholesalerId={selectedWholesalerId}
+          setSelectedWholesalerId={setSelectedWholesalerId}
+          tenantData={tenantData}
+          isLoadingTenant={isLoadingTenant}
+        />
       )}
 
       {activeTab === 'applications' && (
-        <Panel title="Pending Applications" eyebrow="Onboarding queue" icon={Shield}>
-          {pendingApplications.length > 0 ? (
-            <DataTable
-              columns={applicationColumns}
-              data={pendingApplications}
-              searchPlaceholder="Search applications..."
-              emptyStateMessage="No pending applications."
-            />
-          ) : (
-            <EmptyState icon={CheckCircle2} message="No pending wholesaler applications." />
-          )}
-        </Panel>
+        <PendingApplicationsTab
+          applicationColumns={applicationColumns}
+          pendingApplications={pendingApplications}
+        />
       )}
 
       {activeTab === 'b2b' && (
-        <Panel title="B2B Business Applications" eyebrow="Verification queue" icon={Shield}>
-          {pendingB2B.length > 0 ? (
-            <DataTable
-              columns={b2bColumns}
-              data={pendingB2B}
-              isLoading={isLoadingB2B}
-              searchPlaceholder="Search B2B applications..."
-              emptyStateMessage="No pending verifications."
-            />
-          ) : (
-            <EmptyState icon={CheckCircle2} message="No pending B2B verifications." />
-          )}
-        </Panel>
+        <B2BApplicationsTab
+          b2bColumns={b2bColumns}
+          pendingB2B={pendingB2B}
+          isLoadingB2B={isLoadingB2B}
+        />
       )}
     </div>
   );
@@ -415,6 +254,7 @@ function TenantDetailPanel({ tenant, isLoading, onClose }) {
         icon={PackageSearch}
         action={
           <button
+            type="button"
             onClick={onClose}
             className="rounded-md border border-[#2B3139] px-3 py-1.5 text-xs font-medium text-[#848E9C] transition hover:border-[#F6465D]/40 hover:text-[#F6465D]"
           >
@@ -545,3 +385,217 @@ function MiniMetric({ label, value, icon: Icon }) {
     </div>
   );
 }
+
+function WholesalersDirectoryTab({
+  directoryColumns,
+  wholesalersData,
+  isLoadingWholesalers,
+  selectedWholesalerId,
+  setSelectedWholesalerId,
+  tenantData,
+  isLoadingTenant,
+}) {
+  return (
+    <div className="space-y-6">
+      <Panel title="All Wholesalers" eyebrow="Seller directory" icon={Building2}>
+        <DataTable
+          columns={directoryColumns}
+          data={wholesalersData || []}
+          isLoading={isLoadingWholesalers}
+          searchPlaceholder="Search wholesalers..."
+          emptyStateMessage="No wholesalers found."
+        />
+      </Panel>
+
+      {selectedWholesalerId && (
+        <TenantDetailPanel
+          tenant={tenantData}
+          isLoading={isLoadingTenant}
+          onClose={() => setSelectedWholesalerId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PendingApplicationsTab({ applicationColumns, pendingApplications }) {
+  return (
+    <Panel title="Pending Applications" eyebrow="Onboarding queue" icon={Shield}>
+      {pendingApplications.length > 0 ? (
+        <DataTable
+          columns={applicationColumns}
+          data={pendingApplications}
+          searchPlaceholder="Search applications..."
+          emptyStateMessage="No pending applications."
+        />
+      ) : (
+        <EmptyState icon={CheckCircle2} message="No pending wholesaler applications." />
+      )}
+    </Panel>
+  );
+}
+
+function B2BApplicationsTab({ b2bColumns, pendingB2B, isLoadingB2B }) {
+  return (
+    <Panel title="B2B Business Applications" eyebrow="Verification queue" icon={Shield}>
+      {pendingB2B.length > 0 ? (
+        <DataTable
+          columns={b2bColumns}
+          data={pendingB2B}
+          isLoading={isLoadingB2B}
+          searchPlaceholder="Search B2B applications..."
+          emptyStateMessage="No pending verifications."
+        />
+      ) : (
+        <EmptyState icon={CheckCircle2} message="No pending B2B verifications." />
+      )}
+    </Panel>
+  );
+}
+
+const getDirectoryColumns = (setSelectedWholesalerId) => [
+  columnHelper.accessor('businessName', {
+    header: 'Business',
+    cell: (info) => (
+      <div>
+        <p className="font-semibold text-[#EAECEF]">{info.getValue()}</p>
+        <p className="text-xs text-[#5E6673]">{info.row.original.ownerEmail}</p>
+      </div>
+    ),
+  }),
+  columnHelper.accessor('productCount', {
+    header: 'Products',
+    cell: (info) => <span className="font-medium text-[#EAECEF]">{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('orderCount', {
+    header: 'Orders',
+    cell: (info) => <span className="font-medium text-[#EAECEF]">{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('revenue', {
+    header: 'Revenue',
+    cell: (info) => (
+      <span className="font-bold text-[#0ECB81]">{formatCurrency(info.getValue())}</span>
+    ),
+    meta: { className: 'text-right' },
+  }),
+  columnHelper.accessor('lowStockCount', {
+    header: 'Low Stock',
+    cell: (info) => {
+      const val = info.getValue();
+      return (
+        <StatusBadge variant={val > 0 ? 'warning' : 'success'}>
+          {val > 0 ? `${val} items` : 'OK'}
+        </StatusBadge>
+      );
+    },
+  }),
+  columnHelper.display({
+    id: 'actions',
+    header: '',
+    cell: (info) => (
+      <button
+        type="button"
+        onClick={() => setSelectedWholesalerId(info.row.original.id)}
+        className="rounded-md bg-[#F0B90B]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F0B90B] transition hover:bg-[#F0B90B]/20"
+      >
+        <Eye className="mr-1 inline h-3 w-3" />
+        Inspect
+      </button>
+    ),
+  }),
+];
+
+const getApplicationColumns = (handleApproveWholesaler, handleRejectWholesaler) => [
+  columnHelper.accessor('businessName', {
+    header: 'Business',
+    cell: (info) => <p className="font-semibold text-[#EAECEF]">{info.getValue()}</p>,
+  }),
+  columnHelper.accessor('user.email', {
+    header: 'Email',
+    cell: (info) => <span className="text-[#848E9C]">{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('onboardingStatus', {
+    header: 'Status',
+    cell: (info) => <StatusBadge variant="warning">{info.getValue()}</StatusBadge>,
+  }),
+  columnHelper.accessor('businessPhone', {
+    header: 'Phone',
+    cell: (info) => <span className="text-[#848E9C]">{info.getValue() || 'N/A'}</span>,
+  }),
+  columnHelper.display({
+    id: 'actions',
+    header: 'Actions',
+    cell: (info) => (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => handleApproveWholesaler(info.row.original.id)}
+          className="rounded-md bg-[#0ECB81]/10 px-3 py-1.5 text-[11px] font-semibold text-[#0ECB81] transition hover:bg-[#0ECB81]/20"
+        >
+          <CheckCircle2 className="mr-1 inline h-3 w-3" />
+          Approve
+        </button>
+        <button
+          type="button"
+          onClick={() => handleRejectWholesaler(info.row.original.id)}
+          className="rounded-md bg-[#F6465D]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F6465D] transition hover:bg-[#F6465D]/20"
+        >
+          <XCircle className="mr-1 inline h-3 w-3" />
+          Reject
+        </button>
+      </div>
+    ),
+  }),
+];
+
+const getB2BColumns = (handleB2BApprove, handleB2BReject) => [
+  columnHelper.accessor('companyName', {
+    header: 'Company',
+    cell: (info) => (
+      <div>
+        <p className="font-semibold text-[#EAECEF]">{info.getValue()}</p>
+        <p className="text-xs text-[#5E6673]">{info.row.original.user?.name}</p>
+      </div>
+    ),
+  }),
+  columnHelper.accessor('user.email', {
+    header: 'Email',
+    cell: (info) => <span className="text-[#848E9C]">{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('taxId', {
+    header: 'Tax ID',
+    cell: (info) => (
+      <span className="rounded bg-[#2B3139] px-2 py-0.5 font-mono text-xs text-[#F0B90B]">
+        {info.getValue()}
+      </span>
+    ),
+  }),
+  columnHelper.accessor('businessAddress', {
+    header: 'Address',
+    cell: (info) => (
+      <span className="max-w-[180px] truncate text-xs text-[#848E9C]">{info.getValue()}</span>
+    ),
+  }),
+  columnHelper.display({
+    id: 'actions',
+    header: 'Actions',
+    cell: (info) => (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => handleB2BApprove(info.row.original.id)}
+          className="rounded-md bg-[#0ECB81]/10 px-3 py-1.5 text-[11px] font-semibold text-[#0ECB81] transition hover:bg-[#0ECB81]/20"
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          onClick={() => handleB2BReject(info.row.original.id)}
+          className="rounded-md bg-[#F6465D]/10 px-3 py-1.5 text-[11px] font-semibold text-[#F6465D] transition hover:bg-[#F6465D]/20"
+        >
+          Reject
+        </button>
+      </div>
+    ),
+  }),
+];

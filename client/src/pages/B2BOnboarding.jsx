@@ -98,106 +98,12 @@ export default function B2BOnboarding() {
 
   // 1. RENDER APPROVED STATUS
   if (profile?.verification === 'APPROVED') {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans text-[#1e293b]">
-        <div className="rounded-2xl border border-[#e2e8f0] bg-white p-10 shadow-sm animate-scale-in">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-[#1e293b]">
-            Business Account Approved
-          </h1>
-          <p className="text-sm text-[#64748b] mt-3 leading-6">
-            Your business profile for{' '}
-            <span className="font-bold text-[#1e293b]">{profile.companyName}</span> has been
-            verified and approved. Your B2B portal is now available.
-          </p>
-
-          <div className="mt-6 border-t border-[#e2e8f0] pt-6 text-left space-y-3">
-            <div className="flex items-center gap-3 text-xs text-[#64748b]">
-              <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
-                <Building2 className="w-4 h-4 text-[#64748b]" />
-              </div>
-              <div>
-                <span className="font-bold text-[#1e293b]">Tax ID / GSTIN:</span>{' '}
-                <span className="font-mono">{profile.taxId}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-[#64748b]">
-              <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
-                <MapPin className="w-4 h-4 text-[#64748b]" />
-              </div>
-              <div>
-                <span className="font-bold text-[#1e293b]">Business Location:</span>{' '}
-                {profile.businessAddress}
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => navigate('/store/dashboard/b2b')}
-            className="mt-8 w-full bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] hover:from-[#6d28d9] hover:to-[#4338ca] text-white py-3.5 px-6 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2"
-          >
-            Open B2B Dashboard
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
+    return <B2BOnboardingApprovedView profile={profile} navigate={navigate} />;
   }
 
   // 2. RENDER PENDING STATUS (UNDER REVIEW)
   if (profile?.verification === 'APPLIED') {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans text-[#1e293b]">
-        <div className="rounded-2xl border border-[#e2e8f0] bg-white p-10 shadow-sm animate-scale-in">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-6">
-            <Hourglass className="w-7 h-7" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-[#1e293b]">
-            Application Under Review
-          </h1>
-          <p className="text-sm text-[#64748b] mt-3 leading-6">
-            Your wholesale profile for{' '}
-            <span className="font-bold text-[#1e293b]">{profile.companyName}</span> is currently
-            pending tax and credentials review.
-          </p>
-
-          <div className="mt-6 border-t border-[#e2e8f0] pt-6 text-left space-y-3">
-            <div className="flex items-center gap-3 text-xs text-[#64748b]">
-              <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
-                <Building2 className="w-4 h-4 text-[#64748b]" />
-              </div>
-              <div>
-                <span className="font-bold text-[#1e293b]">Tax ID / GSTIN:</span>{' '}
-                <span className="font-mono">{profile.taxId}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-[#64748b]">
-              <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
-                <MapPin className="w-4 h-4 text-[#64748b]" />
-              </div>
-              <div>
-                <span className="font-bold text-[#1e293b]">Business Location:</span>{' '}
-                {profile.businessAddress}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-xs text-[#64748b] leading-5">
-            Verification checks usually complete in 1-2 business days. Until approved, you can
-            continue to place standard retail orders on the storefront.
-          </div>
-
-          <button
-            onClick={() => navigate('/store')}
-            className="mt-8 w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 px-6 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
-          >
-            Continue Retail Shopping
-          </button>
-        </div>
-      </div>
-    );
+    return <B2BOnboardingPendingView profile={profile} navigate={navigate} />;
   }
 
   // 3. RENDER REJECTED STATUS / DEFAULT ONBOARDING FORM
@@ -206,6 +112,7 @@ export default function B2BOnboarding() {
       {/* Header */}
       <div className="mb-8">
         <button
+          type="button"
           onClick={() => navigate('/store/dashboard')}
           className="flex items-center text-sm font-semibold text-[#64748b] hover:text-[#7c3aed] transition-colors group mb-6"
         >
@@ -375,6 +282,110 @@ export default function B2BOnboarding() {
             )}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function B2BOnboardingApprovedView({ profile, navigate }) {
+  return (
+    <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans text-[#1e293b]">
+      <div className="rounded-2xl border border-[#e2e8f0] bg-white p-10 shadow-sm animate-scale-in">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="w-8 h-8" />
+        </div>
+        <h1 className="text-2xl font-black tracking-tight text-[#1e293b]">
+          Business Account Approved
+        </h1>
+        <p className="text-sm text-[#64748b] mt-3 leading-6">
+          Your business profile for{' '}
+          <span className="font-bold text-[#1e293b]">{profile.companyName}</span> has been verified
+          and approved. Your B2B portal is now available.
+        </p>
+
+        <div className="mt-6 border-t border-[#e2e8f0] pt-6 text-left space-y-3">
+          <div className="flex items-center gap-3 text-xs text-[#64748b]">
+            <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
+              <Building2 className="w-4 h-4 text-[#64748b]" />
+            </div>
+            <div>
+              <span className="font-bold text-[#1e293b]">Tax ID / GSTIN:</span>{' '}
+              <span className="font-mono">{profile.taxId}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-[#64748b]">
+            <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-[#64748b]" />
+            </div>
+            <div>
+              <span className="font-bold text-[#1e293b]">Business Location:</span>{' '}
+              {profile.businessAddress}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/store/dashboard/b2b')}
+          className="mt-8 w-full bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] hover:from-[#6d28d9] hover:to-[#4338ca] text-white py-3.5 px-6 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2"
+        >
+          Open B2B Dashboard
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function B2BOnboardingPendingView({ profile, navigate }) {
+  return (
+    <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans text-[#1e293b]">
+      <div className="rounded-2xl border border-[#e2e8f0] bg-white p-10 shadow-sm animate-scale-in">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-6">
+          <Hourglass className="w-7 h-7" />
+        </div>
+        <h1 className="text-2xl font-black tracking-tight text-[#1e293b]">
+          Application Under Review
+        </h1>
+        <p className="text-sm text-[#64748b] mt-3 leading-6">
+          Your wholesale profile for{' '}
+          <span className="font-bold text-[#1e293b]">{profile.companyName}</span> is currently
+          pending tax and credentials review.
+        </p>
+
+        <div className="mt-6 border-t border-[#e2e8f0] pt-6 text-left space-y-3">
+          <div className="flex items-center gap-3 text-xs text-[#64748b]">
+            <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
+              <Building2 className="w-4 h-4 text-[#64748b]" />
+            </div>
+            <div>
+              <span className="font-bold text-[#1e293b]">Tax ID / GSTIN:</span>{' '}
+              <span className="font-mono">{profile.taxId}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-[#64748b]">
+            <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-[#64748b]" />
+            </div>
+            <div>
+              <span className="font-bold text-[#1e293b]">Business Location:</span>{' '}
+              {profile.businessAddress}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-xs text-[#64748b] leading-5">
+          Verification checks usually complete in 1-2 business days. Until approved, you can
+          continue to place standard retail orders on the storefront.
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/store')}
+          className="mt-8 w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 px-6 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+        >
+          Continue Retail Shopping
+        </button>
       </div>
     </div>
   );

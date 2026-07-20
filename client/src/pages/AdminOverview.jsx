@@ -30,7 +30,9 @@ const ResponsiveContainer = React.lazy(() =>
 const Tooltip = React.lazy(() => import('recharts').then((m) => ({ default: m.Tooltip })));
 const XAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.XAxis })));
 const YAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.YAxis })));
-import { Panel, MetricCard, PageHeader } from '../components/admin';
+import Panel from '../components/admin/Panel';
+import MetricCard from '../components/admin/MetricCard';
+import PageHeader from '../components/admin/PageHeader';
 
 const EMPTY_ARRAY = [];
 const TICK_STYLE_12 = { fill: '#848E9C', fontSize: 12 };

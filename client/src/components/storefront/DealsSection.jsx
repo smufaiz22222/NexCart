@@ -20,6 +20,7 @@ export default function DealsSection({ dealProducts, handleProductClick }) {
           {dealProducts.map((product) => (
             <button
               key={product.id}
+              type="button"
               onClick={() => handleProductClick(product, 'deal_section')}
               className="group rounded-xl border border-[#e2e8f0]/60 bg-[#f8fafc] p-3 text-left transition hover:border-[#4f46e5]/40 hover:shadow-md"
             >

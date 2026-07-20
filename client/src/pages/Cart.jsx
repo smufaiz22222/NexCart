@@ -1,22 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Banknote, CreditCard, LoaderCircle, ShoppingBag } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, LoaderCircle, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/axios';
 import useAuthStore from '../store/authStore';
 import useCartStore from '../store/cartStore';
-import { cn } from '../utils/cn';
 import { toast } from 'sonner';
 
 import { useRazorpayCheckout } from '../components/cart/useRazorpayCheckout';
 import { useAddressManager } from '../components/cart/useAddressManager';
+import { useDeliveryDetails } from '../components/cart/useDeliveryDetails';
 import CartItemList from '../components/cart/CartItemList';
 import AddressManager from '../components/cart/AddressManager';
 import CheckoutSummary from '../components/cart/CheckoutSummary';
-
-const PAYMENT_OPTIONS = [
-  { value: 'COD', label: 'Cash on Delivery', icon: Banknote },
-  { value: 'PREPAID', label: 'Pay Online (Razorpay)', icon: CreditCard },
-];
+import PaymentMethodSection from '../components/cart/PaymentMethodSection';
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -26,61 +22,7 @@ export default function Cart() {
   const { cart, totals, hasHydrated, isHydrating, hydrateCart, updateQuantity, removeFromCart } =
     useCartStore();
 
-  const deliveryDetails = useMemo(() => {
-    if (!cart || cart.length === 0) return { breakdown: [], totalDeliveryFee: 0 };
-
-    const groups = {};
-    for (const item of cart) {
-      const sellerId = item.product?.wholesalerId || 'unknown';
-      if (!groups[sellerId]) {
-        groups[sellerId] = {
-          sellerName:
-            item.wholesaler?.businessName || item.product?.wholesaler?.businessName || 'Seller',
-          subtotal: 0,
-          rawDeliveryFeeTotal: 0,
-          freeDeliveryThreshold: null,
-        };
-      }
-      const price = Number(item.price || 0);
-      groups[sellerId].subtotal += price * item.quantity;
-
-      const itemWholesaler = item.product?.wholesaler;
-      if (itemWholesaler) {
-        groups[sellerId].freeDeliveryThreshold =
-          itemWholesaler.freeDeliveryThreshold !== undefined &&
-          itemWholesaler.freeDeliveryThreshold !== null
-            ? Number(itemWholesaler.freeDeliveryThreshold)
-            : null;
-      }
-
-      const prodDeliveryFee = item.product?.deliveryFee;
-      const baseFee =
-        prodDeliveryFee !== null && prodDeliveryFee !== undefined
-          ? Number(prodDeliveryFee)
-          : Number(itemWholesaler?.deliveryFee || 0);
-
-      groups[sellerId].rawDeliveryFeeTotal += baseFee * item.quantity;
-    }
-
-    const breakdown = Object.keys(groups).map((sellerId) => {
-      const g = groups[sellerId];
-      let appliedFee = g.rawDeliveryFeeTotal;
-      if (g.freeDeliveryThreshold !== null && g.subtotal >= g.freeDeliveryThreshold) {
-        appliedFee = 0;
-      }
-      return {
-        sellerId,
-        sellerName: g.sellerName,
-        subtotal: g.subtotal,
-        deliveryFee: appliedFee,
-        freeDeliveryThreshold: g.freeDeliveryThreshold,
-      };
-    });
-
-    const totalDeliveryFee = breakdown.reduce((sum, g) => sum + g.deliveryFee, 0);
-
-    return { breakdown, totalDeliveryFee };
-  }, [cart]);
+  const deliveryDetails = useDeliveryDetails(cart);
 
   const hasMoqViolation = false;
 
@@ -209,6 +151,7 @@ export default function Cart() {
           something catches your eye.
         </p>
         <button
+          type="button"
           onClick={() => navigate('/store')}
           className="mt-8 rounded-xl bg-[#4f46e5] px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#4338ca] shadow-sm btn-press"
         >
@@ -234,6 +177,7 @@ export default function Cart() {
           </div>
         </div>
         <button
+          type="button"
           onClick={() => navigate('/store')}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2.5 text-xs font-bold text-[#64748b] hover:border-[#4f46e5] hover:text-[#4f46e5] transition-all sm:w-auto"
         >
@@ -319,40 +263,6 @@ export default function Cart() {
           isProcessing={isProcessing}
           handleCheckout={handleCheckout}
         />
-      </div>
-    </div>
-  );
-}
-
-function PaymentMethodSection({ paymentMethod, setPaymentMethod }) {
-  return (
-    <div className="rounded-2xl bg-white p-5 border border-[#e2e8f0] shadow-sm">
-      <h3 className="text-sm font-bold text-[#0f172a] mb-3">Payment Method</h3>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        {PAYMENT_OPTIONS.map((option) => {
-          const Icon = option.icon;
-          const isActive = paymentMethod === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setPaymentMethod(option.value)}
-              className={cn(
-                'flex-1 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all btn-press',
-                isActive
-                  ? 'border-[#4f46e5] bg-[#eef2ff] shadow-sm'
-                  : 'border-[#e2e8f0] bg-[#f8fafc] hover:border-[#4f46e5]/40'
-              )}
-            >
-              <Icon className={cn('h-5 w-5', isActive ? 'text-[#4f46e5]' : 'text-[#94a3b8]')} />
-              <span
-                className={cn('text-xs font-bold', isActive ? 'text-[#4f46e5]' : 'text-[#64748b]')}
-              >
-                {option.label}
-              </span>
-            </button>
-          );
-        })}
       </div>
     </div>
   );

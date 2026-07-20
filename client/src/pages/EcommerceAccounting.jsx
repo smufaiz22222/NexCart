@@ -155,6 +155,7 @@ export default function EcommerceAccounting() {
             {/* Source Filter Select */}
             <div className="relative">
               <select
+                aria-label="Filter by e-commerce source"
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
                 className="w-full rounded-2xl border border-zinc-700 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none transition focus:border-amber-500 appearance-none"

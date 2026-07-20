@@ -110,7 +110,12 @@ export const createProduct = async (req, res) => {
 };
 export const getProducts = async (req, res) => {
   try {
-    const wholesalerId = req.user.wholesalerId;
+    const wholesalerId = req.user?.wholesalerId;
+    if (!wholesalerId) {
+      return res
+        .status(403)
+        .json({ error: 'Wholesaler profile required to access product inventory' });
+    }
 
     const products = await prisma.product.findMany({
       where: { wholesalerId },

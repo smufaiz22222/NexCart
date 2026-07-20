@@ -20,6 +20,7 @@ export default function NewArrivalsSection({
           <h2 className="text-xl font-black tracking-tight">New Arrivals</h2>
         </div>
         <button
+          type="button"
           onClick={() => navigate('/store/new-arrivals')}
           className="flex items-center gap-1 text-sm font-semibold text-[#4f46e5] transition hover:underline"
         >

@@ -31,16 +31,12 @@ EMPTY_KB_MESSAGE = (
     "The business advisor knowledge base has not been initialized yet. "
     "Please ingest advisor documents before using the assistant."
 )
-CLARIFICATION_MESSAGE = (
-    "I don't have enough information on that yet — could you clarify or add more detail?"
-)
+CLARIFICATION_MESSAGE = "I don't have enough information on that yet — could you clarify or add more detail?"
 OUT_OF_SCOPE_MESSAGE = (
     "I'm here to help with your business — inventory, sales, suppliers, and orders. "
     "Could you ask something related to that?"
 )
-METRICS_UNAVAILABLE_MESSAGE = (
-    "I couldn't retrieve that metric right now — please try again or check if the data is available."
-)
+METRICS_UNAVAILABLE_MESSAGE = "I couldn't retrieve that metric right now — please try again or check if the data is available."
 
 MIN_SIMILARITY_SCORE = float(os.getenv("MIN_SIMILARITY_SCORE", "0.75"))
 MAX_CITATIONS = int(os.getenv("MAX_CITATIONS", "5"))

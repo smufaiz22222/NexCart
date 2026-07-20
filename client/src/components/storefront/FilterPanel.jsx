@@ -17,6 +17,7 @@ export default function FilterPanel({
       {/* Filter Bar */}
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition ${
             showFilters
@@ -30,6 +31,7 @@ export default function FilterPanel({
 
         {/* Sort dropdown */}
         <select
+          aria-label="Sort products"
           value={sortOrder}
           onChange={(e) => setSortOrder(e.target.value)}
           className="rounded-full border border-[#e2e8f0] bg-white px-4 py-2.5 text-sm font-semibold text-[#475569] outline-none transition hover:border-[#4f46e5] cursor-pointer"
@@ -47,6 +49,7 @@ export default function FilterPanel({
           minRating > 0 ||
           sortOrder !== 'relevance') && (
           <button
+            type="button"
             onClick={resetFilters}
             className="flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
           >
@@ -60,6 +63,7 @@ export default function FilterPanel({
           <span className="flex items-center gap-1.5 rounded-full bg-[#4f46e5] px-3 py-1.5 text-xs font-bold text-white">
             <Star className="h-3 w-3 fill-current" /> {minRating}+ Stars
             <button
+              type="button"
               onClick={() => setMinRating(0)}
               className="ml-0.5 rounded-full hover:bg-white/20 p-0.5"
               aria-label="Clear rating filter"
@@ -72,6 +76,7 @@ export default function FilterPanel({
           <span className="flex items-center gap-1.5 rounded-full bg-[#f97316] px-3 py-1.5 text-xs font-bold text-white">
             {formatCurrency(priceRange[0])} - {formatCurrency(priceRange[1])}
             <button
+              type="button"
               onClick={() => setPriceRange([0, 100000])}
               className="ml-0.5 rounded-full hover:bg-white/20 p-0.5"
               aria-label="Clear price filter"
@@ -88,9 +93,9 @@ export default function FilterPanel({
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {/* Price Range */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+              <span className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
                 Price Range
-              </label>
+              </span>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[
                   { label: 'Under ₹500', range: [0, 500] },
@@ -101,6 +106,7 @@ export default function FilterPanel({
                 ].map((option) => (
                   <button
                     key={option.label}
+                    type="button"
                     onClick={() => setPriceRange(option.range)}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                       priceRange[0] === option.range[0] && priceRange[1] === option.range[1]
@@ -116,13 +122,14 @@ export default function FilterPanel({
 
             {/* Rating Filter */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+              <span className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
                 Minimum Rating
-              </label>
+              </span>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[4, 3, 2, 1].map((rating) => (
                   <button
                     key={rating}
+                    type="button"
                     onClick={() => setMinRating(minRating === rating ? 0 : rating)}
                     className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                       minRating === rating
@@ -139,11 +146,12 @@ export default function FilterPanel({
 
             {/* Quick Actions */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+              <span className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
                 Quick Filters
-              </label>
+              </span>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
+                  type="button"
                   onClick={() => {
                     setPriceRange([0, 100000]);
                     setMinRating(4);
@@ -154,6 +162,7 @@ export default function FilterPanel({
                   Top Rated Only
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setPriceRange([0, 1000]);
                     setMinRating(0);
@@ -164,6 +173,7 @@ export default function FilterPanel({
                   Budget Friendly
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setPriceRange([0, 100000]);
                     setMinRating(0);
@@ -184,6 +194,7 @@ export default function FilterPanel({
               {displayedProductsCount !== 1 ? 's' : ''}
             </p>
             <button
+              type="button"
               onClick={resetFilters}
               className="flex items-center gap-1.5 text-sm font-bold text-[#4f46e5] transition hover:underline"
             >

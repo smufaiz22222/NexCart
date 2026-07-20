@@ -109,7 +109,13 @@ def classify_intent(query: str) -> tuple[str, str]:
             content = result.content
             if isinstance(content, list):
                 raw_answer = " ".join(
-                    item if isinstance(item, str) else (item.get("text", str(item)) if isinstance(item, dict) else str(item))
+                    item
+                    if isinstance(item, str)
+                    else (
+                        item.get("text", str(item))
+                        if isinstance(item, dict)
+                        else str(item)
+                    )
                     for item in content
                 )
             else:

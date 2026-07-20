@@ -106,6 +106,10 @@ const useAuthStore = create((set) => ({
     } finally {
       clearAuthSessionHint();
       queryClient.clear();
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
       set({ user: null, isAuthenticated: false, isBootstrapping: false });
     }
   },

@@ -14,10 +14,14 @@ export default function BuyerCounterForm({
       </h4>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2">
+          <label
+            htmlFor="buyer-target-price"
+            className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2"
+          >
             New Target Price Bid (₹ per unit) *
           </label>
           <input
+            id="buyer-target-price"
             required
             type="number"
             step="0.01"
@@ -34,10 +38,14 @@ export default function BuyerCounterForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2">
+          <label
+            htmlFor="buyer-target-qty"
+            className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2"
+          >
             New Target Quantity Bid (units)
           </label>
           <input
+            id="buyer-target-qty"
             type="number"
             aria-label="New Target Quantity Bid"
             value={buyerCounterState.quantity}
@@ -52,10 +60,14 @@ export default function BuyerCounterForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2">
+          <label
+            htmlFor="buyer-notes"
+            className="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-2"
+          >
             Notes / Message to Seller
           </label>
           <input
+            id="buyer-notes"
             type="text"
             aria-label="Notes / Message to Seller"
             value={buyerCounterState.notes}
@@ -67,12 +79,14 @@ export default function BuyerCounterForm({
       </div>
       <div className="flex justify-end gap-2">
         <button
+          type="button"
           onClick={onCancel}
           className="px-4 py-2 border border-[#C0C0C0] bg-white rounded-md text-xs font-medium hover:bg-[#EFEFEF] transition-colors"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={() =>
             onSubmit(rfq.id, 'PENDING', {
               targetPrice: buyerCounterState.targetPrice,

@@ -469,7 +469,7 @@ function ProductAttributesSection({ form }) {
           <div className="space-y-3">
             {field.state.value.map((item, i) => (
               <div
-                key={item.id || i}
+                key={item.id}
                 className="flex items-end gap-3 group animate-in fade-in slide-in-from-top-2 duration-300"
               >
                 <form.Field name={`attributes[${i}].name`}>
