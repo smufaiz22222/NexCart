@@ -16,6 +16,7 @@ Original query: {query}
 Rewritten query:
 """)
 
+
 def rewrite_query(query: str) -> str:
     try:
         llm = get_llm()

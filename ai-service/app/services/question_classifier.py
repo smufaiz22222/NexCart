@@ -62,7 +62,11 @@ def classify_question(query: str) -> str:
         return "business-context"
     if has_knowledge:
         return "knowledge-base"
-    if "why" == normalized_query or normalized_query.startswith("why ") or normalized_query.startswith("what should i prioritize"):
+    if (
+        "why" == normalized_query
+        or normalized_query.startswith("why ")
+        or normalized_query.startswith("what should i prioritize")
+    ):
         return "business-context"
     return "knowledge-base"
 
@@ -73,7 +77,6 @@ def requests_unavailable_business_data(query: str) -> bool:
         return True
 
     asks_exact_financial = (
-        ("exact revenue" in normalized_query or "exact sales" in normalized_query)
-        and "this month" not in normalized_query
-    )
+        "exact revenue" in normalized_query or "exact sales" in normalized_query
+    ) and "this month" not in normalized_query
     return asks_exact_financial

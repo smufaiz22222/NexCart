@@ -1,7 +1,9 @@
 import os
 
 
-def normalize_chunk_metadata(metadata: dict | None, page_is_zero_based: bool = False) -> dict:
+def normalize_chunk_metadata(
+    metadata: dict | None, page_is_zero_based: bool = False
+) -> dict:
     metadata = dict(metadata or {})
     raw_source = metadata.get("source") or metadata.get("file") or "unknown.pdf"
     source = os.path.basename(str(raw_source))

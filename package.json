@@ -4,18 +4,18 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:client\" \"pnpm run dev:ai\"",
+    "dev": "concurrently \"pnpm.cmd run dev:server\" \"pnpm.cmd run dev:client\" \"pnpm.cmd run dev:ai\"",
     "dev:server": "nodemon src/index.js",
-    "dev:client": "pnpm --filter frontend dev",
+    "dev:client": "pnpm.cmd --filter frontend dev",
     "dev:ai": "cd ai-service && .\\.venv\\Scripts\\python -m uvicorn app.main:app --reload --port 8000",
-    "client:install": "pnpm install --filter frontend",
-    "client:build": "pnpm --filter frontend build",
-    "build": "pnpm run client:build",
-    "lint": "concurrently \"eslint . --cache\" \"pnpm run lint:ai\"",
-    "lint:fix": "concurrently \"eslint . --fix --cache\" \"pnpm run format:ai\"",
+    "client:install": "pnpm.cmd install --filter frontend",
+    "client:build": "pnpm.cmd --filter frontend build",
+    "build": "pnpm.cmd run client:build",
+    "lint": "concurrently \"eslint . --cache\" \"pnpm.cmd run lint:ai\"",
+    "lint:fix": "concurrently \"eslint . --fix --cache\" \"pnpm.cmd run format:ai\"",
     "lint:ai": "cd ai-service && .\\.venv\\Scripts\\ruff check .",
-    "format": "concurrently \"prettier --write .\" \"pnpm run format:ai\"",
-    "format:check": "concurrently \"prettier --check .\" \"pnpm run lint:ai\"",
+    "format": "concurrently \"prettier --write .\" \"pnpm.cmd run format:ai\"",
+    "format:check": "concurrently \"prettier --check .\" \"pnpm.cmd run lint:ai\"",
     "format:ai": "cd ai-service && .\\.venv\\Scripts\\ruff format .",
     "recommendations:build-content": "node src/jobs/buildContentRecommendations.js",
     "recommendations:build-cf": "node src/jobs/buildCollaborativeRecommendations.js",
@@ -25,6 +25,8 @@
     "recommendations:seed-demo": "node prisma/seedRecommendationDemo.js",
     "recommendations:prepare-demo": "node src/jobs/prepareRecommendationDemo.js",
     "recommendations:test-access": "node src/jobs/testRecommendationAccess.js",
+    "db:clear": "node scripts/clearDb.js",
+    "db:seed:8k": "node scripts/seed8kProducts.js",
     "db:reset": "prisma migrate reset --force",
     "test": "node --test src/**/*.test.js"
   },
@@ -46,22 +48,23 @@
     "prettier": "^3.8.4",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@prisma/client": "^6.19.2",
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "@prisma/client-runtime-utils": "7.8.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "^6.19.2",
+    "pg": "^8.13.1",
+    "prisma": "7.8.0",
     "razorpay": "^2.9.6"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
   }
 }

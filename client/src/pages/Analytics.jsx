@@ -1,32 +1,36 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
   Boxes,
   Gauge,
-  PackageSearch,
   Radar,
-  RadioTower,
   Scale,
   ShoppingBag,
   TrendingDown,
   TrendingUp,
   Users,
 } from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Line,
-  ComposedChart,
-  Legend,
-} from 'recharts';
 import apiClient from '../api/axios';
+
+const Area = React.lazy(() => import('recharts').then((m) => ({ default: m.Area })));
+const AreaChart = React.lazy(() => import('recharts').then((m) => ({ default: m.AreaChart })));
+const CartesianGrid = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.CartesianGrid }))
+);
+const ResponsiveContainer = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.ResponsiveContainer }))
+);
+const Tooltip = React.lazy(() => import('recharts').then((m) => ({ default: m.Tooltip })));
+const XAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.XAxis })));
+const YAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.YAxis })));
+const Line = React.lazy(() => import('recharts').then((m) => ({ default: m.Line })));
+const ComposedChart = React.lazy(() =>
+  import('recharts').then((m) => ({ default: m.ComposedChart }))
+);
+const Legend = React.lazy(() => import('recharts').then((m) => ({ default: m.Legend })));
+import DataTable from '../components/DataTable';
+const CHART_TICK_STYLE = { fill: 'var(--text-muted)', fontSize: 12 };
 
 const KPI_CARDS = [
   {
@@ -91,6 +95,177 @@ const KPI_CARDS = [
     icon: Users,
     tone: 'text-orange-300 border-orange-500/20 bg-orange-500/10',
     formatter: (value) => Number(value || 0).toLocaleString(),
+  },
+];
+
+const bestSellingColumns = [
+  { accessorKey: 'sku', header: 'SKU' },
+  { accessorKey: 'name', header: 'Product' },
+  { accessorKey: 'unitsSold', header: 'Units', meta: { className: 'text-right' } },
+  {
+    accessorKey: 'revenue',
+    header: 'Revenue',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => `₹${Number(getValue() || 0).toLocaleString()}`,
+  },
+  {
+    accessorKey: 'profit',
+    header: 'Profit',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => `₹${Number(getValue() || 0).toLocaleString()}`,
+  },
+  {
+    accessorKey: 'profitMargin',
+    header: 'Margin',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => `${(Number(getValue() || 0) * 100).toFixed(1)}%`,
+  },
+  { accessorKey: 'currentStock', header: 'Stock', meta: { className: 'text-right' } },
+];
+
+const slowMovingColumns = [
+  { accessorKey: 'sku', header: 'SKU' },
+  { accessorKey: 'name', header: 'Product' },
+  { accessorKey: 'currentStock', header: 'Stock', meta: { className: 'text-right' } },
+  {
+    accessorKey: 'inventoryValue',
+    header: 'Value',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => `₹${Number(getValue() || 0).toLocaleString()}`,
+  },
+  {
+    accessorKey: 'lastSoldAt',
+    header: 'Last Sale',
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v ? new Date(v).toLocaleDateString() : 'Never';
+    },
+  },
+  {
+    accessorKey: 'daysSinceLastSale',
+    header: 'Days Idle',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => getValue() ?? 'N/A',
+  },
+];
+
+const atRiskColumns = [
+  {
+    accessorKey: 'customerName',
+    header: 'Customer',
+    cell: ({ getValue }) => (
+      <span className="font-semibold text-white">{getValue() || 'Unknown'}</span>
+    ),
+  },
+  {
+    accessorKey: 'customerEmail',
+    header: 'Email',
+    cell: ({ getValue }) => <span className="text-zinc-400">{getValue() || 'N/A'}</span>,
+  },
+  {
+    accessorKey: 'riskLevel',
+    header: 'Risk',
+    cell: ({ getValue }) => {
+      const level = getValue();
+      return (
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.15em] ${level === 'high' ? 'bg-rose-500/10 text-rose-300' : 'bg-amber-500/10 text-amber-300'}`}
+        >
+          {level}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: 'lifetimeRevenue',
+    header: 'Lifetime Revenue',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => `₹${Number(getValue() || 0).toLocaleString()}`,
+  },
+  {
+    accessorKey: 'orderCount',
+    header: 'Orders',
+    meta: { className: 'text-right' },
+  },
+  {
+    accessorKey: 'lastOrderAt',
+    header: 'Last Order',
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v ? new Date(v).toLocaleDateString() : 'Never';
+    },
+  },
+  {
+    accessorKey: 'daysSinceLastOrder',
+    header: 'Days Inactive',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => {
+      const days = getValue();
+      if (days == null) return 'N/A';
+      return (
+        <span
+          className={
+            days > 90
+              ? 'font-semibold text-rose-300'
+              : days > 45
+                ? 'font-semibold text-amber-300'
+                : 'text-zinc-300'
+          }
+        >
+          {days}d
+        </span>
+      );
+    },
+  },
+];
+
+const topRecommendedColumns = [
+  {
+    id: 'product',
+    accessorFn: (row) => row.product?.name || 'Unknown product',
+    header: 'Product',
+    cell: ({ getValue }) => <span className="font-semibold text-white">{getValue()}</span>,
+  },
+  {
+    id: 'category',
+    accessorFn: (row) => row.product?.category || 'General',
+    header: 'Category',
+  },
+  {
+    accessorKey: 'impressions',
+    header: 'Impressions',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => (
+      <span className="font-bold text-amber-400">{Number(getValue() || 0).toLocaleString()}</span>
+    ),
+  },
+];
+
+const topConvertingColumns = [
+  {
+    id: 'product',
+    accessorFn: (row) => row.product?.name || 'Unknown product',
+    header: 'Product',
+    cell: ({ getValue }) => <span className="font-semibold text-white">{getValue()}</span>,
+  },
+  {
+    id: 'category',
+    accessorFn: (row) => row.product?.category || 'General',
+    header: 'Category',
+  },
+  {
+    accessorKey: 'purchases',
+    header: 'Purchases',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => (
+      <span className="font-bold text-amber-400">{Number(getValue() || 0)}</span>
+    ),
+  },
+  {
+    accessorKey: 'conversionRate',
+    header: 'Conv. Rate',
+    meta: { className: 'text-right' },
+    cell: ({ getValue }) => `${((getValue() || 0) * 100).toFixed(1)}%`,
   },
 ];
 
@@ -204,6 +379,7 @@ export default function Analytics() {
               {['daily', 'monthly', 'yearly'].map((option) => (
                 <button
                   key={option}
+                  type="button"
                   onClick={() => setTimeframe(option)}
                   className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] transition ${
                     timeframe === option
@@ -217,292 +393,74 @@ export default function Analytics() {
             </div>
           }
         >
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={trendRows}>
-                <defs>
-                  <linearGradient id="analyticsRevenueFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="analyticsProfitFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#27272a" vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="period"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#09090b',
-                    border: '1px solid #27272a',
-                    borderRadius: '12px',
-                    color: '#fff',
-                  }}
-                />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  fill="url(#analyticsRevenueFill)"
-                  name="Revenue"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="profit"
-                  stroke="#34d399"
-                  strokeWidth={2}
-                  fill="url(#analyticsProfitFill)"
-                  name="Profit"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="marginPercent"
-                  stroke="#60a5fa"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Margin %"
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+          <SalesTrendsChart trendRows={trendRows} />
         </Panel>
 
-        <Panel title="Customer Value" eyebrow="Retention and risk snapshot">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <InfoTile
-              label="Total Buyers"
-              value={customerInsights.totalCustomers || 0}
-              detail="Customers with at least one net order"
-            />
-            <InfoTile
-              label="Repeat Buyers"
-              value={customerInsights.repeatCustomers || 0}
-              detail={`${(Number(customerInsights.repeatCustomerRate || 0) * 100).toFixed(1)}% repeat rate`}
-            />
-            <InfoTile
-              label="Average Revenue / Buyer"
-              value={`₹${Number(customerInsights.averageRevenuePerCustomer || 0).toLocaleString()}`}
-              detail="Net revenue spread across unique buyers"
-            />
-            <InfoTile
-              label="Estimated CLV"
-              value={`₹${Number(customerInsights.estimatedClv || 0).toLocaleString()}`}
-              detail="v1 heuristic based on current net revenue"
-            />
-          </div>
-        </Panel>
+        <CustomerValueOverview customerInsights={customerInsights} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <DataTablePanel
-          title="Best-Selling SKUs"
-          eyebrow="Ranked by units sold"
-          columns={['SKU', 'Product', 'Units', 'Revenue', 'Profit', 'Margin', 'Stock']}
-          rows={(analytics?.topSkus || []).map((row) => [
-            row.sku,
-            row.name,
-            row.unitsSold,
-            `₹${Number(row.revenue || 0).toLocaleString()}`,
-            `₹${Number(row.profit || 0).toLocaleString()}`,
-            `${(Number(row.profitMargin || 0) * 100).toFixed(1)}%`,
-            row.currentStock,
-          ])}
-          emptyLabel="No SKU performance data yet."
-        />
+        <Panel title="Best-Selling SKUs" eyebrow="Ranked by units sold">
+          <DataTable
+            columns={bestSellingColumns}
+            data={analytics?.topSkus || []}
+            showGlobalFilter={false}
+            showVisibilityToggle={false}
+            emptyStateMessage="No SKU performance data yet."
+          />
+        </Panel>
 
-        <DataTablePanel
+        <Panel
           title="Slow-Moving Inventory"
           eyebrow="In-stock products without net sales in the last 30 days"
-          columns={['SKU', 'Product', 'Stock', 'Value', 'Last Sale', 'Days Idle']}
-          rows={(analytics?.slowMovingInventory || []).map((row) => [
-            row.sku,
-            row.name,
-            row.currentStock,
-            `₹${Number(row.inventoryValue || 0).toLocaleString()}`,
-            row.lastSoldAt ? new Date(row.lastSoldAt).toLocaleDateString() : 'Never',
-            row.daysSinceLastSale ?? 'N/A',
-          ])}
-          emptyLabel="No slow-moving inventory at the moment."
-        />
+        >
+          <DataTable
+            columns={slowMovingColumns}
+            data={analytics?.slowMovingInventory || []}
+            showGlobalFilter={false}
+            showVisibilityToggle={false}
+            emptyStateMessage="No slow-moving inventory at the moment."
+          />
+        </Panel>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <Panel
-          title="Recommendation Performance"
-          eyebrow="Reuse of existing recommendation analytics"
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            <InfoTile
-              label="Recommendation CTR"
-              value={`${((recommendationAnalytics?.recommendationCtr || 0) * 100).toFixed(1)}%`}
-              detail="Clicks from rendered recommendation impressions"
-            />
-            <InfoTile
-              label="Cart Rate"
-              value={`${((recommendationAnalytics?.recommendationCartRate || 0) * 100).toFixed(1)}%`}
-              detail="Recommendation impressions turning into cart intent"
-            />
-            <InfoTile
-              label="Purchase Conversion"
-              value={`${((recommendationAnalytics?.recommendationConversionRate || 0) * 100).toFixed(1)}%`}
-              detail="Recommendation-assisted purchase rate"
-            />
-            <InfoTile
-              label="Coverage"
-              value={`${((recommendationAnalytics?.coverage || 0) * 100).toFixed(1)}%`}
-              detail="Catalog share exposed through recommendations"
-            />
-          </div>
+      <RecommendationFunnelOverview
+        recommendationAnalytics={recommendationAnalytics}
+        recommendationFunnel={recommendationFunnel}
+      />
 
-          <div className="mt-5 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={recommendationFunnel}>
-                <defs>
-                  <linearGradient id="funnelFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#27272a" vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#09090b',
-                    border: '1px solid #27272a',
-                    borderRadius: '12px',
-                    color: '#fff',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  fill="url(#funnelFill)"
-                  name="Events"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-5 rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4">
-            <div className="flex items-center gap-2">
-              <RadioTower className="h-4 w-4 text-amber-500" />
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400">
-                Recommendation Health
-              </p>
-            </div>
-            <p className="mt-3 text-sm font-semibold text-white capitalize">
-              {recommendationAnalytics?.health?.status || 'unknown'}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-zinc-400">
-              {recommendationAnalytics?.health?.trackedImpressions || 0} tracked impressions across{' '}
-              {((recommendationAnalytics?.health?.coverage || 0) * 100).toFixed(1)}% catalog
-              coverage.
-            </p>
-            <div className="mt-4 space-y-2">
-              {(recommendationAnalytics?.health?.warnings || []).length > 0 ? (
-                recommendationAnalytics.health.warnings.map((warning) => (
-                  <div
-                    key={warning}
-                    className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
-                  >
-                    {warning}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-                  No recommendation health warnings.
-                </div>
-              )}
-            </div>
-          </div>
-        </Panel>
-
+      <section>
         <Panel title="At-Risk Customers" eyebrow="Churn-risk heuristic from order cadence">
-          <div className="space-y-3">
-            {churnRisk.customers?.length > 0 ? (
-              churnRisk.customers.map((customer) => (
-                <div
-                  key={customer.customerId}
-                  className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-white">
-                        {customer.customerName || customer.customerEmail}
-                      </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        {customer.customerEmail || 'No email available'}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${
-                        customer.riskLevel === 'high'
-                          ? 'bg-rose-500/10 text-rose-300'
-                          : 'bg-amber-500/10 text-amber-300'
-                      }`}
-                    >
-                      {customer.riskLevel} risk
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <MiniMetric
-                      label="Lifetime Revenue"
-                      value={`₹${Number(customer.lifetimeRevenue || 0).toLocaleString()}`}
-                    />
-                    <MiniMetric label="Orders" value={customer.orderCount} />
-                    <MiniMetric
-                      label="Days Since Last Order"
-                      value={customer.daysSinceLastOrder ?? 'N/A'}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-[18px] border border-zinc-800 bg-[#0a0a0a] px-4 py-6 text-sm text-zinc-500">
-                No at-risk customers detected with the current heuristic.
-              </div>
-            )}
-          </div>
+          <DataTable
+            columns={atRiskColumns}
+            data={churnRisk.customers || []}
+            showGlobalFilter={true}
+            showVisibilityToggle={false}
+            searchPlaceholder="Search customers..."
+            emptyStateMessage="No at-risk customers detected with the current heuristic."
+          />
         </Panel>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <CompactRecommendationTable
-          title="Top Recommended Products"
-          rows={recommendationAnalytics?.topRecommendedProducts || []}
-          getValue={(row) => row.impressions || 0}
-          valueLabel="Impressions"
-        />
-        <CompactRecommendationTable
-          title="Top Converting Recommendations"
-          rows={recommendationAnalytics?.topConvertingRecommendations || []}
-          getValue={(row) =>
-            `${row.purchases || 0} (${((row.conversionRate || 0) * 100).toFixed(1)}%)`
-          }
-          valueLabel="Purchases"
-        />
+        <Panel title="Top Recommended Products" eyebrow="Recommendation leaderboard">
+          <DataTable
+            columns={topRecommendedColumns}
+            data={recommendationAnalytics?.topRecommendedProducts || []}
+            showGlobalFilter={false}
+            showVisibilityToggle={false}
+            emptyStateMessage="No recommendation data available yet."
+          />
+        </Panel>
+        <Panel title="Top Converting Recommendations" eyebrow="Recommendation leaderboard">
+          <DataTable
+            columns={topConvertingColumns}
+            data={recommendationAnalytics?.topConvertingRecommendations || []}
+            showGlobalFilter={false}
+            showVisibilityToggle={false}
+            emptyStateMessage="No recommendation data available yet."
+          />
+        </Panel>
       </section>
     </div>
   );
@@ -610,43 +568,198 @@ function DataTablePanel({ title, eyebrow, columns, rows, emptyLabel }) {
   );
 }
 
-function CompactRecommendationTable({ title, rows, getValue, valueLabel }) {
+function SalesTrendsChart({ trendRows }) {
   return (
-    <Panel title={title} eyebrow="Recommendation leaderboard">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-zinc-800 text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              <th className="pb-3 pr-4 font-black">Product</th>
-              <th className="pb-3 pr-4 font-black">Category</th>
-              <th className="pb-3 pr-0 text-right font-black">{valueLabel}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/60">
-            {rows.length > 0 ? (
-              rows.map((row) => (
-                <tr key={row.product?.id || row.product?.name} className="hover:bg-zinc-900/60">
-                  <td className="py-3.5 pr-4 text-sm font-semibold text-white">
-                    {row.product?.name || 'Unknown product'}
-                  </td>
-                  <td className="py-3.5 pr-4 text-sm text-zinc-400">
-                    {row.product?.category || 'General'}
-                  </td>
-                  <td className="py-3.5 pl-0 text-right text-sm font-bold text-amber-400">
-                    {getValue(row)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="3" className="py-10 text-center text-sm text-zinc-500">
-                  No recommendation data available yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+    <div className="h-80">
+      <Suspense fallback={<div className="h-full w-full bg-white/5 animate-pulse rounded-xl" />}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={trendRows}>
+            <defs>
+              <linearGradient id="analyticsRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="analyticsProfitFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--semantic-success)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--semantic-success)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="var(--border-subtle)" vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="period" axisLine={false} tickLine={false} tick={CHART_TICK_STYLE} />
+            <YAxis axisLine={false} tickLine={false} tick={CHART_TICK_STYLE} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '12px',
+                color: 'var(--text-title)',
+              }}
+            />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              stroke="var(--brand-accent)"
+              strokeWidth={2}
+              fill="url(#analyticsRevenueFill)"
+              name="Revenue"
+            />
+            <Area
+              type="monotone"
+              dataKey="profit"
+              stroke="var(--semantic-success)"
+              strokeWidth={2}
+              fill="url(#analyticsProfitFill)"
+              name="Profit"
+            />
+            <Line
+              type="monotone"
+              dataKey="marginPercent"
+              stroke="var(--info)"
+              strokeWidth={2}
+              dot={false}
+              name="Margin %"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </Suspense>
+    </div>
+  );
+}
+
+function CustomerValueOverview({ customerInsights }) {
+  return (
+    <Panel title="Customer Value" eyebrow="Retention and risk snapshot">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        <InfoTile
+          label="Total Buyers"
+          value={customerInsights.totalCustomers || 0}
+          detail="Customers with at least one net order"
+        />
+        <InfoTile
+          label="Repeat Buyers"
+          value={customerInsights.repeatCustomers || 0}
+          detail={`${(Number(customerInsights.repeatCustomerRate || 0) * 100).toFixed(1)}% repeat rate`}
+        />
+        <InfoTile
+          label="Average Revenue / Buyer"
+          value={`₹${Number(customerInsights.averageRevenuePerCustomer || 0).toLocaleString()}`}
+          detail="Net revenue spread across unique buyers"
+        />
+        <InfoTile
+          label="Estimated CLV"
+          value={`₹${Number(customerInsights.estimatedClv || 0).toLocaleString()}`}
+          detail="v1 heuristic based on current net revenue"
+        />
       </div>
     </Panel>
+  );
+}
+
+function RecommendationFunnelOverview({ recommendationAnalytics, recommendationFunnel }) {
+  return (
+    <section className="grid gap-6 xl:grid-cols-2">
+      <Panel title="Recommendation Performance" eyebrow="Conversion funnel metrics">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <InfoTile
+            label="CTR"
+            value={`${((recommendationAnalytics?.recommendationCtr || 0) * 100).toFixed(1)}%`}
+            detail="Clicks from recommendation impressions"
+          />
+          <InfoTile
+            label="Cart Rate"
+            value={`${((recommendationAnalytics?.recommendationCartRate || 0) * 100).toFixed(1)}%`}
+            detail="Impressions turning into cart additions"
+          />
+          <InfoTile
+            label="Purchase Conversion"
+            value={`${((recommendationAnalytics?.recommendationConversionRate || 0) * 100).toFixed(1)}%`}
+            detail="Recommendation-assisted purchases"
+          />
+          <InfoTile
+            label="Catalog Coverage"
+            value={`${((recommendationAnalytics?.coverage || 0) * 100).toFixed(1)}%`}
+            detail="Products exposed via recommendations"
+          />
+        </div>
+
+        <div className="mt-6 h-60">
+          <Suspense
+            fallback={<div className="h-full w-full bg-white/5 animate-pulse rounded-xl" />}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={recommendationFunnel}>
+                <defs>
+                  <linearGradient id="analyticsRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  stroke="var(--border-subtle)"
+                  vertical={false}
+                  strokeDasharray="3 3"
+                />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={CHART_TICK_STYLE} />
+                <YAxis axisLine={false} tickLine={false} tick={CHART_TICK_STYLE} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '12px',
+                    color: 'var(--text-title)',
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="var(--brand-accent)"
+                  strokeWidth={2}
+                  fill="url(#analyticsRevenueFill)"
+                  name="Funnel Count"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Suspense>
+        </div>
+      </Panel>
+
+      <Panel title="Recommendation Health" eyebrow="Engine diagnostics">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InfoTile
+            label="Status"
+            value={recommendationAnalytics?.health?.status || 'unknown'}
+            detail="Overall engine health assessment"
+          />
+          <InfoTile
+            label="Tracked Impressions"
+            value={Number(
+              recommendationAnalytics?.health?.trackedImpressions || 0
+            ).toLocaleString()}
+            detail={`${((recommendationAnalytics?.health?.coverage || 0) * 100).toFixed(1)}% catalog coverage`}
+          />
+        </div>
+
+        <div className="mt-5 space-y-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">
+            Warnings
+          </p>
+          {(recommendationAnalytics?.health?.warnings || []).length > 0 ? (
+            recommendationAnalytics.health.warnings.map((warning) => (
+              <div
+                key={warning}
+                className="rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-3 text-sm leading-relaxed text-amber-200"
+              >
+                {warning}
+              </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-sm leading-relaxed text-emerald-200">
+              No warnings. Recommendation engine is healthy.
+            </div>
+          )}
+        </div>
+      </Panel>
+    </section>
   );
 }

@@ -21,4 +21,5 @@ try {
   process.exitCode = 1;
 } finally {
   await prisma.$disconnect();
+  process.exit(process.exitCode || 0);
 }

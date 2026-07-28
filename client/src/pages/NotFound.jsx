@@ -24,6 +24,7 @@ export default function NotFound() {
 
         <div className="pt-4">
           <button
+            type="button"
             onClick={() => navigate(-1)}
             className="inline-flex items-center justify-center px-6 py-3 border border-amber-500/30 text-amber-500 font-bold rounded-md hover:bg-amber-500/10 hover:border-amber-500 transition-all active:scale-[0.98] cursor-pointer"
           >

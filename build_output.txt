@@ -1,0 +1,68 @@
+$ vite build
+[36mvite v8.0.16 [32mbuilding client environment for production...[36m[39m
+[2K
+transforming...Ô£ô 2741 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                    1.22 kB Ôöé gzip:   0.57 kB
+dist/assets/index-C2O0cKDq.css                   150.00 kB Ôöé gzip:  22.73 kB
+dist/assets/typeof-B5XbjTb1.js                     0.27 kB Ôöé gzip:   0.16 kB
+dist/assets/recommendation-BhCea9W-.js             0.42 kB Ôöé gzip:   0.26 kB
+dist/assets/rolldown-runtime-QTnfLwEv.js           0.69 kB Ôöé gzip:   0.42 kB
+dist/assets/NotFound-BWlIPNrB.js                   1.40 kB Ôöé gzip:   0.65 kB
+dist/assets/b2bCartStore-BE_s9f1_.js               2.52 kB Ôöé gzip:   0.72 kB
+dist/assets/PrivacyPolicy-D7zQ2U3j.js              3.17 kB Ôöé gzip:   1.20 kB
+dist/assets/Faq-D9O4SEDq.js                        3.28 kB Ôöé gzip:   1.52 kB
+dist/assets/AboutUs-lo58W8Ig.js                    3.98 kB Ôöé gzip:   1.38 kB
+dist/assets/AdminLayout-DaZE3l-L.js                4.99 kB Ôöé gzip:   1.60 kB
+dist/assets/Wishlist-Bq1-xCaE.js                   5.21 kB Ôöé gzip:   1.91 kB
+dist/assets/NotificationBell-BtWXTrz1.js           5.41 kB Ôöé gzip:   2.11 kB
+dist/assets/BuyAgain-BTqnkMz1.js                   5.47 kB Ôöé gzip:   2.04 kB
+dist/assets/ContactUs-L9kvh2_O.js                  5.97 kB Ôöé gzip:   1.59 kB
+dist/assets/WholesalerLayout-DkFKM0Fw.js           7.35 kB Ôöé gzip:   2.10 kB
+dist/assets/Products-CONpfqGu.js                   7.65 kB Ôöé gzip:   2.65 kB
+dist/assets/Login-mXa5EJES.js                      8.43 kB Ôöé gzip:   2.81 kB
+dist/assets/B2BOrders-JQGaJP_M.js                  8.58 kB Ôöé gzip:   2.59 kB
+dist/assets/ProductForm-BxpbsyMl.js                9.63 kB Ôöé gzip:   2.82 kB
+dist/assets/DataTable-DOBAmK2S.js                  9.85 kB Ôöé gzip:   2.84 kB
+dist/assets/ForgotPassword-Cog5vt22.js            10.19 kB Ôöé gzip:   2.77 kB
+dist/assets/B2BOnboarding-C2B4_1DR.js             10.32 kB Ôöé gzip:   2.87 kB
+dist/assets/EcommerceAccounting-uk8eA5mv.js       10.90 kB Ôöé gzip:   3.49 kB
+dist/assets/Inventory-DPqXW5Ju.js                 10.98 kB Ôöé gzip:   3.38 kB
+dist/assets/queries-D_X8bUgt.js                   11.43 kB Ôöé gzip:   2.54 kB
+dist/assets/BusinessAdvisor-BUZktxiF.js           12.69 kB Ôöé gzip:   4.06 kB
+dist/assets/Register-CIRijlZr.js                  12.80 kB Ôöé gzip:   3.67 kB
+dist/assets/AdminPayouts-BL-HaLz-.js              14.38 kB Ôöé gzip:   3.58 kB
+dist/assets/SellerProductDetails-B45NRIiK.js      15.48 kB Ôöé gzip:   4.31 kB
+dist/assets/UserProfile-BpRwYlRZ.js               16.94 kB Ôöé gzip:   3.45 kB
+dist/assets/ProductDetails-CJZW1lqo.js            17.12 kB Ôöé gzip:   4.98 kB
+dist/assets/Analytics-C66CTM6_.js                 17.31 kB Ôöé gzip:   4.57 kB
+dist/assets/Storefront-B7yV1f-j.js                17.66 kB Ôöé gzip:   5.25 kB
+dist/assets/BusinessDashboard-U8I0isiK.js         18.52 kB Ôöé gzip:   4.47 kB
+dist/assets/SuperAdminDashboard-CMRNLT_R.js       20.28 kB Ôöé gzip:   4.90 kB
+dist/assets/WholesalerPayouts-sRQM93R6.js         20.95 kB Ôöé gzip:   4.75 kB
+dist/assets/Dashboard-B-kw_PNn.js                 23.01 kB Ôöé gzip:   5.29 kB
+dist/assets/WholesalerBilling-DcnbGM7U.js         24.85 kB Ôöé gzip:   6.12 kB
+dist/assets/B2BCart-D72igQOG.js                   25.28 kB Ôöé gzip:   5.99 kB
+dist/assets/purify.es-DlxR2Lg_.js                 26.04 kB Ôöé gzip:  10.23 kB
+dist/assets/Cart-wsPi_FNd.js                      26.62 kB Ôöé gzip:   7.03 kB
+dist/assets/cn-COZzs24T.js                        26.94 kB Ôöé gzip:   8.59 kB
+dist/assets/RfqManager-D3PNx9Mm.js                27.82 kB Ôöé gzip:   5.82 kB
+dist/assets/RetailDashboard-DJ8eIrav.js           29.49 kB Ôöé gzip:   6.38 kB
+dist/assets/SuperAdminSubscriptions-B4s6HoFl.js   30.38 kB Ôöé gzip:   7.37 kB
+dist/assets/index-YO_2wtyE.js                     30.89 kB Ôöé gzip:   8.91 kB
+dist/assets/CustomerLayout-R2an0w0B.js            31.73 kB Ôöé gzip:   6.86 kB
+dist/assets/axios-CFn4jDMC.js                     45.85 kB Ôöé gzip:  17.55 kB
+dist/assets/Orders-BRFYzn6T.js                    52.93 kB Ôöé gzip:  10.19 kB
+dist/assets/Ledger-BDljExyO.js                    57.44 kB Ôöé gzip:   9.70 kB
+dist/assets/index.es-h6CeA3AJ.js                 151.42 kB Ôöé gzip:  48.90 kB
+dist/assets/html2canvas-B9Ed0YNC.js              199.57 kB Ôöé gzip:  46.79 kB
+dist/assets/AiKhatta-DBhEULUC.js                 437.74 kB Ôöé gzip: 141.47 kB
+dist/assets/vendor-react-DDbdahTD.js             829.20 kB Ôöé gzip: 241.81 kB
+
+[32mÔ£ô built in 5.98s[39m
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

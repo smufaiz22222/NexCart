@@ -1,36 +1,818 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Dynamic optimized typography */
-  --font-sans:
-    'Outfit', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, Open Sans, sans-serif;
+  --font-sans: var(--font-sans-family);
+  --font-headline: var(--font-headline-family);
+  --font-mono: var(--font-mono-family);
 
-  /* Custom Premium Theme & Semantic Colors */
-  --color-brand-primary: var(--color-amber-500);
-  --color-brand-primary-hover: var(--color-amber-400);
-  --color-brand-primary-light: rgba(245, 158, 11, 0.1);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-accent: var(--brand-accent);
 
-  --color-bg-main: #0a0a0a;
-  --color-bg-card: #1c1c1c;
-  --color-bg-card-hover: rgba(39, 39, 42, 0.4); /* zinc-800/40 equivalent */
+  --color-bg-main: var(--bg-main);
+  --color-bg-card: var(--bg-card);
+  --color-bg-card-hover: var(--bg-card-hover);
 
-  --color-border-subtle: #27272a; /* zinc-800 equivalent */
-  --color-border-accent: rgba(245, 158, 11, 0.2); /* amber-500/20 equivalent */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-accent: var(--border-accent);
 
-  --color-text-title: #ffffff;
-  --color-text-body: #a1a1aa; /* zinc-400 equivalent */
-  --color-text-muted: #52525b; /* zinc-600 equivalent */
+  --color-text-title: var(--text-title);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
 
-  --color-semantic-success: #10b981;
-  --color-semantic-success-light: rgba(16, 185, 129, 0.1);
-  --color-semantic-warning: #f59e0b;
-  --color-semantic-warning-light: rgba(245, 158, 11, 0.1);
-  --color-semantic-danger: #ef4444;
-  --color-semantic-danger-light: rgba(239, 68, 68, 0.1);
+  --color-semantic-success: var(--semantic-success);
+  --color-semantic-success-light: var(--semantic-success-light);
+  --color-semantic-warning: var(--semantic-warning);
+  --color-semantic-warning-light: var(--semantic-warning-light);
+  --color-semantic-danger: var(--semantic-danger);
+  --color-semantic-danger-light: var(--semantic-danger-light);
+  --color-info: var(--info);
+  --color-table-header-bg: var(--table-header-bg);
+  --color-table-header-text: var(--table-header-text);
 }
 
-/* Basic reset for our app background */
+:root {
+  --font-sans-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-headline-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono-family: monospace;
+
+  --brand-primary: var(--color-amber-500);
+  --brand-primary-hover: var(--color-amber-400);
+  --brand-primary-light: rgba(245, 158, 11, 0.1);
+  --brand-accent: #f59e0b;
+
+  --bg-main: #0a0a0a;
+  --bg-card: #1c1c1c;
+  --bg-card-hover: rgba(39, 39, 42, 0.4);
+
+  --border-subtle: #27272a;
+  --border-accent: rgba(245, 158, 11, 0.2);
+
+  --text-title: #ffffff;
+  --text-body: #a1a1aa;
+  --text-muted: #52525b;
+
+  --semantic-success: #10b981;
+  --semantic-success-light: rgba(16, 185, 129, 0.1);
+  --semantic-warning: #f59e0b;
+  --semantic-warning-light: rgba(245, 158, 11, 0.1);
+  --semantic-danger: #ef4444;
+  --semantic-danger-light: rgba(239, 68, 68, 0.1);
+  --info: #0ea5e9;
+  --table-header-bg: #0a0a0a;
+  --table-header-text: rgba(245, 158, 11, 0.8);
+}
+
+.wholesaler-theme {
+  --font-sans-family: 'DM Sans', sans-serif;
+  --font-headline-family: 'Plus Jakarta Sans', sans-serif;
+  --font-mono-family: 'Fira Code', monospace;
+}
+
+/* ==========================================================================
+   LIGHT MODE — Teal-tinted, vibrant wholesaler theme
+   Only applies when .theme-light is active
+   ========================================================================== */
+.wholesaler-theme.theme-light {
+  --brand-primary: #0d9488;
+  --brand-primary-hover: #0f766e;
+  --brand-primary-light: rgba(13, 148, 136, 0.08);
+  --brand-accent: #0d9488;
+
+  --bg-main: #f0fdf9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0fdfa;
+
+  --border-subtle: #ccfbf1;
+  --border-accent: rgba(13, 148, 136, 0.25);
+
+  --text-title: #134e4a;
+  --text-body: #475569;
+  --text-muted: #64748b;
+
+  --semantic-success: #10b981;
+  --semantic-success-light: rgba(16, 185, 129, 0.12);
+  --semantic-warning: #f59e0b;
+  --semantic-warning-light: rgba(245, 158, 11, 0.12);
+  --semantic-danger: #ef4444;
+  --semantic-danger-light: rgba(239, 68, 68, 0.08);
+  --info: #0ea5e9;
+  --table-header-bg: #f0fdfa;
+  --table-header-text: #0d9488;
+
+  background-color: #f0fdf9 !important;
+  color: #475569 !important;
+  font-family: 'DM Sans', sans-serif !important;
+}
+
+/* Light Mode Backgrounds */
+.wholesaler-theme.theme-light [class*='bg-[#0a0a0a]'],
+.wholesaler-theme.theme-light [class*='bg-[#0b0b0b]'],
+.wholesaler-theme.theme-light [class*='bg-[#0d0d0d]'] {
+  background-color: #f0fdf9 !important;
+}
+.wholesaler-theme.theme-light [class*='bg-[#111111]'],
+.wholesaler-theme.theme-light [class*='bg-[#121212]'],
+.wholesaler-theme.theme-light [class*='bg-[#131313]'],
+.wholesaler-theme.theme-light [class*='bg-[#1c1c1c]'],
+.wholesaler-theme.theme-light [class*='bg-[#171717]'],
+.wholesaler-theme.theme-light [class*='bg-[#101010]'],
+.wholesaler-theme.theme-light [class*='bg-[#09090b]'] {
+  background-color: #ffffff !important;
+}
+.wholesaler-theme.theme-light [class*='bg-zinc-950'],
+.wholesaler-theme.theme-light [class*='bg-zinc-900'],
+.wholesaler-theme.theme-light [class*='bg-zinc-800'] {
+  background-color: #f0fdfa !important;
+}
+.wholesaler-theme.theme-light [class*='bg-black/20'],
+.wholesaler-theme.theme-light [class*='bg-black/10'],
+.wholesaler-theme.theme-light [class*='bg-black/40'] {
+  background-color: #f0fdf9 !important;
+}
+.wholesaler-theme.theme-light [class*='bg-[radial-gradient'],
+.wholesaler-theme.theme-light [class*='linear-gradient'] {
+  background-image: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%) !important;
+}
+
+/* Light Mode Borders */
+.wholesaler-theme.theme-light [class*='border-zinc-800'],
+.wholesaler-theme.theme-light [class*='border-zinc-700'],
+.wholesaler-theme.theme-light [class*='border-white/8'] {
+  border-color: #ccfbf1 !important;
+}
+.wholesaler-theme.theme-light [class*='divide-zinc-800'] > *,
+.wholesaler-theme.theme-light [class*='divide-zinc-800/60'] > * {
+  border-color: #ccfbf1 !important;
+}
+
+/* Light Mode Text */
+.wholesaler-theme.theme-light [class*='text-white'] {
+  color: #134e4a !important;
+}
+.wholesaler-theme.theme-light [class*='text-zinc-50'],
+.wholesaler-theme.theme-light [class*='text-zinc-100'],
+.wholesaler-theme.theme-light [class*='text-zinc-200'],
+.wholesaler-theme.theme-light [class*='text-zinc-300'] {
+  color: #334155 !important;
+}
+.wholesaler-theme.theme-light [class*='text-zinc-400'],
+.wholesaler-theme.theme-light [class*='text-zinc-500'],
+.wholesaler-theme.theme-light [class*='text-zinc-600'] {
+  color: #64748b !important;
+}
+.wholesaler-theme.theme-light [class*='text-slate-300'],
+.wholesaler-theme.theme-light [class*='text-slate-400'] {
+  color: #64748b !important;
+}
+
+/* Light Mode Amber → Teal conversions (ONLY in light mode) */
+.wholesaler-theme.theme-light [class*='text-amber-500'] {
+  color: #0f766e !important;
+}
+.wholesaler-theme.theme-light [class*='text-amber-400'] {
+  color: #0d9488 !important;
+}
+.wholesaler-theme.theme-light [class*='text-amber-300'] {
+  color: #0d9488 !important;
+}
+.wholesaler-theme.theme-light [class*='text-amber-200'] {
+  color: #115e59 !important;
+}
+.wholesaler-theme.theme-light button[class*='bg-amber-500'],
+.wholesaler-theme.theme-light button[class*='bg-amber-400'],
+.wholesaler-theme.theme-light a[class*='bg-amber-500'],
+.wholesaler-theme.theme-light a[class*='bg-amber-400'] {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+}
+.wholesaler-theme.theme-light button[class*='bg-amber-500'] *,
+.wholesaler-theme.theme-light button[class*='bg-amber-400'] *,
+.wholesaler-theme.theme-light a[class*='bg-amber-500'] *,
+.wholesaler-theme.theme-light a[class*='bg-amber-400'] * {
+  color: #ffffff !important;
+}
+.wholesaler-theme.theme-light [class*='bg-amber-500/10'] {
+  background-color: rgba(13, 148, 136, 0.08) !important;
+}
+.wholesaler-theme.theme-light [class*='border-amber-500/20'],
+.wholesaler-theme.theme-light [class*='border-amber-500/25'],
+.wholesaler-theme.theme-light [class*='border-amber-500/30'] {
+  border-color: rgba(13, 148, 136, 0.2) !important;
+}
+
+/* Light Mode Status Colors */
+.wholesaler-theme.theme-light [class*='bg-emerald-500/10'] {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+.wholesaler-theme.theme-light [class*='text-emerald-300'],
+.wholesaler-theme.theme-light [class*='text-emerald-400'] {
+  color: #059669 !important;
+}
+.wholesaler-theme.theme-light [class*='bg-rose-500/10'] {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+.wholesaler-theme.theme-light [class*='text-rose-300'],
+.wholesaler-theme.theme-light [class*='text-rose-400'] {
+  color: #dc2626 !important;
+}
+
+/* Light Mode Hover */
+.wholesaler-theme.theme-light [class*='hover:bg-zinc-900']:hover,
+.wholesaler-theme.theme-light [class*='hover:bg-zinc-800']:hover,
+.wholesaler-theme.theme-light [class*='hover:bg-zinc-900/50']:hover {
+  background-color: #ccfbf1 !important;
+}
+
+/* Light Mode Cards */
+.wholesaler-theme.theme-light .rounded-\[32px\],
+.wholesaler-theme.theme-light .rounded-\[30px\],
+.wholesaler-theme.theme-light .rounded-\[28px\],
+.wholesaler-theme.theme-light .rounded-\[26px\],
+.wholesaler-theme.theme-light .rounded-\[24px\],
+.wholesaler-theme.theme-light .rounded-\[22px\],
+.wholesaler-theme.theme-light .rounded-\[18px\],
+.wholesaler-theme.theme-light .rounded-2xl {
+  border-radius: 14px !important;
+  background-color: #ffffff !important;
+  border: 1px solid #ccfbf1 !important;
+  box-shadow:
+    0 2px 12px rgba(13, 148, 136, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Light Mode White Buttons → Teal */
+.wholesaler-theme.theme-light button[class*='bg-white'],
+.wholesaler-theme.theme-light a[class*='bg-white'] {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+  border: 1px solid #0d9488 !important;
+}
+.wholesaler-theme.theme-light button[class*='bg-white'] *,
+.wholesaler-theme.theme-light a[class*='bg-white'] * {
+  color: #ffffff !important;
+}
+.wholesaler-theme.theme-light button[class*='bg-white']:hover,
+.wholesaler-theme.theme-light a[class*='bg-white']:hover {
+  background-color: #0f766e !important;
+}
+
+/* Light Mode Secondary Buttons */
+.wholesaler-theme.theme-light button[class*='bg-zinc-900'],
+.wholesaler-theme.theme-light button[class*='bg-zinc-800'],
+.wholesaler-theme.theme-light a[class*='bg-zinc-900'],
+.wholesaler-theme.theme-light a[class*='bg-zinc-800'] {
+  background-color: #f0fdfa !important;
+  color: #0d9488 !important;
+  border: 1px solid #99f6e4 !important;
+}
+.wholesaler-theme.theme-light button[class*='bg-zinc-900']:hover,
+.wholesaler-theme.theme-light button[class*='bg-zinc-800']:hover {
+  background-color: #ccfbf1 !important;
+  color: #0f766e !important;
+}
+
+/* Light Mode Table */
+.wholesaler-theme.theme-light table thead,
+.wholesaler-theme.theme-light table tr th {
+  background-color: #f0fdfa !important;
+  color: #134e4a !important;
+  border-bottom: 2px solid #99f6e4 !important;
+}
+
+/* Light Mode Form Fields */
+.wholesaler-theme.theme-light input[type='text'],
+.wholesaler-theme.theme-light input[type='number'],
+.wholesaler-theme.theme-light input[type='email'],
+.wholesaler-theme.theme-light input[type='password'],
+.wholesaler-theme.theme-light input[type='tel'],
+.wholesaler-theme.theme-light input[type='url'],
+.wholesaler-theme.theme-light select,
+.wholesaler-theme.theme-light textarea {
+  background-color: #ffffff !important;
+  border: 1px solid #ccfbf1 !important;
+  color: #134e4a !important;
+}
+.wholesaler-theme.theme-light input::placeholder,
+.wholesaler-theme.theme-light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+.wholesaler-theme.theme-light label {
+  color: #134e4a !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Deep navy wholesaler theme
+   Only applies when .theme-dark is active
+   ========================================================================== */
+.wholesaler-theme.theme-dark {
+  --brand-primary: #1e293b;
+  --brand-primary-hover: #334155;
+  --brand-primary-light: rgba(248, 250, 252, 0.05);
+  --brand-accent: #f59e0b;
+
+  --bg-main: #0b0f19;
+  --bg-card: #111827;
+  --bg-card-hover: #1f2937;
+
+  --border-subtle: #1f2937;
+  --border-accent: rgba(245, 158, 11, 0.3);
+
+  --text-title: #f9fafb;
+  --text-body: #d1d5db;
+  --text-muted: #9ca3af;
+
+  --semantic-success: #34d399;
+  --semantic-success-light: rgba(52, 211, 153, 0.1);
+  --semantic-warning: #f59e0b;
+  --semantic-warning-light: rgba(245, 158, 11, 0.1);
+  --semantic-danger: #f87171;
+  --semantic-danger-light: rgba(248, 113, 113, 0.1);
+  --info: #38bdf8;
+  --table-header-bg: #0b0f19;
+  --table-header-text: #f59e0b;
+
+  background-color: #0b0f19 !important;
+  color: #d1d5db !important;
+  font-family: 'DM Sans', sans-serif !important;
+}
+
+/* Dark Mode Backgrounds */
+.wholesaler-theme.theme-dark [class*='bg-[#0a0a0a]'],
+.wholesaler-theme.theme-dark [class*='bg-[#0b0b0b]'],
+.wholesaler-theme.theme-dark [class*='bg-[#0d0d0d]'] {
+  background-color: #0b0f19 !important;
+}
+.wholesaler-theme.theme-dark [class*='bg-[#111111]'],
+.wholesaler-theme.theme-dark [class*='bg-[#121212]'],
+.wholesaler-theme.theme-dark [class*='bg-[#131313]'],
+.wholesaler-theme.theme-dark [class*='bg-[#1c1c1c]'],
+.wholesaler-theme.theme-dark [class*='bg-[#171717]'],
+.wholesaler-theme.theme-dark [class*='bg-[#101010]'],
+.wholesaler-theme.theme-dark [class*='bg-[#09090b]'] {
+  background-color: #111827 !important;
+}
+.wholesaler-theme.theme-dark [class*='bg-zinc-950'],
+.wholesaler-theme.theme-dark [class*='bg-zinc-900'],
+.wholesaler-theme.theme-dark [class*='bg-zinc-800'] {
+  background-color: #111827 !important;
+}
+.wholesaler-theme.theme-dark [class*='bg-black/20'],
+.wholesaler-theme.theme-dark [class*='bg-black/10'],
+.wholesaler-theme.theme-dark [class*='bg-black/40'] {
+  background-color: #0b0f19 !important;
+}
+.wholesaler-theme.theme-dark [class*='bg-[radial-gradient'],
+.wholesaler-theme.theme-dark [class*='linear-gradient'] {
+  background-image: none !important;
+  background-color: #111827 !important;
+}
+
+/* Dark Mode Borders */
+.wholesaler-theme.theme-dark [class*='border-zinc-800'],
+.wholesaler-theme.theme-dark [class*='border-zinc-700'],
+.wholesaler-theme.theme-dark [class*='border-white/8'] {
+  border-color: #1f2937 !important;
+}
+.wholesaler-theme.theme-dark [class*='divide-zinc-800'] > *,
+.wholesaler-theme.theme-dark [class*='divide-zinc-800/60'] > * {
+  border-color: #1f2937 !important;
+}
+
+/* Dark Mode Text */
+.wholesaler-theme.theme-dark [class*='text-white'] {
+  color: #f9fafb !important;
+}
+.wholesaler-theme.theme-dark [class*='text-zinc-200'],
+.wholesaler-theme.theme-dark [class*='text-zinc-300'] {
+  color: #d1d5db !important;
+}
+.wholesaler-theme.theme-dark [class*='text-zinc-400'],
+.wholesaler-theme.theme-dark [class*='text-zinc-500'] {
+  color: #9ca3af !important;
+}
+
+/* Dark Mode Cards */
+.wholesaler-theme.theme-dark .rounded-\[32px\],
+.wholesaler-theme.theme-dark .rounded-\[30px\],
+.wholesaler-theme.theme-dark .rounded-\[28px\],
+.wholesaler-theme.theme-dark .rounded-\[26px\],
+.wholesaler-theme.theme-dark .rounded-\[24px\],
+.wholesaler-theme.theme-dark .rounded-\[22px\],
+.wholesaler-theme.theme-dark .rounded-\[18px\],
+.wholesaler-theme.theme-dark .rounded-2xl {
+  border-radius: 14px !important;
+  background-color: #111827 !important;
+  border: 1px solid #1f2937 !important;
+  box-shadow: none !important;
+}
+
+/* Dark Mode Table */
+.wholesaler-theme.theme-dark table thead,
+.wholesaler-theme.theme-dark table tr th {
+  background-color: #0b0f19 !important;
+  color: #f9fafb !important;
+  border-bottom: 2px solid #1f2937 !important;
+}
+
+/* Dark Mode Form Fields */
+.wholesaler-theme.theme-dark input[type='text'],
+.wholesaler-theme.theme-dark input[type='number'],
+.wholesaler-theme.theme-dark input[type='email'],
+.wholesaler-theme.theme-dark input[type='password'],
+.wholesaler-theme.theme-dark input[type='tel'],
+.wholesaler-theme.theme-dark input[type='url'],
+.wholesaler-theme.theme-dark select,
+.wholesaler-theme.theme-dark textarea {
+  background-color: #111827 !important;
+  border: 1px solid #1f2937 !important;
+  color: #f9fafb !important;
+}
+.wholesaler-theme.theme-dark input::placeholder,
+.wholesaler-theme.theme-dark textarea::placeholder {
+  color: #6b7280 !important;
+}
+.wholesaler-theme.theme-dark label {
+  color: #f9fafb !important;
+}
+
+/* ==========================================================================
+   COMMON WHOLESALER OVERRIDES (both modes)
+   Only typography and form UX — NO color changes here
+   ========================================================================== */
+.wholesaler-theme h1,
+.wholesaler-theme h2,
+.wholesaler-theme h3,
+.wholesaler-theme h4,
+.wholesaler-theme .font-bold,
+.wholesaler-theme .font-black {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.wholesaler-theme input[type='text'],
+.wholesaler-theme input[type='number'],
+.wholesaler-theme input[type='email'],
+.wholesaler-theme input[type='password'],
+.wholesaler-theme input[type='tel'],
+.wholesaler-theme input[type='url'],
+.wholesaler-theme select,
+.wholesaler-theme textarea {
+  border-radius: 8px !important;
+  height: 42px !important;
+  padding: 10px 14px !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 14px !important;
+  transition: all 0.15s ease-in-out !important;
+  box-shadow: none !important;
+}
+
+.wholesaler-theme input:hover,
+.wholesaler-theme select:hover,
+.wholesaler-theme textarea:hover {
+  border-color: var(--brand-accent) !important;
+}
+
+.wholesaler-theme input:focus,
+.wholesaler-theme select:focus,
+.wholesaler-theme textarea:focus {
+  outline: none !important;
+  border: 2px solid var(--brand-accent) !important;
+  box-shadow: 0 0 0 3px var(--brand-primary-light) !important;
+}
+
+.wholesaler-theme label {
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  margin-bottom: 6px !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+/* Checkbox styling */
+.wholesaler-theme input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-subtle) !important;
+  background-color: var(--bg-main) !important;
+  border-radius: 4px !important;
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+.wholesaler-theme input[type='checkbox']:checked {
+  background-color: var(--brand-accent) !important;
+  border-color: var(--brand-accent) !important;
+}
+.wholesaler-theme input[type='checkbox']:checked::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  clip-path: polygon(14% 44%, 0 58%, 38% 96%, 100% 16%, 86% 2%, 38% 68%);
+  background-color: #ffffff !important;
+}
+
+/* ==========================================================================
+   BASE STYLES & ANIMATIONS
+   ========================================================================== */
 body {
   @apply bg-bg-main text-text-body font-sans;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(221, 215, 204, 0.6);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-card-hover:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(22, 20, 18, 0.15);
+  box-shadow: 0 20px 40px rgba(22, 20, 18, 0.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(22, 20, 18, 0.03);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(22, 20, 18, 0.15);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(22, 20, 18, 0.3);
+}
+
+/* ==========================================================================
+   SWISS DESIGN SYSTEM — B2C Customer Portal Styles
+   ========================================================================== */
+
+/* Swiss Panel — the primary card container */
+.swiss-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.02);
+  transition:
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+.swiss-panel:hover {
+  box-shadow:
+    0 4px 12px rgba(79, 70, 229, 0.04),
+    0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* Swiss Card — smaller interactive cards */
+.swiss-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.swiss-card:hover {
+  border-color: #4f46e5;
+  box-shadow:
+    0 8px 24px rgba(79, 70, 229, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   ANIMATION UTILITIES
+   ========================================================================== */
+
+/* Fade-in slide animations */
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-slide-in {
+  animation: slideInFromBottom 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Stagger children animation delays */
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 350ms;
+}
+
+/* ==========================================================================
+   CARD HOVER LIFT EFFECT
+   ========================================================================== */
+.card-hover-lift {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 32px rgba(79, 70, 229, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Subtle lift for smaller cards */
+.card-hover-subtle {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover-subtle:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 20px rgba(79, 70, 229, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+/* ==========================================================================
+   SCROLLBAR STYLING FOR CAROUSELS
+   ========================================================================== */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide scrollbar for a clean look */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ==========================================================================
+   GRADIENT TEXT UTILITY
+   ========================================================================== */
+.text-gradient-indigo {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-purple {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ==========================================================================
+   STAT CARD GLOW ON ACTIVE STATE
+   ========================================================================== */
+.stat-card-glow {
+  position: relative;
+  overflow: hidden;
+}
+.stat-card-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(circle at 50% 0%, rgba(79, 70, 229, 0.06), transparent 70%);
+  pointer-events: none;
+}
+.stat-card-glow:hover::after {
+  opacity: 1;
+}
+
+/* Purple variant for B2B */
+.stat-card-glow-purple::after {
+  background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.06), transparent 70%);
+}
+
+/* ==========================================================================
+   BUTTON PRESS EFFECT
+   ========================================================================== */
+.btn-press {
+  transition: all 0.15s ease;
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* ==========================================================================
+   PILL/TAG ACTIVE INDICATOR
+   ========================================================================== */
+.pill-active {
+  position: relative;
+}
+.pill-active::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 3px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.4;
 }

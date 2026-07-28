@@ -1,25 +1,32 @@
 # ingest.py — FIXED
 # Added deduplication: collection is cleared before each ingestion run.
 # This prevents duplicate chunks from accumulating if /ingest is called multiple times.
-# 
+#
 # Two strategies available — choose via INGEST_MODE in .env:
 #   "replace" (default) — clears collection then re-ingests. Safe and clean.
 #   "skip"              — skips ingestion if collection already has documents.
 
 import os
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from app.dependencies.auth import AuthenticatedUser, require_admin_user
 from app.services.document_utils import normalize_chunk_metadata
+from app.services.retrieval_service import invalidate_bm25_cache
 from app.vectorstore.chroma_store import add_documents, get_vectorstore
 
 router = APIRouter()
 
-DOCS_PATH   = os.getenv("DOCS_PATH", "./app/docs")
+DOCS_PATH = os.getenv("DOCS_PATH", "./app/docs")
 INGEST_MODE = os.getenv("INGEST_MODE", "replace")  # "replace" or "skip"
 
+
 @router.post("/ingest")
-async def ingest_documents():
+async def ingest_documents(
+    current_user: Annotated[AuthenticatedUser, Depends(require_admin_user)],
+):
     try:
         vectorstore = get_vectorstore()
 
@@ -36,7 +43,9 @@ async def ingest_documents():
 
         if INGEST_MODE == "replace" and existing_count > 0:
             # Clear the entire collection before re-ingesting
-            print(f"[Ingest] Clearing {existing_count} existing chunks before re-ingestion")
+            print(
+                f"[Ingest] Clearing {existing_count} existing chunks before re-ingestion"
+            )
             vectorstore.delete_collection()
             print("[Ingest] Collection cleared")
 
@@ -48,7 +57,7 @@ async def ingest_documents():
         if not raw_docs:
             raise HTTPException(
                 status_code=400,
-                detail=f"No PDF files found in {DOCS_PATH}. Add PDFs and retry."
+                detail=f"No PDF files found in {DOCS_PATH}. Add PDFs and retry.",
             )
 
         print(f"[Ingest] Loaded {len(raw_docs)} pages")
@@ -61,17 +70,23 @@ async def ingest_documents():
         )
         chunks = splitter.split_documents(raw_docs)
         for chunk in chunks:
-            chunk.metadata = normalize_chunk_metadata(chunk.metadata, page_is_zero_based=True)
+            chunk.metadata = normalize_chunk_metadata(
+                chunk.metadata, page_is_zero_based=True
+            )
         print(f"[Ingest] Split into {len(chunks)} chunks")
 
         # ── Store in ChromaDB ──────────────────────────────────────────────
         add_documents(chunks)
+
+        # ── Invalidate BM25 cache so next query uses fresh index ───────────
+        invalidate_bm25_cache()
 
         return {
             "status": "success",
             "pages_loaded": len(raw_docs),
             "chunks_stored": len(chunks),
             "message": "Knowledge base is ready.",
+            "requested_by": current_user.user_id,
         }
 
     except HTTPException:

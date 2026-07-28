@@ -86,12 +86,15 @@ export const buildCollaborativeRecommendations = async ({ topK = 10 } = {}) => {
     similarityRows.push(...ranked);
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.productSimilarity.deleteMany({ where: { method: 'COLLABORATIVE' } });
-    if (similarityRows.length > 0) {
-      await tx.productSimilarity.createMany({ data: similarityRows });
-    }
-  });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.productSimilarity.deleteMany({ where: { method: 'COLLABORATIVE' } });
+      if (similarityRows.length > 0) {
+        await tx.productSimilarity.createMany({ data: similarityRows });
+      }
+    },
+    { timeout: 60000 }
+  );
 
   return {
     productsProcessed: productIds.length,

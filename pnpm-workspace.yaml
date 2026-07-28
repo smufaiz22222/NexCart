@@ -16,3 +16,6 @@ allowBuilds:
   '@prisma/engines': true
   esbuild: true
   core-js: true
+
+minimumReleaseAgeExclude:
+  - axios@1.18.1

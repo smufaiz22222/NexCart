@@ -1,43 +1,44 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import apiClient from './axios';
 
 // ==========================================
 // 1. PRODUCT DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const productKeys = {
+const productKeys = {
   all: ['products'],
   lists: () => [...productKeys.all, 'list'],
-  marketplace: () => [...productKeys.all, 'marketplace'],
+  marketplace: (params) => [...productKeys.all, 'marketplace', params || {}],
   details: () => [...productKeys.all, 'detail'],
   detail: (id) => [...productKeys.details(), id],
   similars: () => [...productKeys.all, 'similar'],
   similar: (id) => [...productKeys.similars(), id],
   trending: () => [...productKeys.all, 'trending'],
+  recommendations: () => [...productKeys.all, 'recommendations'],
 };
 
 // Fetchers
-export const fetchProducts = async () => {
+const fetchProducts = async () => {
   const response = await apiClient.get('/products');
   return response.data.products || [];
 };
 
-export const fetchMarketplaceProducts = async () => {
-  const response = await apiClient.get('/products/marketplace');
-  return response.data.products || [];
+const fetchMarketplaceProducts = async (params = {}) => {
+  const response = await apiClient.get('/products/marketplace', { params });
+  return response.data;
 };
 
-export const fetchProductDetail = async (id) => {
+const fetchProductDetail = async (id) => {
   const response = await apiClient.get(`/products/${id}`);
   return response.data;
 };
 
-export const fetchSimilarProducts = async (id) => {
+const fetchSimilarProducts = async (id) => {
   const response = await apiClient.get(`/recommendations/products/${id}/similar?limit=8`);
   return response.data;
 };
 
-export const fetchTrendingProducts = async () => {
+const fetchTrendingProducts = async () => {
   const response = await apiClient.get('/recommendations/popular?scope=trending&limit=100');
   return response.data;
 };
@@ -50,10 +51,24 @@ export const useProducts = () => {
   });
 };
 
-export const useMarketplaceProducts = () => {
+export const useMarketplaceProducts = (params) => {
   return useQuery({
-    queryKey: productKeys.marketplace(),
-    queryFn: fetchMarketplaceProducts,
+    queryKey: productKeys.marketplace(params),
+    queryFn: () => fetchMarketplaceProducts(params),
+  });
+};
+
+export const useMarketplaceProductsInfinite = (params) => {
+  return useInfiniteQuery({
+    queryKey: [...productKeys.marketplace(params), 'infinite'],
+    queryFn: ({ pageParam = 1 }) => fetchMarketplaceProducts({ ...params, page: pageParam }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page && lastPage.page < lastPage.totalPages) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
   });
 };
 
@@ -77,6 +92,32 @@ export const useTrendingProducts = () => {
   return useQuery({
     queryKey: productKeys.trending(),
     queryFn: fetchTrendingProducts,
+  });
+};
+
+const fetchDailyDeals = async () => {
+  const response = await apiClient.get('/deals/daily');
+  return response.data;
+};
+
+export const useDailyDeals = () => {
+  return useQuery({
+    queryKey: ['deals', 'daily'],
+    queryFn: fetchDailyDeals,
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
+};
+
+const fetchUserRecommendations = async () => {
+  const response = await apiClient.get('/recommendations/user?limit=8');
+  return response.data;
+};
+
+export const useUserRecommendations = (options = {}) => {
+  return useQuery({
+    queryKey: productKeys.recommendations(),
+    queryFn: fetchUserRecommendations,
+    ...options,
   });
 };
 
@@ -145,12 +186,12 @@ export const useSubmitReview = (productId) => {
 // 2. INVENTORY DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const inventoryKeys = {
+const inventoryKeys = {
   all: ['inventory'],
   logs: () => [...inventoryKeys.all, 'logs'],
 };
 
-export const fetchInventoryLogs = async () => {
+const fetchInventoryLogs = async () => {
   const response = await apiClient.get('/inventory');
   return response.data.logs || [];
 };
@@ -180,32 +221,141 @@ export const useAdjustStock = () => {
 // 3. LEDGER DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const ledgerKeys = {
+const ledgerKeys = {
   all: ['ledger'],
   entries: () => [...ledgerKeys.all, 'entries'],
+  myLedger: () => [...ledgerKeys.all, 'myLedger'],
+  hub: () => [...ledgerKeys.all, 'hub'],
+  details: (partyId) => [...ledgerKeys.all, 'details', partyId],
+  accountEntries: (accountId) => [...ledgerKeys.all, 'account-entries', accountId],
 };
 
-export const fetchLedgerEntries = async () => {
-  const response = await apiClient.get('/ledger');
-  return response.data.entries || [];
+const fetchLedgerHub = async () => {
+  const response = await apiClient.get('/ledger/hub');
+  return response.data || { overview: {}, parties: [], accounts: [], sales: [], ledgerEntries: [] };
 };
 
-export const useLedgerEntries = () => {
+export const useLedgerHub = () => {
   return useQuery({
-    queryKey: ledgerKeys.entries(),
-    queryFn: fetchLedgerEntries,
+    queryKey: ledgerKeys.hub(),
+    queryFn: fetchLedgerHub,
   });
 };
 
-export const useRecordPayment = () => {
+const fetchPartyDetails = async (partyId) => {
+  const response = await apiClient.get(`/ledger/parties/${partyId}/details`);
+  return response.data;
+};
+
+export const usePartyDetails = (partyId) => {
+  return useQuery({
+    queryKey: ledgerKeys.details(partyId),
+    queryFn: () => fetchPartyDetails(partyId),
+    enabled: !!partyId,
+  });
+};
+
+const fetchAccountEntries = async (accountId) => {
+  const response = await apiClient.get(`/ledger/accounts/${accountId}/entries`);
+  return response.data;
+};
+
+export const useAccountEntries = (accountId) => {
+  return useQuery({
+    queryKey: ledgerKeys.accountEntries(accountId),
+    queryFn: () => fetchAccountEntries(accountId),
+    enabled: !!accountId,
+  });
+};
+
+const fetchMyLedger = async () => {
+  const response = await apiClient.get('/ledger/my-ledger');
+  return response.data || { balance: '0.00', entriesCount: 0, entries: [] };
+};
+
+export const useMyLedger = () => {
+  return useQuery({
+    queryKey: ledgerKeys.myLedger(),
+    queryFn: fetchMyLedger,
+  });
+};
+
+export const useCreateBusinessParty = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (formData) => {
-      const response = await apiClient.post('/ledger/payment', formData);
+    mutationFn: async (payload) => {
+      const response = await apiClient.post('/ledger/parties', payload);
       return response.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
       queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
+      queryClient.invalidateQueries({ queryKey: b2bKeys.wholesalerBuyers() });
+    },
+  });
+};
+
+export const useCreateOfflineSale = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      const response = await apiClient.post('/ledger/offline-sales', payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.logs() });
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: b2bKeys.wholesalerBuyers() });
+    },
+  });
+};
+
+export const useRecordPartyTransaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ partyId, ...payload }) => {
+      const response = await apiClient.post(`/ledger/parties/${partyId}/transactions`, payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.myLedger() });
+      queryClient.invalidateQueries({ queryKey: b2bKeys.wholesalerBuyers() });
+    },
+  });
+};
+
+export const useCreateOfflinePurchase = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      const response = await apiClient.post('/ledger/offline-purchases', payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.logs() });
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: b2bKeys.wholesalerBuyers() });
+    },
+  });
+};
+
+export const useReconcileInstrument = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (instrumentId) => {
+      const response = await apiClient.post(`/ledger/instruments/${instrumentId}/reconcile`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.entries() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.myLedger() });
     },
   });
 };
@@ -214,12 +364,12 @@ export const useRecordPayment = () => {
 // 4. ORDERS DOMAIN QUERIES & MUTATIONS
 // ==========================================
 
-export const orderKeys = {
+const orderKeys = {
   all: ['orders'],
   lists: () => [...orderKeys.all, 'list'],
 };
 
-export const fetchOrders = async () => {
+const fetchOrders = async () => {
   const response = await apiClient.get('/orders');
   return response.data.orders || [];
 };
@@ -236,6 +386,19 @@ export const useUpdateOrderStatus = () => {
   return useMutation({
     mutationFn: async ({ orderId, status }) => {
       const response = await apiClient.put(`/orders/${orderId}/status`, { status });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};
+
+export const useVerifyBankPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId }) => {
+      const response = await apiClient.post(`/orders/${orderId}/verify-bank-payment`);
       return response.data;
     },
     onSuccess: () => {
@@ -273,11 +436,23 @@ export const useRetryRefund = () => {
 export const useRequestReturn = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ orderId, itemId, reason, notes, quantity }) => {
+    mutationFn: async ({
+      orderId,
+      itemId,
+      reason,
+      notes,
+      quantity,
+      bankAccountNumber,
+      bankIfsc,
+      bankAccountName,
+    }) => {
       const response = await apiClient.post(`/orders/${orderId}/items/${itemId}/request-return`, {
         reason,
         notes,
         quantity,
+        bankAccountNumber,
+        bankIfsc,
+        bankAccountName,
       });
       return response.data;
     },
@@ -339,6 +514,22 @@ export const useRetryReturnRefund = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+    },
+  });
+};
+
+export const useSettleReturnRefund = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, itemId, refundMethod }) => {
+      const response = await apiClient.post(`/orders/${orderId}/items/${itemId}/settle-refund`, {
+        refundMethod,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ledgerKeys.hub() });
     },
   });
 };
@@ -472,5 +663,183 @@ export const useCreateDisputeInternalNote = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
     },
+  });
+};
+
+// ==========================================
+// 5. B2B & B2C HYBRID PLATFORM HOOKS
+// ==========================================
+
+const b2bKeys = {
+  all: ['b2b'],
+  applications: () => [...b2bKeys.all, 'applications'],
+  rfqs: () => [...b2bKeys.all, 'rfqs'],
+  wholesalerBuyers: () => [...b2bKeys.all, 'wholesalerBuyers'],
+  buyerCreditStatus: () => [...b2bKeys.all, 'buyerCreditStatus'],
+};
+
+export const useB2BRegister = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (formData) => {
+      const response = await apiClient.post('/b2b/register', formData);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.all });
+    },
+  });
+};
+
+export const useCreateRfq = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ productId, quantity, targetPrice, notes }) => {
+      const response = await apiClient.post('/b2b/rfq', {
+        productId,
+        quantity,
+        targetPrice,
+        notes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useRfqs = () => {
+  return useQuery({
+    queryKey: b2bKeys.rfqs(),
+    queryFn: async () => {
+      const response = await apiClient.get('/b2b/rfq');
+      return response.data.rfqs || [];
+    },
+  });
+};
+
+export const useRespondRfq = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, counterPrice, counterQuantity, sellerNotes }) => {
+      const response = await apiClient.patch(`/b2b/rfq/${id}`, {
+        status,
+        counterPrice,
+        counterQuantity,
+        sellerNotes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useAcceptQuote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }) => {
+      const response = await apiClient.post(`/b2b/rfq/${id}/accept`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useBuyerRespondRfq = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, targetPrice, quantity, notes }) => {
+      const response = await apiClient.post(`/b2b/rfq/${id}/buyer-respond`, {
+        status,
+        targetPrice,
+        quantity,
+        notes,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: b2bKeys.rfqs() });
+    },
+  });
+};
+
+export const useWholesalerBuyers = () => {
+  return useQuery({
+    queryKey: b2bKeys.wholesalerBuyers(),
+    queryFn: async () => {
+      const response = await apiClient.get('/b2b/wholesaler/buyers');
+      return response.data.buyers || [];
+    },
+  });
+};
+
+// ==========================================
+// 6. WISHLIST DOMAIN QUERIES & MUTATIONS
+// ==========================================
+
+const wishlistKeys = {
+  all: ['wishlist'],
+};
+
+export const useWishlist = (options = {}) => {
+  return useQuery({
+    queryKey: wishlistKeys.all,
+    queryFn: async () => {
+      const response = await apiClient.get('/interactions/wishlist');
+      return response.data.products || [];
+    },
+    ...options,
+  });
+};
+
+export const useToggleWishlist = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (productId) => {
+      const response = await apiClient.post('/interactions/wishlist/toggle', { productId });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: wishlistKeys.all });
+    },
+  });
+};
+
+// ==========================================
+// 7. DASHBOARD DOMAIN QUERIES & MUTATIONS
+// ==========================================
+
+const dashboardKeys = {
+  all: ['dashboard'],
+  data: () => [...dashboardKeys.all, 'data'],
+};
+
+const fetchDashboardData = async () => {
+  const [productsRes, ledgerRes, advisorRes, ordersRes, profileRes] = await Promise.all([
+    apiClient.get('/products'),
+    apiClient.get('/stats/wholesaler-summary'),
+    apiClient.get('/stats/advisor-context'),
+    apiClient.get('/orders'),
+    apiClient.get('/b2b/wholesaler/profile').catch(() => ({ data: {} })),
+  ]);
+
+  return {
+    products: productsRes.data.products || [],
+    ledgerStats: ledgerRes.data || { totalDebt: 0, totalCollection: 0 },
+    advisorContext: advisorRes.data || null,
+    orders: ordersRes.data.orders || [],
+    wholesalerProfile: profileRes.data.wholesaler || null,
+  };
+};
+
+export const useDashboardData = () => {
+  return useQuery({
+    queryKey: dashboardKeys.data(),
+    queryFn: fetchDashboardData,
   });
 };

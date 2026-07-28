@@ -2,6 +2,8 @@ import {
   logInteraction,
   logRecommendationEvent,
   logRecommendationEvents,
+  getUserWishlist,
+  toggleUserWishlist,
 } from '../services/interactionService.js';
 
 export const createInteraction = async (req, res) => {
@@ -63,5 +65,43 @@ export const createRecommendationEvents = async (req, res) => {
     res
       .status(error.statusCode || 500)
       .json({ error: error.message || 'Failed to log recommendation events' });
+  }
+};
+
+export const getWishlist = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User unauthorized' });
+    }
+    const wishlistItems = await getUserWishlist(userId);
+    // extract product objects from the interaction records
+    const products = wishlistItems.map((item) => item.product);
+    res.status(200).json({ products });
+  } catch (error) {
+    console.error('Get Wishlist Error:', error);
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to retrieve wishlist' });
+  }
+};
+
+export const toggleWishlist = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { productId } = req.body;
+    if (!userId) {
+      return res.status(401).json({ error: 'User unauthorized' });
+    }
+    if (!productId) {
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+    const result = await toggleUserWishlist({ userId, productId });
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Toggle Wishlist Error:', error);
+    res
+      .status(error.statusCode || 500)
+      .json({ error: error.message || 'Failed to toggle wishlist' });
   }
 };

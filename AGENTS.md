@@ -60,6 +60,7 @@ This document serves two primary purposes:
 
 ### 1.4 Architectural Guardrails
 
+- **Developer Guardrails**: Agents must strictly adhere to the patterns and safety rules documented in [guardrails.md](file:///c:/Users/smufa/Desktop/NexCart_updated/guardrails.md) to avoid introducing security, database performance, or frontend logic vulnerabilities.
 - **Transactional Safety**: Use `prisma.$transaction` for multi-table updates.
 - **Controller-Service Separation**: Keep routes thin; logic belongs in services or jobs.
 - **Class Merging**: Use the `cn` helper from `client/src/utils/cn.js`.

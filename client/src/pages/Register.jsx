@@ -1,59 +1,18 @@
-import { useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, ShoppingBag } from 'lucide-react';
+import { useState, useEffect, useReducer } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Store } from 'lucide-react';
 import useAuthStore from '../store/authStore';
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const passwordChecks = [
-  { pattern: /.{8,}/, message: 'Use at least 8 characters.' },
-  { pattern: /[A-Z]/, message: 'Include at least one uppercase letter.' },
-  { pattern: /[a-z]/, message: 'Include at least one lowercase letter.' },
-  { pattern: /\d/, message: 'Include at least one number.' },
-  { pattern: /[^A-Za-z0-9]/, message: 'Include at least one special character.' },
-];
-
-function validateRegistrationForm(formData) {
-  const name = formData.name.trim();
-  const email = formData.email.trim().toLowerCase();
-  const businessName = formData.businessName.trim();
-
-  if (!name) {
-    return 'Full name is required.';
-  }
-
-  if (!email) {
-    return 'Email address is required.';
-  }
-
-  if (!emailPattern.test(email)) {
-    return 'Enter a valid email address.';
-  }
-
-  if (!formData.password) {
-    return 'Password is required.';
-  }
-
-  const passwordMessage = passwordChecks.find(
-    ({ pattern }) => !pattern.test(formData.password)
-  )?.message;
-  if (passwordMessage) {
-    return passwordMessage;
-  }
-
-  if (!formData.confirmPassword) {
-    return 'Confirm your password.';
-  }
-
-  if (formData.password !== formData.confirmPassword) {
-    return 'Passwords do not match.';
-  }
-
-  if (formData.role === 'WHOLESALER' && !businessName) {
-    return 'Business / Shop Name is required for wholesalers.';
-  }
-
-  return null;
-}
+import apiClient from '../api/axios.js';
+import {
+  RegisterHeroBanner,
+  RegisterOtpStep,
+  RegisterFormFields,
+} from '../components/auth/RegisterComponents';
+import {
+  validateRegistrationForm,
+  initialOtpState,
+  otpReducer,
+} from '../components/auth/registerValidation';
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -63,251 +22,169 @@ export default function Register() {
     confirmPassword: '',
     role: 'CUSTOMER',
     businessName: '',
+    businessPhone: '',
+    taxId: '',
+    businessAddress: '',
   });
   const [successMessage, setSuccessMessage] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [otpState, dispatchOtp] = useReducer(otpReducer, initialOtpState);
 
   const navigate = useNavigate();
-  const { register, isLoading, error } = useAuthStore();
+  const { register, login, isLoading, error, clearError } = useAuthStore();
 
-  const handleChange = (event) => {
-    setFormData((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  const handleChange = (e) => {
+    setFormData((c) => ({ ...c, [e.target.name]: e.target.value }));
     setSuccessMessage('');
     setValidationError('');
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     setSuccessMessage('');
     setValidationError('');
-
     const nextError = validateRegistrationForm(formData);
     if (nextError) {
       setValidationError(nextError);
       return;
     }
-
     try {
       await register(formData);
-      setSuccessMessage('Registration successful. You can sign in now.');
-      setTimeout(() => navigate('/login'), 600);
+      dispatchOtp({
+        type: 'SHOW',
+        payload: {
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+        },
+      });
+      setSuccessMessage('Verification code sent to your email.');
     } catch (submitError) {
       console.error(submitError);
     }
   };
 
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setSuccessMessage('');
+    if (otpState.code.length !== 6) {
+      dispatchOtp({ type: 'SET_ERROR', payload: 'Enter a 6-digit code.' });
+      return;
+    }
+    dispatchOtp({ type: 'START_VERIFY' });
+    try {
+      await apiClient.post('/auth/verify-otp', {
+        email: otpState.tempData.email,
+        otp: otpState.code,
+        purpose: 'VERIFICATION',
+      });
+      setSuccessMessage('Verified! Logging you in...');
+      const user = await login(otpState.tempData.email, otpState.tempData.password);
+      if (user.role === 'SUPER_ADMIN') navigate('/admin');
+      else if (user.role === 'WHOLESALER') navigate('/wholesaler');
+      else navigate('/store');
+    } catch (err) {
+      dispatchOtp({
+        type: 'SET_ERROR',
+        payload: err.response?.data?.error || 'Verification failed.',
+      });
+    } finally {
+      dispatchOtp({ type: 'END_VERIFY' });
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setSuccessMessage('');
+    dispatchOtp({ type: 'START_RESEND' });
+    try {
+      await apiClient.post('/auth/send-otp', {
+        email: otpState.tempData.email,
+        purpose: 'VERIFICATION',
+      });
+      setSuccessMessage('Code resent!');
+    } catch (err) {
+      dispatchOtp({
+        type: 'SET_ERROR',
+        payload: err.response?.data?.error || 'Failed to resend.',
+      });
+    } finally {
+      dispatchOtp({ type: 'END_RESEND' });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#f2f0ea] px-4 py-10 text-[#161412]">
-      <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl overflow-hidden rounded-[36px] border border-[#ddd7cc] bg-white shadow-[0_30px_90px_rgba(22,20,18,0.08)] lg:grid-cols-[0.96fr_1.04fr]">
-        <section className="border-b border-[#ddd7cc] bg-[#faf8f4] px-8 py-10 lg:border-b-0 lg:border-r lg:px-12 lg:py-14">
-          <p className="text-sm font-black tracking-[0.24em] text-[#161412]">SHOP.CO</p>
-          <h1 className="mt-10 text-5xl font-black leading-none tracking-tight text-[#161412]">
-            Join the marketplace on your terms.
-          </h1>
-          <p className="mt-6 max-w-md text-base leading-7 text-[#6b665f]">
-            Create a buyer account for fashion-style discovery or a wholesaler account to sell,
-            track orders, and manage stock in one place.
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50/70 via-slate-50 to-orange-50/50 relative overflow-hidden text-[#1e293b] flex items-center justify-center p-4 sm:p-6 lg:p-10 selection:bg-[#4f46e5] selection:text-white">
+      {/* Light Ambient Color Blobs */}
+      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-400/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 -right-20 w-96 h-96 bg-orange-400/15 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="mt-10 space-y-4">
-            <RolePreview
-              title="Customer"
-              subtitle="Browse curated arrivals, save addresses, and track orders."
-              active={formData.role === 'CUSTOMER'}
-              icon={ShoppingBag}
-            />
-            <RolePreview
-              title="Wholesaler"
-              subtitle="List products, monitor inventory, and run your seller dashboard."
-              active={formData.role === 'WHOLESALER'}
-              icon={BriefcaseBusiness}
-            />
-          </div>
-        </section>
+      {/* Centered Auth Card */}
+      <div className="relative z-10 w-full max-w-[940px] rounded-3xl bg-white shadow-2xl shadow-indigo-950/10 border border-[#e2e8f0] overflow-hidden grid lg:grid-cols-[0.9fr_1.1fr]">
+        <RegisterHeroBanner role={formData.role} />
 
-        <section className="flex items-center px-6 py-10 sm:px-10">
-          <div className="mx-auto w-full max-w-lg">
-            <div className="inline-flex rounded-full border border-[#ddd7cc] bg-[#f8f6f1] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-[#8f5d31]">
-              New account
+        <div className="p-8 lg:p-10 flex flex-col justify-center overflow-y-auto max-h-[90vh] bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-[#1e293b]">Create account</h2>
+              <p className="mt-0.5 text-xs font-medium text-[#64748b]">
+                Get started on NexCart in under a minute
+              </p>
             </div>
-            <h2 className="mt-6 text-4xl font-black tracking-tight text-[#161412]">
-              Create account
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-[#6b665f]">
-              Pick the role that matches your workflow. You can start shopping as a customer or
-              start selling as a wholesaler right away.
-            </p>
-
-            {validationError && (
-              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
-                {validationError}
-              </div>
-            )}
-
-            {error && (
-              <div className="mt-6 rounded-3xl border border-[#f0c6c0] bg-[#fff3f1] px-4 py-4 text-sm font-medium text-[#9d3b30]">
-                {error}
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="mt-6 rounded-3xl border border-[#b8dec7] bg-[#eefaf1] px-4 py-4 text-sm font-medium text-[#22603a]">
-                {successMessage}
-              </div>
-            )}
-
-            <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <RoleButton
-                  title="Buy Products"
-                  subtitle="Customer"
-                  active={formData.role === 'CUSTOMER'}
-                  onClick={() => setFormData((current) => ({ ...current, role: 'CUSTOMER' }))}
-                />
-                <RoleButton
-                  title="Sell Products"
-                  subtitle="Wholesaler"
-                  active={formData.role === 'WHOLESALER'}
-                  onClick={() => setFormData((current) => ({ ...current, role: 'WHOLESALER' }))}
-                />
-              </div>
-
-              <input type="hidden" name="role" value={formData.role} />
-
-              <FormField label="Full Name">
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Your full name"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <FormField label="Email">
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="you@example.com"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <FormField label="Password">
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Create a strong password"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <FormField label="Confirm Password">
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Repeat your password"
-                  className="w-full rounded-2xl border border-[#ddd7cc] bg-[#fbfaf7] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#161412]"
-                />
-              </FormField>
-
-              <div className="rounded-2xl border border-[#ddd7cc] bg-[#faf8f4] px-4 py-4 text-sm leading-6 text-[#6b665f]">
-                Password must be at least 8 characters and include uppercase, lowercase, a number,
-                and a special character.
-              </div>
-
-              {formData.role === 'WHOLESALER' && (
-                <FormField label="Business / Shop Name">
-                  <input
-                    type="text"
-                    name="businessName"
-                    required
-                    value={formData.businessName}
-                    onChange={handleChange}
-                    placeholder="Your brand or store name"
-                    className="w-full rounded-2xl border border-[#d2b08a] bg-[#fff8ee] px-4 py-4 text-sm text-[#161412] outline-none transition focus:border-[#8f5d31]"
-                  />
-                </FormField>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#161412] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#2a2724] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoading ? 'Creating account...' : 'Create account'}
-                {!isLoading && <ArrowRight className="h-4 w-4" />}
-              </button>
-            </form>
-
-            <p className="mt-8 text-sm text-[#6b665f]">
-              Already have an account?{' '}
-              <Link to="/login" className="font-bold text-[#161412] underline underline-offset-4">
-                Sign in
-              </Link>
-            </p>
+            <Link
+              to="/store"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-3.5 py-1.5 text-xs font-bold text-[#4f46e5] hover:bg-[#4f46e5] hover:text-white transition-all shadow-sm"
+            >
+              <Store className="h-3.5 w-3.5" />
+              Store
+            </Link>
           </div>
-        </section>
-      </div>
-    </div>
-  );
-}
 
-function FormField({ label, children }) {
-  return (
-    <label className="block">
-      <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#8b857c]">{label}</span>
-      <div className="mt-2">{children}</div>
-    </label>
-  );
-}
+          {validationError && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+              {validationError}
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+              {error}
+            </div>
+          )}
+          {successMessage && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+              {successMessage}
+            </div>
+          )}
 
-function RoleButton({ title, subtitle, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-[24px] border px-4 py-4 text-left transition ${
-        active
-          ? 'border-[#161412] bg-[#161412] text-white'
-          : 'border-[#ddd7cc] bg-[#fbfaf7] text-[#161412]'
-      }`}
-    >
-      <p className="text-sm font-black tracking-tight">{title}</p>
-      <p className={`mt-1 text-xs ${active ? 'text-[#d8d1c5]' : 'text-[#6b665f]'}`}>{subtitle}</p>
-    </button>
-  );
-}
+          {otpState.show ? (
+            <RegisterOtpStep
+              otpState={otpState}
+              handleOtpSubmit={handleOtpSubmit}
+              dispatchOtp={dispatchOtp}
+              handleResendOtp={handleResendOtp}
+              setSuccessMessage={setSuccessMessage}
+            />
+          ) : (
+            <RegisterFormFields
+              formData={formData}
+              setFormData={setFormData}
+              handleChange={handleChange}
+              handleSubmit={handleSubmit}
+              isLoading={isLoading}
+            />
+          )}
 
-function RolePreview({ title, subtitle, icon: Icon, active }) {
-  return (
-    <div
-      className={`rounded-[28px] border px-5 py-5 transition ${
-        active ? 'border-[#161412] bg-white' : 'border-[#ddd7cc] bg-white/60'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="rounded-2xl bg-[#161412] p-3 text-white">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-base font-black tracking-tight text-[#161412]">{title}</p>
-          <p className="mt-1 text-sm text-[#6b665f]">{subtitle}</p>
+          <p className="mt-6 text-xs text-[#64748b] text-center">
+            Already have an account?{' '}
+            <Link
+              to="/login"
+              className="font-bold text-[#4f46e5] hover:text-[#4338ca] transition-colors"
+            >
+              Sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

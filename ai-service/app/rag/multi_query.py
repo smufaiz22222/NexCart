@@ -16,13 +16,14 @@ Original query: {query}
 4 variations:
 """)
 
+
 def generate_multi_queries(query: str) -> list[str]:
     try:
         llm = get_llm()
         chain = MULTI_QUERY_PROMPT | llm
         result = chain.invoke({"query": query})
         raw = result.content if hasattr(result, "content") else str(result)
-        variations = [l.strip() for l in raw.strip().split("\n") if l.strip()]
+        variations = [line.strip() for line in raw.strip().split("\n") if line.strip()]
         all_queries = [query] + variations[:4]
         print(f"[MultiQuery] Generated {len(all_queries)} variants")
         return all_queries

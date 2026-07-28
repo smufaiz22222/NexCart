@@ -19,12 +19,24 @@ export const validateEmail = (email) => EMAIL_PATTERN.test(normalizeEmail(email)
 export const validatePassword = (password) =>
   PASSWORD_REQUIREMENTS.find(({ pattern }) => !pattern.test(password || ''))?.message || null;
 
-export const validateRegistrationPayload = ({ name, email, password, role, businessName }) => {
+export const validateRegistrationPayload = ({
+  name,
+  email,
+  password,
+  role,
+  businessName,
+  businessPhone,
+  taxId,
+  businessAddress,
+}) => {
   const trimmedName = String(name || '').trim();
   const normalizedEmail = normalizeEmail(email);
   const normalizedRole =
     role === 'WHOLESALER' ? 'WHOLESALER' : role === undefined ? 'CUSTOMER' : role;
   const trimmedBusinessName = String(businessName || '').trim();
+  const trimmedBusinessPhone = String(businessPhone || '').trim();
+  const trimmedTaxId = String(taxId || '').trim();
+  const trimmedBusinessAddress = String(businessAddress || '').trim();
 
   if (!trimmedName) {
     return { error: 'Full name is required' };
@@ -55,6 +67,14 @@ export const validateRegistrationPayload = ({ name, email, password, role, busin
     return { error: 'Business name is required for wholesalers' };
   }
 
+  if (normalizedRole === 'WHOLESALER' && !trimmedBusinessPhone) {
+    return { error: 'Business phone is required for wholesalers' };
+  }
+
+  if (normalizedRole === 'WHOLESALER' && !trimmedBusinessAddress) {
+    return { error: 'Business address is required for wholesalers' };
+  }
+
   return {
     value: {
       name: trimmedName,
@@ -62,6 +82,9 @@ export const validateRegistrationPayload = ({ name, email, password, role, busin
       password,
       role: normalizedRole,
       businessName: trimmedBusinessName,
+      businessPhone: trimmedBusinessPhone,
+      taxId: trimmedTaxId,
+      businessAddress: trimmedBusinessAddress,
     },
   };
 };

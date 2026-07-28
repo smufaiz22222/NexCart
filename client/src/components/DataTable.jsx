@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, useReducer } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -20,6 +20,31 @@ import {
   SlidersHorizontal,
   Loader2,
 } from 'lucide-react';
+
+const initialLocalState = {
+  sorting: [],
+  pagination: { pageIndex: 0, pageSize: 10 },
+  globalFilter: '',
+  columnVisibility: {},
+  rowSelection: {},
+};
+
+function localTableStateReducer(state, action) {
+  switch (action.type) {
+    case 'SET_SORTING':
+      return { ...state, sorting: action.payload };
+    case 'SET_PAGINATION':
+      return { ...state, pagination: action.payload };
+    case 'SET_GLOBAL_FILTER':
+      return { ...state, globalFilter: action.payload };
+    case 'SET_COLUMN_VISIBILITY':
+      return { ...state, columnVisibility: action.payload };
+    case 'SET_ROW_SELECTION':
+      return { ...state, rowSelection: action.payload };
+    default:
+      return state;
+  }
+}
 
 export default function DataTable({
   columns,
@@ -46,44 +71,42 @@ export default function DataTable({
   showGlobalFilter = true,
   searchPlaceholder = 'Search records...',
   emptyStateMessage = 'No records found.',
+  onRowClick,
+  rowClassName,
 }) {
-  // Local state fallbacks if no external state is supplied
-  const [localSorting, setLocalSorting] = useState([]);
-  const [localPagination, setLocalPagination] = useState({ pageIndex: 0, pageSize: 10 });
-  const [localGlobalFilter, setLocalGlobalFilter] = useState('');
-  const [localColumnVisibility, setLocalColumnVisibility] = useState({});
-  const [localRowSelection, setLocalRowSelection] = useState({});
-  const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
+  // Local state consolidated using a reducer
+  const [localState, dispatch] = useReducer(localTableStateReducer, initialLocalState);
 
   // Derive consolidated table state
   const tableState = useMemo(
     () => ({
-      sorting: sorting !== undefined ? sorting : localSorting,
-      pagination: pagination !== undefined ? pagination : localPagination,
-      globalFilter: globalFilter !== undefined ? globalFilter : localGlobalFilter,
-      columnVisibility: columnVisibility !== undefined ? columnVisibility : localColumnVisibility,
-      rowSelection: rowSelection !== undefined ? rowSelection : localRowSelection,
+      sorting: sorting !== undefined ? sorting : localState.sorting,
+      pagination: pagination !== undefined ? pagination : localState.pagination,
+      globalFilter: globalFilter !== undefined ? globalFilter : localState.globalFilter,
+      columnVisibility:
+        columnVisibility !== undefined ? columnVisibility : localState.columnVisibility,
+      rowSelection: rowSelection !== undefined ? rowSelection : localState.rowSelection,
     }),
     [
       sorting,
-      localSorting,
+      localState.sorting,
       pagination,
-      localPagination,
+      localState.pagination,
       globalFilter,
-      localGlobalFilter,
+      localState.globalFilter,
       columnVisibility,
-      localColumnVisibility,
+      localState.columnVisibility,
       rowSelection,
-      localRowSelection,
+      localState.rowSelection,
     ]
   );
 
-  // Wrap state updates to either call props or update local state
+  // Wrap state updates to either call props or dispatch actions
   const handleSortingChange = useMemo(
     () => (updater) => {
       const next = typeof updater === 'function' ? updater(tableState.sorting) : updater;
       if (setSorting) setSorting(next);
-      else setLocalSorting(next);
+      else dispatch({ type: 'SET_SORTING', payload: next });
     },
     [setSorting, tableState.sorting]
   );
@@ -92,7 +115,7 @@ export default function DataTable({
     () => (updater) => {
       const next = typeof updater === 'function' ? updater(tableState.pagination) : updater;
       if (setPagination) setPagination(next);
-      else setLocalPagination(next);
+      else dispatch({ type: 'SET_PAGINATION', payload: next });
     },
     [setPagination, tableState.pagination]
   );
@@ -101,7 +124,7 @@ export default function DataTable({
     () => (updater) => {
       const next = typeof updater === 'function' ? updater(tableState.globalFilter) : updater;
       if (setGlobalFilter) setGlobalFilter(next);
-      else setLocalGlobalFilter(next);
+      else dispatch({ type: 'SET_GLOBAL_FILTER', payload: next });
     },
     [setGlobalFilter, tableState.globalFilter]
   );
@@ -110,7 +133,7 @@ export default function DataTable({
     () => (updater) => {
       const next = typeof updater === 'function' ? updater(tableState.columnVisibility) : updater;
       if (setColumnVisibility) setColumnVisibility(next);
-      else setLocalColumnVisibility(next);
+      else dispatch({ type: 'SET_COLUMN_VISIBILITY', payload: next });
     },
     [setColumnVisibility, tableState.columnVisibility]
   );
@@ -119,12 +142,13 @@ export default function DataTable({
     () => (updater) => {
       const next = typeof updater === 'function' ? updater(tableState.rowSelection) : updater;
       if (setRowSelection) setRowSelection(next);
-      else setLocalRowSelection(next);
+      else dispatch({ type: 'SET_ROW_SELECTION', payload: next });
     },
     [setRowSelection, tableState.rowSelection]
   );
 
   // Initialize TanStack Table instance
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -146,7 +170,6 @@ export default function DataTable({
 
   const selectedRowsCount = Object.keys(tableState.rowSelection).length;
   const totalRowsCount = table.getPrePaginationRowModel().rows.length;
-
   return (
     <div className="space-y-4">
       {/* Top Action Bar */}
@@ -155,7 +178,7 @@ export default function DataTable({
           {/* Global Filter */}
           {showGlobalFilter && (
             <div className="relative w-full sm:max-w-xs">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-zinc-500">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-muted">
                 <Search className="h-4 w-4" />
               </span>
               <input
@@ -164,7 +187,7 @@ export default function DataTable({
                 onChange={(e) => handleGlobalFilterChange(e.target.value)}
                 placeholder={searchPlaceholder}
                 aria-label="Global search"
-                className="block w-full pl-9 pr-4 py-2 bg-[#0a0a0a] border border-zinc-800 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all font-sans"
+                className="block w-full pl-9 pr-4 py-2 bg-bg-main border border-border-subtle rounded-md text-sm text-text-title placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all font-sans"
               />
             </div>
           )}
@@ -177,73 +200,17 @@ export default function DataTable({
               </span>
             )}
 
-            {showVisibilityToggle && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsColumnDropdownOpen(!isColumnDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-2 bg-[#1c1c1c] border border-zinc-800 text-zinc-300 hover:text-white rounded-md text-xs font-semibold hover:bg-zinc-800 transition-all cursor-pointer"
-                  aria-expanded={isColumnDropdownOpen}
-                  aria-haspopup="true"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  Columns
-                </button>
-
-                {isColumnDropdownOpen && (
-                  <>
-                    {/* Overlay to click off */}
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setIsColumnDropdownOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-48 rounded-md bg-[#1c1c1c] border border-zinc-800 shadow-xl z-20 py-1 font-sans text-xs">
-                      <div className="px-3 py-2 border-b border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-[10px]">
-                        Toggle Columns
-                      </div>
-                      <div className="max-h-60 overflow-y-auto py-1">
-                        {table
-                          .getAllLeafColumns()
-                          .filter((col) => col.getCanHide())
-                          .map((col) => {
-                            const headerVal = col.columnDef.header;
-                            // Extract title name if it is a function or node
-                            const name =
-                              typeof headerVal === 'string'
-                                ? headerVal
-                                : col.id || col.columnDef.id;
-
-                            return (
-                              <label
-                                key={col.id}
-                                className="flex items-center px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={col.getIsVisible()}
-                                  onChange={col.getToggleVisibilityHandler()}
-                                  className="mr-2 h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/30 accent-amber-500"
-                                />
-                                <span className="capitalize">{name}</span>
-                              </label>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            <ColumnsDropdown table={table} showVisibilityToggle={showVisibilityToggle} />
           </div>
         </div>
       )}
 
       {/* Main Table Container */}
-      <div className="relative bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
+      <div className="relative bg-bg-card rounded-lg shadow-xl border border-border-subtle overflow-hidden">
         {/* Loader Overlay */}
         {isLoading && (
-          <div className="absolute inset-0 bg-[#1c1c1c]/70 backdrop-blur-[1px] flex items-center justify-center z-10">
-            <div className="flex flex-col items-center gap-2 text-amber-500">
+          <div className="absolute inset-0 bg-bg-card/70 backdrop-blur-[1px] flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-2 text-brand-primary">
               <Loader2 className="h-8 w-8 animate-spin" />
               <span className="text-xs font-semibold tracking-wider uppercase">Loading...</span>
             </div>
@@ -251,12 +218,8 @@ export default function DataTable({
         )}
 
         <div className="overflow-x-auto">
-          <table
-            className="min-w-full divide-y divide-zinc-800"
-            role="grid"
-            aria-rowcount={totalRowsCount}
-          >
-            <thead className="bg-[#0a0a0a]">
+          <table className="min-w-full divide-y divide-border-subtle">
+            <thead className="bg-table-header-bg">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
@@ -270,11 +233,23 @@ export default function DataTable({
                         colSpan={header.colSpan}
                         scope="col"
                         className={cn(
-                          'px-6 py-4 text-xs font-bold text-amber-500/80 uppercase tracking-widest select-none relative',
-                          isSortable && 'cursor-pointer hover:text-amber-400 transition-colors',
+                          'px-6 py-4 text-xs font-bold text-table-header-text uppercase tracking-widest select-none relative',
+                          isSortable && 'cursor-pointer hover:opacity-80 transition-colors',
                           metaClassName || 'text-left'
                         )}
-                        onClick={header.column.getToggleSortingHandler()}
+                        onClick={isSortable ? header.column.getToggleSortingHandler() : undefined}
+                        onKeyDown={
+                          isSortable
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  header.column.getToggleSortingHandler()?.(e);
+                                }
+                              }
+                            : undefined
+                        }
+                        tabIndex={isSortable ? 0 : undefined}
+                        role={isSortable ? 'button' : undefined}
                       >
                         {header.isPlaceholder ? null : (
                           <div
@@ -285,11 +260,11 @@ export default function DataTable({
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
                             {isSortable && (
-                              <span className="text-zinc-500">
+                              <span className="text-text-muted">
                                 {sortDirection === 'asc' ? (
-                                  <ChevronUp className="h-3 w-3 text-amber-500" />
+                                  <ChevronUp className="h-3 w-3 text-brand-primary" />
                                 ) : sortDirection === 'desc' ? (
-                                  <ChevronDown className="h-3 w-3 text-amber-500" />
+                                  <ChevronDown className="h-3 w-3 text-brand-primary" />
                                 ) : (
                                   <ChevronsUpDown className="h-3 w-3 opacity-40 group-hover:opacity-100" />
                                 )}
@@ -303,12 +278,12 @@ export default function DataTable({
                 </tr>
               ))}
             </thead>
-            <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
+            <tbody className="bg-bg-card divide-y divide-border-subtle/50">
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-6 py-12 text-center text-sm text-zinc-500"
+                    className="px-6 py-12 text-center text-sm text-text-muted"
                   >
                     {emptyStateMessage}
                   </td>
@@ -317,9 +292,26 @@ export default function DataTable({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? 'button' : undefined}
+                    onClick={() => onRowClick && onRowClick(row.original)}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onRowClick(row.original);
+                            }
+                          }
+                        : undefined
+                    }
                     className={cn(
-                      'hover:bg-zinc-800/20 transition-colors group',
-                      row.getIsSelected() && 'bg-amber-500/5 hover:bg-amber-500/10'
+                      'hover:bg-bg-card-hover/20 transition-colors group',
+                      onRowClick &&
+                        'cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-primary',
+                      row.getIsSelected() &&
+                        'bg-brand-primary-light hover:bg-brand-primary-light/80',
+                      rowClassName
                     )}
                   >
                     {row.getVisibleCells().map((cell) => {
@@ -328,7 +320,7 @@ export default function DataTable({
                         <td
                           key={cell.id}
                           className={cn(
-                            'px-6 py-4 whitespace-nowrap text-sm text-zinc-300',
+                            'px-6 py-4 whitespace-nowrap text-sm text-text-body',
                             metaClassName
                           )}
                         >
@@ -345,89 +337,166 @@ export default function DataTable({
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between text-xs text-zinc-400 font-sans mt-2">
-        <div>
-          {totalRowsCount > 0 ? (
-            <span>
-              Showing{' '}
-              <span className="font-semibold text-white">
-                {tableState.pagination.pageIndex * tableState.pagination.pageSize + 1}
-              </span>{' '}
-              to{' '}
-              <span className="font-semibold text-white">
-                {Math.min(
-                  (tableState.pagination.pageIndex + 1) * tableState.pagination.pageSize,
-                  totalRowsCount
-                )}
-              </span>{' '}
-              of <span className="font-semibold text-white">{totalRowsCount}</span> records
-            </span>
-          ) : (
-            <span>No records available</span>
-          )}
+      <TablePagination table={table} tableState={tableState} totalRowsCount={totalRowsCount} />
+    </div>
+  );
+}
+
+function ColumnsDropdown({ table, showVisibilityToggle }) {
+  const [isOpen, setIsOpen] = useState(false);
+  if (!showVisibilityToggle) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-2 bg-bg-card border border-border-subtle text-text-body hover:text-text-title rounded-md text-xs font-semibold hover:bg-bg-card-hover transition-all cursor-pointer"
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Columns
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Overlay to click off */}
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setIsOpen(false);
+              }
+            }}
+            className="fixed inset-0 z-10"
+            aria-label="Close columns menu"
+          />
+          <div className="absolute right-0 mt-2 w-48 rounded-md bg-bg-card border border-border-subtle shadow-xl z-20 py-1 font-sans text-xs">
+            <div className="px-3 py-2 border-b border-border-subtle font-bold text-text-muted uppercase tracking-wider text-[10px]">
+              Toggle Columns
+            </div>
+            <div className="max-h-60 overflow-y-auto py-1">
+              {table.getAllLeafColumns().flatMap((col) => {
+                if (!col.getCanHide()) return [];
+                const headerVal = col.columnDef.header;
+                // Extract title name if it is a function or node
+                const name = typeof headerVal === 'string' ? headerVal : col.id || col.columnDef.id;
+
+                return [
+                  <label
+                    key={col.id}
+                    className="flex items-center px-3 py-2 text-text-body hover:bg-bg-card-hover hover:text-text-title cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={col.getIsVisible()}
+                      onChange={col.getToggleVisibilityHandler()}
+                      className="mr-2 h-3.5 w-3.5 rounded border-border-subtle bg-bg-main text-brand-primary focus:ring-brand-primary/30 accent-brand-primary"
+                    />
+                    <span className="capitalize">{name}</span>
+                  </label>,
+                ];
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TablePagination({ table, tableState, totalRowsCount }) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-4 items-center justify-between text-xs text-text-body font-sans mt-2">
+      <div>
+        {totalRowsCount > 0 ? (
+          <span>
+            Showing{' '}
+            <span className="font-semibold text-text-title">
+              {tableState.pagination.pageIndex * tableState.pagination.pageSize + 1}
+            </span>{' '}
+            to{' '}
+            <span className="font-semibold text-text-title">
+              {Math.min(
+                (tableState.pagination.pageIndex + 1) * tableState.pagination.pageSize,
+                totalRowsCount
+              )}
+            </span>{' '}
+            of <span className="font-semibold text-text-title">{totalRowsCount}</span> records
+          </span>
+        ) : (
+          <span>No records available</span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        {/* Page Size Selector */}
+        <div className="flex items-center gap-2">
+          <span>Show</span>
+          <select
+            aria-label="Rows per page"
+            value={tableState.pagination.pageSize}
+            onChange={(e) => table.setPageSize(Number(e.target.value))}
+            className="bg-bg-main border border-border-subtle text-text-body rounded-md py-1.5 px-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary cursor-pointer"
+          >
+            {[5, 10, 20, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Page Size Selector */}
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <select
-              value={tableState.pagination.pageSize}
-              onChange={(e) => table.setPageSize(Number(e.target.value))}
-              className="bg-[#0a0a0a] border border-zinc-800 text-zinc-300 rounded-md py-1.5 px-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-            >
-              {[5, 10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Navigation Buttons */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+            className="p-2 bg-bg-card border border-border-subtle hover:bg-bg-card-hover rounded disabled:opacity-30 disabled:cursor-not-allowed text-text-body hover:text-text-title transition-all cursor-pointer"
+            aria-label="First page"
+          >
+            <ChevronsLeft className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="p-2 bg-bg-card border border-border-subtle hover:bg-bg-card-hover rounded disabled:opacity-30 disabled:cursor-not-allowed text-text-body hover:text-text-title transition-all cursor-pointer"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
 
-          {/* Navigation Buttons */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-              className="p-2 bg-[#1c1c1c] border border-zinc-800 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed text-zinc-300 hover:text-white transition-all cursor-pointer"
-              aria-label="First page"
-            >
-              <ChevronsLeft className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="p-2 bg-[#1c1c1c] border border-zinc-800 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed text-zinc-300 hover:text-white transition-all cursor-pointer"
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
+          <span className="px-2 text-text-body">
+            Page{' '}
+            <span className="font-semibold text-text-title">
+              {tableState.pagination.pageIndex + 1}
+            </span>{' '}
+            of <span className="font-semibold text-text-title">{table.getPageCount() || 1}</span>
+          </span>
 
-            <span className="px-2 text-zinc-300">
-              Page{' '}
-              <span className="font-semibold text-white">
-                {tableState.pagination.pageIndex + 1}
-              </span>{' '}
-              of <span className="font-semibold text-white">{table.getPageCount() || 1}</span>
-            </span>
-
-            <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="p-2 bg-[#1c1c1c] border border-zinc-800 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed text-zinc-300 hover:text-white transition-all cursor-pointer"
-              aria-label="Next page"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-              className="p-2 bg-[#1c1c1c] border border-zinc-800 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed text-zinc-300 hover:text-white transition-all cursor-pointer"
-              aria-label="Last page"
-            >
-              <ChevronsRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="p-2 bg-bg-card border border-border-subtle hover:bg-bg-card-hover rounded disabled:opacity-30 disabled:cursor-not-allowed text-text-body hover:text-text-title transition-all cursor-pointer"
+            aria-label="Next page"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            disabled={!table.getCanNextPage()}
+            className="p-2 bg-bg-card border border-border-subtle hover:bg-bg-card-hover rounded disabled:opacity-30 disabled:cursor-not-allowed text-text-body hover:text-text-title transition-all cursor-pointer"
+            aria-label="Last page"
+          >
+            <ChevronsRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>

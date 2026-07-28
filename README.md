@@ -93,7 +93,7 @@ NexCart_updated/
 
 If you have Docker and Docker Compose installed, you can launch the entire stack (including the database) with:
 
-1. **Environment Configuration**: Ensure your root `.env` contains the necessary API keys.
+1. **Environment Configuration**: Ensure your local `.env` files contain the necessary API keys and runtime settings.
 2. **Launch**:
    ```bash
    docker-compose up --build
@@ -122,11 +122,11 @@ If you have Docker and Docker Compose installed, you can launch the entire stack
    pip install -r requirements.txt
    ```
 5. **Environment Configuration**:
-   Create a `.env` file inside the `ai-service` directory matching [ai-service/.env](./ai-service/.env):
+   Create a `.env` file inside the `ai-service` directory:
    ```properties
    LLM_PROVIDER=gemini
    GEMINI_API_KEY="your_gemini_api_key"
-   GEMINI_MODEL=gemini-3.5-flash
+   GEMINI_MODEL=gemini-2.5-flash
    DOCS_PATH=./app/docs
    CHROMA_PATH=./chroma_db
    INGEST_MODE=replace

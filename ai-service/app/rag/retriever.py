@@ -9,6 +9,7 @@ from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.documents import Document
 from app.vectorstore.chroma_store import get_vectorstore
 
+
 def build_hybrid_retriever(all_docs: list[Document], k: int = 6) -> EnsembleRetriever:
     """
     Builds a hybrid retriever combining:

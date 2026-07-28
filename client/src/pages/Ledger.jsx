@@ -1,316 +1,333 @@
-import { useState, useMemo } from 'react';
-import { BookOpen, Plus, ArrowUpRight, ArrowDownRight, FileText } from 'lucide-react';
+import { useState, useRef } from 'react';
 import { toast } from 'sonner';
-import { useLedgerEntries, useRecordPayment } from '../api/queries';
+import { cn } from '../utils/cn';
+import apiClient from '../api/axios';
+import {
+  useLedgerHub,
+  useProducts,
+  useWholesalerBuyers,
+  useReconcileInstrument,
+  useVerifyBankPayment,
+  usePartyDetails,
+  useAccountEntries,
+} from '../api/queries';
+import {
+  LedgerHeaderSection,
+  LedgerMetricsSection,
+  LedgerOverviewTab,
+  LedgerSalesTab,
+  LedgerPurchasesTab,
+  LedgerPartiesTab,
+  LedgerReconciliationTab,
+  LedgerHistoryTab,
+} from '../components/ledger/LedgerTabsComponents';
+import PartyModal from '../components/ledger/PartyModal';
+import SaleModal from '../components/ledger/SaleModal';
+import PurchaseModal from '../components/ledger/PurchaseModal';
+import SettlementModal from '../components/ledger/SettlementModal';
+import PartyDetailsModal from '../components/ledger/PartyDetailsModal';
+import BillSummaryModal from '../components/ledger/BillSummaryModal';
+import AccountReportModal from '../components/ledger/AccountReportModal';
+
+function formatCurrency(value) {
+  return `Rs ${Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 export default function Ledger() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [ledgerFilter, setLedgerFilter] = useState('all');
+  const [showPartyModal, setShowPartyModal] = useState(false);
+  const [showSaleModal, setShowSaleModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [ocrPurchaseValues, setOcrPurchaseValues] = useState(null);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const ocrInputRef = useRef(null);
 
-  // Form state for recording a new payment
-  const [formData, setFormData] = useState({
-    userId: '',
-    amount: '',
-    description: 'Payment received',
-    referenceId: '',
-  });
+  const [settlementContext, setSettlementContext] = useState(null);
+  const [partyCategory, setPartyCategory] = useState('all'); // 'all', 'customers', 'suppliers'
+  const [selectedPartyId, setSelectedPartyId] = useState(null);
+  const [selectedBill, setSelectedBill] = useState(null);
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
 
-  const { data: entries = [], isLoading, isError, error, isFetching, refetch } = useLedgerEntries();
+  const { data, isLoading, isError, error, refetch, isFetching } = useLedgerHub();
+  const { data: partyDetails, isLoading: isPartyDetailsLoading } = usePartyDetails(selectedPartyId);
+  const { data: accountDetail, isLoading: isAccountDetailLoading } =
+    useAccountEntries(selectedAccountId);
+  const { data: products = [] } = useProducts();
+  const { data: buyers = [] } = useWholesalerBuyers();
+  const reconcileInstrumentMutation = useReconcileInstrument();
+  const verifyBankPaymentMutation = useVerifyBankPayment();
 
-  const recordPaymentMutation = useRecordPayment();
+  const hub = data || {
+    overview: {},
+    parties: [],
+    accounts: [],
+    sales: [],
+    ledgerEntries: [],
+    offlinePurchases: [],
+    paymentInstruments: [],
+  };
+  const selectedParty = settlementContext
+    ? hub.parties.find((party) => party.id === settlementContext.partyId)
+    : null;
 
-  // UX Magic: Extract unique buyers from the ledger history so we can put them in a dropdown!
-  const uniqueBuyers = useMemo(() => {
-    const buyersMap = new Map();
-    entries.forEach((entry) => {
-      if (entry.user && entry.userId && !buyersMap.has(entry.userId)) {
-        buyersMap.set(entry.userId, entry.user);
+  const handleOcrFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsOcrLoading(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = async () => {
+      try {
+        const response = await apiClient.post('/khatta/process-purchase', { image: reader.result });
+        const data = response.data;
+
+        // Match items to existing products by name
+        const mappedItems = (data.items || []).map((item) => {
+          const matchedProduct = products.find(
+            (p) =>
+              p.name.toLowerCase().includes(item.name.toLowerCase()) ||
+              item.name.toLowerCase().includes(p.name.toLowerCase())
+          );
+          return {
+            productId: matchedProduct ? matchedProduct.id : '',
+            quantity: String(item.quantity || 1),
+            unitPrice: String(item.unitPrice || 0),
+          };
+        });
+
+        // Match supplier party by name or email
+        const matchedParty = (hub.parties || []).find(
+          (p) =>
+            (data.supplierName && p.name.toLowerCase().includes(data.supplierName.toLowerCase())) ||
+            (data.supplierEmail &&
+              p.email &&
+              p.email.toLowerCase() === data.supplierEmail.toLowerCase())
+        );
+
+        setOcrPurchaseValues({
+          invoiceNumber: data.invoiceNumber || '',
+          partyId: matchedParty ? matchedParty.id : '',
+          paymentMethod: 'CASH',
+          amountPaid: String(data.totalAmount || 0),
+          notes: `Parsed via Gemini OCR. Supplier: ${data.supplierName || ''}`,
+          items:
+            mappedItems.length > 0
+              ? mappedItems
+              : [{ productId: '', quantity: '1', unitPrice: '' }],
+          instrumentNumber: '',
+          bankName: '',
+          dueDate: '',
+          awaitingClearance: false,
+        });
+
+        setShowPurchaseModal(true);
+        toast.success('Invoice successfully parsed with Gemini AI!');
+      } catch (err) {
+        console.error(err);
+        toast.error('AI Invoice parsing failed. Ensure Gemini API key is valid.');
+      } finally {
+        setIsOcrLoading(false);
       }
-    });
-    return Array.from(buyersMap.entries()).map(([id, user]) => ({ id, ...user }));
-  }, [entries]);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    recordPaymentMutation.mutate(
-      {
-        ...formData,
-        amount: parseFloat(formData.amount),
-      },
-      {
-        onSuccess: () => {
-          setIsModalOpen(false);
-          setFormData({ userId: '', amount: '', description: 'Payment received', referenceId: '' });
-          toast.success('Payment recorded successfully!');
-        },
-        onError: (err) => {
-          toast.error(err.response?.data?.error || 'Failed to record payment');
-        },
-      }
-    );
-  };
-
-  return (
-    <div className="space-y-6 font-sans selection:bg-amber-500/30 selection:text-amber-200">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-2">
-            Financial Ledger
-            {isFetching && !isLoading && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
-                Syncing...
-              </span>
-            )}
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            Track marketplace sales, automatic delivery settlements, returns, and manual payment
-            adjustments.
-          </p>
-        </div>
+  if (isError) {
+    return (
+      <div className="rounded-[24px] border border-rose-500/20 bg-rose-500/10 p-6 text-rose-100">
+        <p className="text-lg font-bold">Failed to load accounting workspace.</p>
+        <p className="mt-2 text-sm text-rose-200/90">
+          {error?.response?.data?.error || error?.message || 'Unknown error'}
+        </p>
         <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center px-4 py-2.5 bg-emerald-500 text-[#0a0a0a] font-bold rounded-md hover:bg-emerald-400 transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-[0.98]"
+          type="button"
+          onClick={() => refetch()}
+          className="mt-4 rounded-xl bg-rose-500 px-4 py-2 text-sm font-bold text-white"
         >
-          <Plus className="h-5 w-5 mr-2" />
-          Record Payment
+          Retry
         </button>
       </div>
+    );
+  }
 
-      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-100">
-        Marketplace COD orders are now settled automatically when you mark them as delivered. Use
-        <span className="font-semibold"> Record Payment </span>
-        only for exceptional offline collections or manual ledger adjustments that are outside the
-        normal marketplace order flow.
+  return (
+    <div className="space-y-6">
+      <LedgerHeaderSection
+        ocrInputRef={ocrInputRef}
+        handleOcrFileChange={handleOcrFileChange}
+        isOcrLoading={isOcrLoading}
+        setOcrPurchaseValues={setOcrPurchaseValues}
+        setShowPurchaseModal={setShowPurchaseModal}
+        setShowSaleModal={setShowSaleModal}
+        setShowPartyModal={setShowPartyModal}
+      />
+
+      <LedgerMetricsSection hub={hub} isLoading={isLoading} formatCurrency={formatCurrency} />
+
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-zinc-800 bg-[#111111] p-2">
+        {[
+          ['overview', 'Books Overview'],
+          ['sales', 'Sales Register'],
+          ['purchases', 'Purchases Register'],
+          ['parties', 'Party Balances'],
+          ['reconciliation', 'Bank Reconciliation'],
+          ['ledger', 'Ledger History'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key)}
+            className={cn(
+              'rounded-xl px-4 py-2 text-sm font-bold transition',
+              activeTab === key
+                ? 'bg-amber-500 text-black'
+                : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+        {isFetching && !isLoading ? (
+          <span className="ml-auto inline-flex items-center rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-300">
+            Syncing
+          </span>
+        ) : null}
       </div>
 
-      {/* Ledger Table */}
-      {isError ? (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-red-500/20 p-12 flex flex-col items-center justify-center text-center">
-          <p className="text-red-400 text-sm font-semibold mb-4">
-            Failed to load accounting records:{' '}
-            {error?.response?.data?.error || error?.message || 'Unknown error'}
-          </p>
-          <button
-            onClick={() => refetch()}
-            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-md transition-all active:scale-[0.98]"
-          >
-            Retry Loading
-          </button>
-        </div>
-      ) : isLoading ? (
-        <div className="flex flex-col items-center justify-center py-32 text-amber-500 space-y-4">
-          <FileText className="h-8 w-8 animate-pulse" />
-          <p className="font-medium tracking-widest uppercase text-sm">
-            Loading accounting records...
-          </p>
-        </div>
-      ) : entries.length === 0 ? (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-dashed border-zinc-700 p-12 flex flex-col items-center justify-center text-center">
-          <div className="bg-[#0a0a0a] p-5 rounded-full mb-5 border border-zinc-800 shadow-inner">
-            <BookOpen className="h-10 w-10 text-amber-500" />
-          </div>
-          <h3 className="text-lg font-semibold text-white tracking-wide">Clean Ledger</h3>
-          <p className="mt-2 text-zinc-400 max-w-md">
-            No financial transactions have occurred yet. Once customers buy from your shop, order
-            charges, automatic COD settlements, return adjustments, and manual payments will appear
-            here.
-          </p>
-        </div>
-      ) : (
-        <div className="bg-[#1c1c1c] rounded-lg shadow-xl border border-zinc-800 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-800">
-              <thead className="bg-[#0a0a0a]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Buyer
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Description
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Ref ID
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-amber-500/80 uppercase tracking-widest">
-                    Amount (₹)
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-[#1c1c1c] divide-y divide-zinc-800/50">
-                {entries.map((entry) => {
-                  const amount = parseFloat(entry.amount);
-                  const isCredit = amount > 0; // Positive = Wholesaler received cash. Negative = Debt created from sale.
-
-                  return (
-                    <tr key={entry.id} className="hover:bg-zinc-800/30 transition-colors group">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400 font-mono">
-                        {new Date(entry.createdAt).toLocaleDateString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
-                          {entry.user?.name || 'System'}
-                        </div>
-                        <div className="text-xs text-zinc-500 mt-0.5">{entry.user?.email}</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-zinc-300">{entry.description}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 font-mono">
-                        {entry.referenceId ? (
-                          <span className="bg-zinc-800 px-2 py-1 rounded text-xs">
-                            {entry.referenceId.slice(0, 8).toUpperCase()}
-                          </span>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold flex justify-end items-center h-full">
-                        <span
-                          className={`px-3 py-1.5 rounded-sm flex items-center tracking-wide border ${
-                            isCredit
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-                              : 'bg-red-500/10 text-red-400 border-red-500/20 drop-shadow-[0_0_8px_rgba(248,113,113,0.2)]'
-                          }`}
-                        >
-                          {isCredit ? (
-                            <ArrowUpRight className="h-4 w-4 mr-1.5" />
-                          ) : (
-                            <ArrowDownRight className="h-4 w-4 mr-1.5" />
-                          )}
-                          {isCredit ? '+' : ''}
-                          {Math.abs(amount).toFixed(2)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {activeTab === 'overview' && (
+        <LedgerOverviewTab
+          hub={hub}
+          formatCurrency={formatCurrency}
+          setSelectedAccountId={setSelectedAccountId}
+        />
       )}
 
-      {/* Record Payment Modal - Dark Glassmorphism */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1c1c1c] rounded-lg shadow-2xl w-full max-w-md overflow-hidden border border-zinc-800 flex flex-col">
-            <div className="px-6 py-5 border-b border-zinc-800 bg-[#0a0a0a]">
-              <h3 className="text-lg font-bold text-white tracking-wide">Record Manual Payment</h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                Log cash or bank transfers that were received outside the automatic marketplace
-                settlement flow.
-              </p>
-            </div>
+      {activeTab === 'sales' && (
+        <LedgerSalesTab
+          hub={hub}
+          formatCurrency={formatCurrency}
+          setShowSaleModal={setShowSaleModal}
+          verifyBankPaymentMutation={verifyBankPaymentMutation}
+          refetch={refetch}
+        />
+      )}
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Select Buyer *
-                </label>
-                <select
-                  required
-                  name="userId"
-                  value={formData.userId}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all appearance-none cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: `right .5rem center`,
-                    backgroundRepeat: `no-repeat`,
-                    backgroundSize: `1.5em 1.5em`,
-                  }}
-                >
-                  <option value="" disabled className="text-zinc-600">
-                    -- Choose a customer --
-                  </option>
-                  {uniqueBuyers.map((buyer) => (
-                    <option key={buyer.id} value={buyer.id}>
-                      {buyer.name} ({buyer.email})
-                    </option>
-                  ))}
-                </select>
-                {uniqueBuyers.length === 0 && (
-                  <p className="text-[11px] font-bold tracking-widest uppercase text-amber-500 mt-2">
-                    No buyers found. A user must make a purchase first.
-                  </p>
-                )}
-              </div>
+      {activeTab === 'purchases' && (
+        <LedgerPurchasesTab
+          hub={hub}
+          formatCurrency={formatCurrency}
+          setOcrPurchaseValues={setOcrPurchaseValues}
+          setShowPurchaseModal={setShowPurchaseModal}
+        />
+      )}
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Amount Received (₹) *
-                </label>
-                <input
-                  required
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-mono"
-                />
-              </div>
+      {activeTab === 'reconciliation' && (
+        <LedgerReconciliationTab
+          hub={hub}
+          formatCurrency={formatCurrency}
+          reconcileInstrumentMutation={reconcileInstrumentMutation}
+          refetch={refetch}
+        />
+      )}
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Description
-                </label>
-                <input
-                  required
-                  type="text"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                />
-              </div>
+      {activeTab === 'parties' && (
+        <LedgerPartiesTab
+          hub={hub}
+          partyCategory={partyCategory}
+          setPartyCategory={setPartyCategory}
+          setShowPartyModal={setShowPartyModal}
+          setSelectedPartyId={setSelectedPartyId}
+          setSettlementContext={setSettlementContext}
+          formatCurrency={formatCurrency}
+        />
+      )}
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Reference ID{' '}
-                  <span className="text-zinc-600 normal-case font-normal ml-1">
-                    (Check #, Bank Txn)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  name="referenceId"
-                  placeholder="Optional"
-                  value={formData.referenceId}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 bg-[#0a0a0a] border border-zinc-700 rounded-md text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-mono"
-                />
-              </div>
+      {activeTab === 'ledger' && (
+        <LedgerHistoryTab
+          hub={hub}
+          ledgerFilter={ledgerFilter}
+          setLedgerFilter={setLedgerFilter}
+          formatCurrency={formatCurrency}
+        />
+      )}
 
-              <div className="pt-6 flex justify-end space-x-3 border-t border-zinc-800/50 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 border border-zinc-700 rounded-md text-sm font-medium text-zinc-300 bg-[#1c1c1c] hover:bg-zinc-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={recordPaymentMutation.isPending || uniqueBuyers.length === 0}
-                  className="px-5 py-2.5 border border-transparent rounded-md text-sm font-bold text-[#0a0a0a] bg-emerald-500 hover:bg-emerald-400 transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
-                >
-                  {recordPaymentMutation.isPending ? 'Saving...' : 'Save Payment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {showPartyModal ? (
+        <PartyModal
+          onClose={() => {
+            setShowPartyModal(false);
+            refetch();
+          }}
+          buyers={buyers}
+        />
+      ) : null}
+
+      {showSaleModal ? (
+        <SaleModal
+          onClose={() => {
+            setShowSaleModal(false);
+            refetch();
+          }}
+          parties={hub.parties}
+          products={products}
+        />
+      ) : null}
+
+      {showPurchaseModal ? (
+        <PurchaseModal
+          onClose={() => {
+            setShowPurchaseModal(false);
+            setOcrPurchaseValues(null);
+            refetch();
+          }}
+          parties={hub.parties}
+          products={products}
+          initialFormValues={ocrPurchaseValues}
+        />
+      ) : null}
+
+      {settlementContext && selectedParty ? (
+        <SettlementModal
+          onClose={() => {
+            setSettlementContext(null);
+            refetch();
+          }}
+          selectedParty={selectedParty}
+          initialDirection={settlementContext.direction}
+        />
+      ) : null}
+
+      {/* Party Details Modal */}
+      {selectedPartyId && (
+        <PartyDetailsModal
+          onClose={() => setSelectedPartyId(null)}
+          partyDetails={partyDetails}
+          isLoading={isPartyDetailsLoading}
+          formatCurrency={formatCurrency}
+          onSelectBill={setSelectedBill}
+        />
+      )}
+
+      {/* Bill Summary Modal */}
+      {selectedBill && (
+        <BillSummaryModal
+          onClose={() => setSelectedBill(null)}
+          selectedBill={selectedBill}
+          formatCurrency={formatCurrency}
+        />
+      )}
+
+      {/* Account Transactions Detail Modal */}
+      {selectedAccountId && (
+        <AccountReportModal
+          onClose={() => setSelectedAccountId(null)}
+          accountDetail={accountDetail}
+          isLoading={isAccountDetailLoading}
+          formatCurrency={formatCurrency}
+        />
       )}
     </div>
   );

@@ -12,5 +12,6 @@ pypdf
 python-dotenv
 httpx
 openai
+PyJWT
 
 ruff

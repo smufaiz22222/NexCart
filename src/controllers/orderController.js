@@ -1,7 +1,21 @@
 import { prisma } from '../config/db.js';
 import { createPurchaseInteractions } from '../services/interactionService.js';
+import {
+  createNotification,
+  createWholesalerNotification,
+  checkAndNotifyLowStock,
+} from '../services/notificationService.js';
+import {
+  sendOrderConfirmation,
+  sendOrderStatusUpdate,
+  sendSellerNewOrderNotification,
+} from '../services/emailService.js';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import {
+  recordMarketplaceOrderCharge,
+  recordMarketplaceOrderPayment,
+} from '../services/accountingService.js';
 import { formatShippingAddress } from '../utils/addressUtils.js';
 import {
   cancelOrderItemForCustomer,
@@ -15,6 +29,7 @@ import {
   rejectOrderItemReturn,
   requestOrderItemReturn,
   retryOrderItemReturnRefund,
+  settleOrderItemReturnRefund,
 } from '../services/orderReturnService.js';
 import {
   addDisputeInternalNote,
@@ -28,6 +43,8 @@ import {
 const PAYMENT_METHODS = {
   COD: 'COD',
   PREPAID: 'PREPAID',
+  LEDGER_CREDIT: 'LEDGER_CREDIT',
+  BANK_TRANSFER: 'BANK_TRANSFER',
 };
 
 const PAYMENT_STATUSES = {
@@ -36,12 +53,6 @@ const PAYMENT_STATUSES = {
   FAILED: 'FAILED',
   REFUND_PENDING: 'REFUND_PENDING',
   REFUNDED: 'REFUNDED',
-};
-
-const LEDGER_ENTRY_SOURCES = {
-  ORDER_CHARGE: 'ORDER_CHARGE',
-  ORDER_AUTO_PAYMENT: 'ORDER_AUTO_PAYMENT',
-  ORDER_PREPAID_PAYMENT: 'ORDER_PREPAID_PAYMENT',
 };
 
 const ORDER_ISSUE_TYPES = {
@@ -130,7 +141,11 @@ const loadCheckoutCart = async (db, buyerId) => {
     include: {
       items: {
         include: {
-          product: true,
+          product: {
+            include: {
+              wholesaler: true,
+            },
+          },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -144,7 +159,7 @@ const loadCheckoutCart = async (db, buyerId) => {
   return cart;
 };
 
-export const buildOrdersBySeller = async (cartItems) => {
+export const buildOrdersBySeller = async (tx, cartItems, _buyerId) => {
   const ordersBySeller = {};
 
   for (const item of cartItems) {
@@ -157,7 +172,13 @@ export const buildOrdersBySeller = async (cartItems) => {
 
     const sellerId = product.wholesalerId;
     if (!ordersBySeller[sellerId]) {
-      ordersBySeller[sellerId] = { totalAmount: 0, orderItems: [], inventoryLogs: [] };
+      ordersBySeller[sellerId] = {
+        subtotal: 0,
+        deliveryFee: 0,
+        totalAmount: 0,
+        orderItems: [],
+        inventoryLogs: [],
+      };
     }
 
     const unitPriceAtPurchase = Number(product.price);
@@ -171,6 +192,7 @@ export const buildOrdersBySeller = async (cartItems) => {
       unitPriceAtPurchase,
       subtotalAtPurchase,
       selectedSize,
+      isRfqApplied: false,
       recommendationId: item.recommendationId || null,
       recommendationSource: item.recommendationSource || null,
     });
@@ -180,7 +202,36 @@ export const buildOrdersBySeller = async (cartItems) => {
       quantity: item.quantity,
     });
 
-    ordersBySeller[sellerId].totalAmount += subtotalAtPurchase;
+    ordersBySeller[sellerId].subtotal += subtotalAtPurchase;
+  }
+
+  for (const sellerId of Object.keys(ordersBySeller)) {
+    const data = ordersBySeller[sellerId];
+    const firstItem = cartItems.find((item) => item.product.wholesalerId === sellerId);
+    const wholesaler = firstItem?.product?.wholesaler;
+
+    const thresholdSetting =
+      wholesaler && wholesaler.freeDeliveryThreshold !== null
+        ? Number(wholesaler.freeDeliveryThreshold)
+        : null;
+
+    let rawDeliveryFeeTotal = 0;
+    for (const item of cartItems.filter((i) => i.product.wholesalerId === sellerId)) {
+      const prod = item.product;
+      const baseFee =
+        prod.deliveryFee !== null && prod.deliveryFee !== undefined
+          ? Number(prod.deliveryFee)
+          : Number(wholesaler?.deliveryFee || 0);
+      rawDeliveryFeeTotal += baseFee * item.quantity;
+    }
+
+    let appliedDeliveryFee = rawDeliveryFeeTotal;
+    if (thresholdSetting !== null && data.subtotal >= thresholdSetting) {
+      appliedDeliveryFee = 0;
+    }
+
+    data.deliveryFee = appliedDeliveryFee;
+    data.totalAmount = data.subtotal + appliedDeliveryFee;
   }
 
   return ordersBySeller;
@@ -303,6 +354,12 @@ const createOrdersFromGroupedData = async ({
   razorpayOrderId = null,
   razorpayPaymentId = null,
   cartId,
+  shippingStreet = null,
+  shippingCity = null,
+  shippingState = null,
+  shippingPostalCode = null,
+  paymentReceiptUrl = null,
+  paymentReferenceNo = null,
 }) => {
   const createdOrders = [];
 
@@ -312,6 +369,7 @@ const createOrdersFromGroupedData = async ({
         buyerId,
         sellerId,
         totalAmount: data.totalAmount,
+        deliveryFee: data.deliveryFee,
         status: 'PENDING',
         paymentMethod,
         paymentStatus,
@@ -321,9 +379,15 @@ const createOrdersFromGroupedData = async ({
         razorpayOrderId,
         razorpayPaymentId,
         shippingAddress: shippingAddressSnapshot,
+        shippingStreet,
+        shippingCity,
+        shippingState,
+        shippingPostalCode,
+        paymentReceiptUrl,
+        paymentReferenceNo,
         items: {
           create: data.orderItems.map(
-            ({ recommendationSource: _, cartItemId: __, ...orderItem }) => ({
+            ({ recommendationSource: _, cartItemId: __, isRfqApplied: ___, ...orderItem }) => ({
               ...orderItem,
               price: orderItem.unitPriceAtPurchase,
             })
@@ -343,7 +407,7 @@ const createOrdersFromGroupedData = async ({
       source: 'checkout',
     });
 
-    const invoice = await tx.invoice.create({
+    await tx.invoice.create({
       data: {
         wholesalerId: sellerId,
         orderId: order.id,
@@ -351,46 +415,33 @@ const createOrdersFromGroupedData = async ({
       },
     });
 
-    await tx.ledgerEntry.create({
-      data: {
-        wholesalerId: sellerId,
-        userId: buyerId,
-        orderId: order.id,
-        amount: -data.totalAmount,
-        description: `Marketplace Order ${order.id}`,
-        referenceId: invoice.id,
-        source: LEDGER_ENTRY_SOURCES.ORDER_CHARGE,
-      },
+    await recordMarketplaceOrderCharge(tx, {
+      orderId: order.id,
+      sellerId,
+      buyerId,
+      totalAmount: data.totalAmount,
+      paymentMethod,
+      paymentStatus,
     });
 
-    if (paymentMethod === PAYMENT_METHODS.PREPAID && paymentStatus === PAYMENT_STATUSES.PAID) {
-      await tx.ledgerEntry.create({
-        data: {
-          wholesalerId: sellerId,
-          userId: buyerId,
-          orderId: order.id,
-          amount: data.totalAmount,
-          description: `Marketplace Prepaid Payment ${order.id}`,
-          referenceId: invoice.id,
-          source: LEDGER_ENTRY_SOURCES.ORDER_PREPAID_PAYMENT,
-        },
-      });
-    }
+    await Promise.all(
+      data.inventoryLogs.map((log) =>
+        decrementProductStockAtomic(tx, {
+          sellerId,
+          productId: log.productId,
+          quantity: log.quantity,
+        })
+      )
+    );
 
-    for (const log of data.inventoryLogs) {
-      await decrementProductStockAtomic(tx, {
-        sellerId,
-        productId: log.productId,
-        quantity: log.quantity,
-      });
-
-      await tx.inventoryLog.create({
-        data: {
+    if (data.inventoryLogs.length > 0) {
+      await tx.inventoryLog.createMany({
+        data: data.inventoryLogs.map((log) => ({
           wholesalerId: sellerId,
           productId: log.productId,
           changeAmount: -log.quantity,
           reason: 'SALE',
-        },
+        })),
       });
     }
 
@@ -406,6 +457,33 @@ const createOrdersFromGroupedData = async ({
   return createdOrders;
 };
 
+const notifyWholesalersNewOrders = (orders) => {
+  for (const order of orders) {
+    createWholesalerNotification(order.sellerId, {
+      title: 'New Order Received',
+      message: `You have received a new order of ${order.totalAmount} INR.`,
+      type: 'ORDER',
+      link: '/wholesaler/orders',
+    }).catch((err) => console.error('Failed to notify wholesaler of new order:', err));
+
+    sendOrderConfirmation(order.id).catch((err) =>
+      console.error(`Failed to send order confirmation email for order ${order.id}:`, err)
+    );
+
+    sendSellerNewOrderNotification(order.id).catch((err) =>
+      console.error(`Failed to send seller new order notification for order ${order.id}:`, err)
+    );
+
+    if (order.items) {
+      for (const item of order.items) {
+        checkAndNotifyLowStock(item.productId).catch((err) =>
+          console.error('Failed to check low stock after order:', err)
+        );
+      }
+    }
+  }
+};
+
 export const checkout = async (req, res) => {
   try {
     if (req.user.role !== 'CUSTOMER') {
@@ -417,7 +495,7 @@ export const checkout = async (req, res) => {
     validateCheckoutInput({ addressId, paymentMethod });
 
     if (paymentMethod !== PAYMENT_METHODS.COD) {
-      return res.status(400).json({ error: 'Use prepaid checkout endpoints for prepaid orders' });
+      return res.status(400).json({ error: 'Invalid payment method for this checkout endpoint' });
     }
 
     const createdOrders = await prisma.$transaction(async (tx) => {
@@ -426,25 +504,33 @@ export const checkout = async (req, res) => {
         loadCheckoutCart(tx, buyerId),
       ]);
       const shippingAddressSnapshot = formatShippingAddress(address);
-      const ordersBySeller = await buildOrdersBySeller(cart.items);
+      const ordersBySeller = await buildOrdersBySeller(tx, cart.items, buyerId);
 
       return createOrdersFromGroupedData({
         tx,
         buyerId,
         ordersBySeller,
         shippingAddressSnapshot,
-        paymentMethod: PAYMENT_METHODS.COD,
+        shippingStreet:
+          address.addressLine1 + (address.addressLine2 ? `, ${address.addressLine2}` : ''),
+        shippingCity: address.city,
+        shippingState: address.state,
+        shippingPostalCode: address.postalCode,
+        paymentMethod,
         paymentStatus: PAYMENT_STATUSES.PENDING,
         cartId: cart.id,
       });
     });
 
+    notifyWholesalersNewOrders(createdOrders);
+
     res.status(201).json({ message: 'Checkout successful!', orders: createdOrders });
   } catch (error) {
     console.error('Checkout Error:', error);
-    res
-      .status(error.statusCode || 400)
-      .json({ error: error.message || 'Failed to process checkout' });
+    res.status(error.statusCode || 400).json({
+      error: error.message || 'Failed to process checkout',
+      details: error.details || null,
+    });
   }
 };
 
@@ -468,7 +554,7 @@ export const createPrepaidOrder = async (req, res) => {
         loadCheckoutCart(tx, buyerId),
       ]);
       const shippingAddressSnapshot = formatShippingAddress(address);
-      const ordersBySeller = await buildOrdersBySeller(cart.items);
+      const ordersBySeller = await buildOrdersBySeller(tx, cart.items, buyerId);
       const totalAmount = Object.values(ordersBySeller).reduce(
         (sum, sellerOrder) => sum + sellerOrder.totalAmount,
         0
@@ -477,6 +563,11 @@ export const createPrepaidOrder = async (req, res) => {
       return {
         cartId: cart.id,
         shippingAddressSnapshot,
+        shippingStreet:
+          address.addressLine1 + (address.addressLine2 ? `, ${address.addressLine2}` : ''),
+        shippingCity: address.city,
+        shippingState: address.state,
+        shippingPostalCode: address.postalCode,
         ordersBySeller,
         totalAmount,
       };
@@ -500,6 +591,10 @@ export const createPrepaidOrder = async (req, res) => {
           payload: {
             addressId,
             shippingAddressSnapshot: checkoutDetails.shippingAddressSnapshot,
+            shippingStreet: checkoutDetails.shippingStreet,
+            shippingCity: checkoutDetails.shippingCity,
+            shippingState: checkoutDetails.shippingState,
+            shippingPostalCode: checkoutDetails.shippingPostalCode,
             ordersBySeller: checkoutDetails.ordersBySeller,
             paymentMethod,
             cartId: checkoutDetails.cartId,
@@ -599,6 +694,10 @@ export const verifyPrepaidOrder = async (req, res) => {
         buyerId,
         ordersBySeller: payload.ordersBySeller,
         shippingAddressSnapshot: payload.shippingAddressSnapshot,
+        shippingStreet: payload.shippingStreet,
+        shippingCity: payload.shippingCity,
+        shippingState: payload.shippingState,
+        shippingPostalCode: payload.shippingPostalCode,
         paymentMethod: PAYMENT_METHODS.PREPAID,
         paymentStatus: PAYMENT_STATUSES.PAID,
         paymentCaptureStatus: PAYMENT_CAPTURE_STATUSES.CAPTURED,
@@ -621,6 +720,8 @@ export const verifyPrepaidOrder = async (req, res) => {
 
       return orders;
     });
+
+    notifyWholesalersNewOrders(createdOrders);
 
     res.status(201).json({
       message: 'Prepaid checkout successful!',
@@ -699,17 +800,12 @@ export const updateOrderStatus = async (req, res) => {
 
           if (settlementAmount > 0) {
             try {
-              await tx.ledgerEntry.create({
-                data: {
-                  wholesalerId: order.sellerId,
-                  userId: order.buyerId,
-                  orderId: order.id,
-                  amount: settlementAmount,
-                  description: `Marketplace COD Payment ${order.id}`,
-                  referenceId: order.invoice?.id || order.id,
-                  source: LEDGER_ENTRY_SOURCES.ORDER_AUTO_PAYMENT,
-                  idempotencyKey: `order-auto-payment:${order.id}`,
-                },
+              await recordMarketplaceOrderPayment(tx, {
+                orderId: order.id,
+                sellerId: order.sellerId,
+                buyerId: order.buyerId,
+                settlementAmount,
+                paymentMethod: order.paymentMethod,
               });
             } catch (error) {
               if (error?.code !== 'P2002') {
@@ -730,6 +826,17 @@ export const updateOrderStatus = async (req, res) => {
 
       return decorateOrderWithDisputes(nextOrder, 'WHOLESALER');
     });
+
+    createNotification(updatedOrder.buyerId, {
+      title: 'Order Status Updated',
+      message: `Your order #${updatedOrder.id} status is now "${status}".`,
+      type: 'ORDER',
+      link: '/store/dashboard/orders',
+    }).catch((err) => console.error('Failed to notify customer of order status update:', err));
+
+    sendOrderStatusUpdate(updatedOrder.id, status).catch((err) =>
+      console.error(`Failed to send order status update email for order ${updatedOrder.id}:`, err)
+    );
 
     res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
   } catch (error) {
@@ -1111,7 +1218,8 @@ export const requestReturn = async (req, res) => {
     }
 
     const { id: orderId, itemId } = req.params;
-    const { reason, notes, quantity } = req.body || {};
+    const { reason, notes, quantity, bankAccountNumber, bankIfsc, bankAccountName } =
+      req.body || {};
     const result = await requestOrderItemReturn({
       buyerId: req.user.userId,
       orderId,
@@ -1119,6 +1227,9 @@ export const requestReturn = async (req, res) => {
       reason,
       notes,
       quantity,
+      bankAccountNumber,
+      bankIfsc,
+      bankAccountName,
       client: prisma,
     });
 
@@ -1131,6 +1242,35 @@ export const requestReturn = async (req, res) => {
     res
       .status(error.statusCode || 400)
       .json({ error: error.message || 'Failed to request return' });
+  }
+};
+
+export const settleReturnRefund = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can settle manual refunds' });
+    }
+
+    const { id: orderId, itemId } = req.params;
+    const { refundMethod } = req.body || {};
+
+    const result = await settleOrderItemReturnRefund({
+      wholesalerId: req.user.wholesalerId,
+      orderId,
+      itemId,
+      refundMethod,
+      client: prisma,
+    });
+
+    res.status(200).json({
+      ...result,
+      order: decorateOrderWithDisputes(result.order, 'WHOLESALER'),
+    });
+  } catch (error) {
+    console.error('Settle Return Refund Error:', error);
+    res
+      .status(error.statusCode || 400)
+      .json({ error: error.message || 'Failed to settle return refund' });
   }
 };
 
@@ -1237,5 +1377,70 @@ export const retryReturnRefund = async (req, res) => {
     res
       .status(error.statusCode || 400)
       .json({ error: error.message || 'Failed to retry return refund' });
+  }
+};
+
+export const verifyBankPayment = async (req, res) => {
+  try {
+    if (req.user.role !== 'WHOLESALER' || !req.user.wholesalerId) {
+      return res.status(403).json({ error: 'Only wholesalers can verify bank transfer payments.' });
+    }
+
+    const { id: orderId } = req.params;
+    const sellerId = req.user.wholesalerId;
+
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: {
+          invoice: true,
+          items: true,
+        },
+      });
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      if (order.sellerId !== sellerId) {
+        throw new Error('You are not authorized to verify payment for this order');
+      }
+
+      if (order.paymentMethod !== 'BANK_TRANSFER') {
+        throw new Error('This order is not paid via bank transfer');
+      }
+
+      if (order.paymentStatus === 'PAID') {
+        throw new Error('Payment for this order has already been verified');
+      }
+
+      // Update order status and payment status
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: 'PAID',
+          status: 'PROCESSING',
+        },
+        include: ORDER_INCLUDE_FOR_RESPONSE,
+      });
+
+      await recordMarketplaceOrderPayment(tx, {
+        orderId: order.id,
+        sellerId,
+        buyerId: order.buyerId,
+        settlementAmount: toNumber(order.totalAmount),
+        paymentMethod: 'PREPAID',
+      });
+
+      return updated;
+    });
+
+    res.status(200).json({
+      message: 'Payment verified successfully!',
+      order: decorateOrderWithDisputes(updatedOrder, 'WHOLESALER'),
+    });
+  } catch (error) {
+    console.error('Verify Bank Payment Error:', error);
+    res.status(400).json({ error: error.message || 'Failed to verify payment' });
   }
 };

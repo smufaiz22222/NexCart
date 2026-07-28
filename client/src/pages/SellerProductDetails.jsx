@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BadgeIndianRupee, Boxes, Pencil, Save, Tag, TriangleAlert } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  BadgeIndianRupee,
+  Boxes,
+  Pencil,
+  Save,
+  Tag,
+  TriangleAlert,
+  X,
+  Plus,
+  Trash2,
+  Loader2,
+} from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../api/axios';
-
-const buildFormData = (product) => ({
-  name: product?.name || '',
-  description: product?.description || '',
-  category: product?.category || '',
-  price: product?.price ?? '',
-  costPrice: product?.costPrice ?? '',
-  sku: product?.sku || '',
-  imageUrl: product?.imageUrl || '',
-  currentStock: product?.currentStock ?? 0,
-  minStock: product?.minStock ?? 10,
-});
+import ProductImage from '../components/ProductImage';
+import { ProductForm } from '../components/ProductForm';
+import { toast } from 'sonner';
 
 const formatCurrency = (value) =>
   `₹${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -21,31 +24,41 @@ const formatCurrency = (value) =>
 export default function SellerProductDetails() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
-  const [formData, setFormData] = useState(buildFormData(null));
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchProduct = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const response = await apiClient.get(`/products/${id}`);
-      setProduct(response.data);
-      setFormData(buildFormData(response.data));
-      setError('');
-    } catch (fetchError) {
-      setError(fetchError.response?.data?.error || 'Failed to load product details.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
+  const fetchProduct = useCallback(
+    async (active) => {
+      try {
+        setIsLoading(true);
+        const response = await apiClient.get(`/products/${id}`);
+        if (active.current) {
+          setProduct(response.data);
+          setError('');
+        }
+      } catch (fetchError) {
+        if (active.current) {
+          setError(fetchError.response?.data?.error || 'Failed to load product details.');
+        }
+      } finally {
+        if (active.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [id]
+  );
 
   useEffect(() => {
-    fetchProduct();
+    const active = { current: true };
+    fetchProduct(active);
+    return () => {
+      active.current = false;
+    };
   }, [fetchProduct]);
 
-  const stockStatus = useMemo(() => {
+  const stockStatus = (() => {
     if (!product)
       return { label: 'Unknown', className: 'bg-zinc-800/60 text-zinc-300 border-zinc-700' };
     if (product.currentStock === 0)
@@ -59,33 +72,39 @@ export default function SellerProductDetails() {
       label: 'Healthy Stock',
       className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     };
-  }, [product]);
+  })();
 
   const margin = Number(product?.price || 0) - Number(product?.costPrice || 0);
 
-  const handleChange = (event) => {
-    setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
-  };
-
-  const handleSave = async (event) => {
-    event.preventDefault();
+  const handleUpdateProduct = async (values) => {
     try {
-      setIsSaving(true);
       const response = await apiClient.put(`/products/${id}`, {
-        ...formData,
-        price: parseFloat(formData.price),
-        costPrice: parseFloat(formData.costPrice || 0),
-        currentStock: parseInt(formData.currentStock || 0, 10),
-        minStock: parseInt(formData.minStock || 10, 10),
+        ...values,
+        price: parseFloat(values.price),
+        costPrice: parseFloat(values.costPrice || 0),
+        actualPrice: parseFloat(values.actualPrice || 0),
+        currentStock: parseInt(values.currentStock || 0, 10),
+        minStock: parseInt(values.minStock || 10, 10),
       });
       setProduct(response.data.product);
-      setFormData(buildFormData(response.data.product));
       setIsModalOpen(false);
+      toast.success('Product updated successfully!');
       setError('');
     } catch (saveError) {
-      setError(saveError.response?.data?.error || 'Failed to save product changes.');
-    } finally {
-      setIsSaving(false);
+      toast.error(saveError.response?.data?.error || 'Failed to save product changes.');
+    }
+  };
+
+  const handleUpdateTiers = async (newTiers) => {
+    try {
+      const response = await apiClient.post(`/b2b/products/${id}/tiers`, { tiers: newTiers });
+      setProduct((prev) => ({
+        ...prev,
+        priceTiers: response.data.tiers,
+      }));
+      toast.success('Volume price tiers updated successfully!');
+    } catch (saveError) {
+      toast.error(saveError.response?.data?.error || 'Failed to save price tiers.');
     }
   };
 
@@ -151,17 +170,12 @@ export default function SellerProductDetails() {
         <section className="rounded-[28px] border border-zinc-800 bg-[#141414] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div className="grid gap-6 md:grid-cols-[220px_1fr]">
             <div className="rounded-[24px] border border-zinc-800 bg-[#f5f5f0] p-4">
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <div className="flex h-full min-h-[220px] items-center justify-center text-sm font-bold uppercase tracking-[0.3em] text-zinc-500">
-                  No Image
-                </div>
-              )}
+              <ProductImage
+                src={product.imageUrl}
+                alt={product.name}
+                category={product.category}
+                className="h-full w-full object-contain min-h-[220px]"
+              />
             </div>
 
             <div className="space-y-4">
@@ -179,7 +193,11 @@ export default function SellerProductDetails() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <DetailCard label="Selling Price" value={formatCurrency(product.price)} />
+                <DetailCard
+                  label="Discounted/Selling Price"
+                  value={formatCurrency(product.price)}
+                />
+                <DetailCard label="Actual Price" value={formatCurrency(product.actualPrice)} />
                 <DetailCard label="Cost Price" value={formatCurrency(product.costPrice)} />
                 <DetailCard label="SKU" value={product.sku || 'Not set'} mono />
                 <DetailCard label="Current Stock" value={`${product.currentStock}`} />
@@ -187,6 +205,14 @@ export default function SellerProductDetails() {
                 <DetailCard
                   label="Last Updated"
                   value={new Date(product.updatedAt).toLocaleString()}
+                />
+                <DetailCard
+                  label="Delivery Fee Override"
+                  value={
+                    product.deliveryFee !== null && product.deliveryFee !== undefined
+                      ? `₹${Number(product.deliveryFee).toFixed(2)} / item`
+                      : 'Default (Profile Config)'
+                  }
                 />
               </div>
             </div>
@@ -241,142 +267,309 @@ export default function SellerProductDetails() {
         </aside>
       </div>
 
+      <div className="mt-8">
+        <VolumeTiersSection product={product} onUpdateTiers={handleUpdateTiers} />
+      </div>
+
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-zinc-800 bg-[#161616] shadow-2xl">
-            <div className="border-b border-zinc-800 bg-[#0a0a0a] px-6 py-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-zinc-800 bg-[#161616] shadow-2xl flex flex-col">
+            <div className="border-b border-zinc-800 bg-[#0a0a0a] px-6 py-4 flex justify-between items-center">
               <h2 className="text-lg font-bold tracking-wide text-white">Edit Product</h2>
+              <button
+                type="button"
+                aria-label="Close edit product modal"
+                onClick={() => setIsModalOpen(false)}
+                className="rounded-full p-2 text-zinc-500 hover:bg-zinc-800 hover:text-white transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleSave} className="max-h-[calc(90vh-88px)] overflow-y-auto p-6">
-              <div className="grid gap-5">
-                <FormField label="Product Name *">
-                  <input
-                    required
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={inputClassName}
-                  />
-                </FormField>
-
-                <FormField label="Description">
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows="4"
-                    className={`${inputClassName} resize-none`}
-                  />
-                </FormField>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField label="Category">
-                    <input
-                      type="text"
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                  <FormField label="SKU *">
-                    <input
-                      required
-                      type="text"
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleChange}
-                      className={`${inputClassName} font-mono`}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField label="Selling Price (₹) *">
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                  <FormField label="Cost Price (₹)">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      name="costPrice"
-                      value={formData.costPrice}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField label="Current Stock">
-                    <input
-                      type="number"
-                      min="0"
-                      name="currentStock"
-                      value={formData.currentStock}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                  <FormField label="Minimum Stock Alert">
-                    <input
-                      type="number"
-                      min="0"
-                      name="minStock"
-                      value={formData.minStock}
-                      onChange={handleChange}
-                      className={inputClassName}
-                    />
-                  </FormField>
-                </div>
-
-                <FormField label="Image URL">
-                  <input
-                    type="url"
-                    name="imageUrl"
-                    value={formData.imageUrl}
-                    onChange={handleChange}
-                    className={inputClassName}
-                  />
-                </FormField>
-              </div>
-
-              <div className="mt-8 flex flex-col-reverse gap-3 border-t border-zinc-800 pt-5 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(buildFormData(product));
-                    setIsModalOpen(false);
-                  }}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+            <div className="overflow-y-auto p-6 custom-scrollbar">
+              <ProductForm
+                initialData={product}
+                onSubmit={handleUpdateProduct}
+                onCancel={() => setIsModalOpen(false)}
+              />
+            </div>
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function VolumeTiersSection({ product, onUpdateTiers }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTiers, setEditedTiers] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const startEditing = () => {
+    const current = (product.priceTiers || []).map((t, idx) => ({
+      id: t.id || `tier-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      minQuantity: t.minQuantity,
+      unitPrice: t.unitPrice,
+    }));
+    setEditedTiers(
+      current.length > 0
+        ? current
+        : [{ id: `tier-new-${Date.now()}`, minQuantity: '', unitPrice: '' }]
+    );
+    setIsEditing(true);
+  };
+
+  const handleAddRow = () => {
+    setEditedTiers([
+      ...editedTiers,
+      {
+        id: `tier-new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        minQuantity: '',
+        unitPrice: '',
+      },
+    ]);
+  };
+
+  const handleRemoveRow = (index) => {
+    setEditedTiers(editedTiers.filter((_, i) => i !== index));
+  };
+
+  const handleChangeRow = (index, field, value) => {
+    const updated = [...editedTiers];
+    updated[index][field] = value;
+    setEditedTiers(updated);
+  };
+
+  const handleSave = async () => {
+    const validTiers = [];
+    const minQs = new Set();
+
+    for (let i = 0; i < editedTiers.length; i++) {
+      const { minQuantity, unitPrice } = editedTiers[i];
+      if (minQuantity === '' || unitPrice === '') {
+        toast.error('All tier fields must be filled.');
+        return;
+      }
+
+      const q = parseInt(minQuantity, 10);
+      const p = parseFloat(unitPrice);
+
+      if (isNaN(q) || q <= 1) {
+        toast.error('Minimum quantity must be greater than 1.');
+        return;
+      }
+
+      if (isNaN(p) || p <= 0) {
+        toast.error('Unit price must be a valid positive number.');
+        return;
+      }
+
+      if (p >= product.price) {
+        toast.error(`Unit price (₹${p}) must be lower than the base price (₹${product.price}).`);
+        return;
+      }
+
+      if (minQs.has(q)) {
+        toast.error(
+          `Duplicate minimum quantity: ${q}. Each tier must have a unique minimum quantity.`
+        );
+        return;
+      }
+
+      minQs.add(q);
+      validTiers.push({ minQuantity: q, unitPrice: p });
+    }
+
+    validTiers.sort((a, b) => a.minQuantity - b.minQuantity);
+
+    setIsSaving(true);
+    try {
+      await onUpdateTiers(validTiers);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-[28px] border border-zinc-800 bg-[#141414] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
+        <div>
+          <h2 className="text-lg font-bold tracking-wide text-white">
+            Wholesale Volume Pricing Tiers
+          </h2>
+          <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wider">
+            Configure tiered pricing options for B2B bulk purchases
+          </p>
+        </div>
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-200 transition hover:bg-zinc-700 hover:text-white"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Manage Tiers
+          </button>
+        )}
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-4 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+            <div>Min. Quantity *</div>
+            <div>Unit Price (₹) *</div>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="space-y-3">
+            {editedTiers.map((tier, index) => (
+              <div
+                key={tier.id || `tier-edit-${tier.minQuantity}-${tier.unitPrice}`}
+                className="grid grid-cols-[1fr_1fr_auto] gap-4 items-center animate-in fade-in slide-in-from-top-1 duration-200"
+              >
+                <input
+                  type="number"
+                  aria-label="Minimum quantity"
+                  value={tier.minQuantity}
+                  onChange={(e) => handleChangeRow(index, 'minQuantity', e.target.value)}
+                  placeholder="e.g. 10"
+                  min="2"
+                  step="1"
+                  className="w-full rounded-xl border border-zinc-700 bg-[#0a0a0a] px-4 py-2.5 text-sm text-white outline-none transition-all placeholder:text-zinc-700 focus:border-amber-400/50"
+                />
+                <input
+                  type="number"
+                  aria-label="Unit price"
+                  value={tier.unitPrice}
+                  onChange={(e) => handleChangeRow(index, 'unitPrice', e.target.value)}
+                  placeholder="e.g. 180.00"
+                  min="0.01"
+                  step="0.01"
+                  className="w-full rounded-xl border border-zinc-700 bg-[#0a0a0a] px-4 py-2.5 text-sm text-white outline-none transition-all placeholder:text-zinc-700 focus:border-amber-400/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveRow(index)}
+                  className="rounded-xl bg-red-500/10 p-3 text-red-400 hover:bg-red-500/20 transition-all"
+                  title="Remove row"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-zinc-800/50">
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-zinc-850 hover:text-white"
+            >
+              <Plus className="h-4 w-4 text-amber-400" />
+              Add Row
+            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                disabled={isSaving}
+                className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5" />
+                    Save Tiers
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {!product.priceTiers || product.priceTiers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/10 p-8 text-center flex flex-col items-center justify-center">
+              <p className="text-sm text-zinc-400 max-w-md">
+                No volume discount tiers set up yet. Incentivize wholesale buyers to place bulk
+                orders by offering discounts for higher quantities.
+              </p>
+              <button
+                type="button"
+                onClick={startEditing}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4" />
+                Configure Volume Pricing
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+              {product.priceTiers.map((tier) => {
+                const savings =
+                  product.price > 0
+                    ? Math.round(((product.price - tier.unitPrice) / product.price) * 100)
+                    : 0;
+                return (
+                  <div
+                    key={tier.id || `tier-view-${tier.minQuantity}-${tier.unitPrice}`}
+                    className="rounded-2xl border border-zinc-800/80 bg-zinc-900/20 p-5 flex flex-col justify-between hover:border-zinc-700 transition duration-300"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center rounded-full bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                          {tier.minQuantity}+ units
+                        </span>
+                        {savings > 0 && (
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">
+                            {savings}% Off
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-4 text-2xl font-black text-white tracking-tight">
+                        ₹
+                        {tier.unitPrice.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wide">
+                        Unit price
+                      </p>
+                    </div>
+                    {savings > 0 && (
+                      <div className="mt-4 pt-3 border-t border-zinc-800/50 text-xs text-zinc-400">
+                        Saves{' '}
+                        <span className="font-semibold text-emerald-400">
+                          ₹
+                          {(product.price - tier.unitPrice).toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>{' '}
+                        per unit
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -411,17 +604,3 @@ function SummaryPanel({ icon, title, value, description }) {
     </div>
   );
 }
-
-function FormField({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-const inputClassName =
-  'block w-full rounded-xl border border-zinc-700 bg-[#0a0a0a] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/50 focus:outline-none';

@@ -103,6 +103,148 @@ function getRandomImage(category) {
   return images[Math.floor(Math.random() * images.length)];
 }
 
+// Subcategory mapping matching the frontend categoryData.js hierarchy
+const CATEGORY_SUBCATEGORIES = {
+  Electronics: [
+    'Mobile Phones',
+    'Laptops & Computers',
+    'Tablets',
+    'Headphones & Earbuds',
+    'Cameras & Photography',
+    'Smart Watches',
+    'Televisions',
+    'Speakers & Audio',
+    'Gaming Accessories',
+    'Cables & Adapters',
+  ],
+  Apparel: [
+    "Men's Clothing",
+    "Women's Clothing",
+    "Kids' Clothing",
+    'Footwear',
+    'Watches',
+    'Sunglasses',
+    'Handbags & Wallets',
+    'Jewellery',
+    'Ethnic Wear',
+    'Winter Wear',
+  ],
+  'Home & Kitchen': [
+    'Kitchen Appliances',
+    'Cookware & Dining',
+    'Home Decor',
+    'Bedding & Mattresses',
+    'Lighting',
+    'Storage & Organization',
+    'Cleaning Supplies',
+    'Furniture',
+    'Garden & Outdoor',
+    'Smart Home',
+  ],
+  Beauty: [
+    'Skincare',
+    'Haircare',
+    'Makeup',
+    'Fragrances',
+    'Bath & Body',
+    "Men's Grooming",
+    'Oral Care',
+    'Health & Wellness',
+    'Appliances',
+    'Luxury Beauty',
+  ],
+  Sports: [
+    'Cricket',
+    'Fitness & Gym',
+    'Football',
+    'Badminton',
+    'Cycling',
+    'Running Shoes',
+    'Camping & Hiking',
+    'Yoga & Meditation',
+    'Swimming',
+    'Sports Nutrition',
+  ],
+  Books: [
+    'Fiction',
+    'Non-Fiction',
+    'Academic & Textbooks',
+    "Children's Books",
+    'Comics & Manga',
+    'Self Help',
+    'Notebooks & Diaries',
+    'Pens & Writing',
+    'Art Supplies',
+    'Office Supplies',
+  ],
+  'Toys & Games': [
+    'Action Figures',
+    'Board Games',
+    'Building Blocks',
+    'Dolls & Playsets',
+    'Educational Toys',
+    'Remote Control Toys',
+    'Puzzles',
+    'Outdoor Play',
+    'Card Games',
+    'Plush Toys',
+  ],
+  Grocery: [
+    'Snacks & Beverages',
+    'Staples & Cooking',
+    'Dairy & Eggs',
+    'Fruits & Vegetables',
+    'Packaged Foods',
+    'Organic & Natural',
+    'Tea & Coffee',
+    'Spices & Masalas',
+    'Chocolates & Sweets',
+    'International Foods',
+  ],
+  Automotive: [
+    'Car Accessories',
+    'Bike Accessories',
+    'Car Electronics',
+    'Tyres & Rims',
+    'Oils & Lubricants',
+    'Helmets & Gear',
+    'Car Care',
+    'Tools & Equipment',
+    'Interior Accessories',
+    'GPS & Navigation',
+  ],
+  'Pet Supplies': [
+    'Dog Food',
+    'Cat Food',
+    'Pet Toys',
+    'Grooming',
+    'Beds & Furniture',
+    'Collars & Leashes',
+    'Aquarium Supplies',
+    'Bird Supplies',
+    'Health & Hygiene',
+    'Training & Travel',
+  ],
+  'Office Supplies': [
+    'Notebooks & Paper',
+    'Pens & Writing',
+    'Desk Organizers',
+    'Printers & Ink',
+    'Office Furniture',
+    'Presentation Supplies',
+    'Sticky Notes & Labels',
+    'Filing & Storage',
+    'Scissors & Cutters',
+    'Desk Lamps',
+  ],
+};
+
+function getRandomSubcategory(category) {
+  const subs = CATEGORY_SUBCATEGORIES[category];
+  if (!subs || subs.length === 0) return null;
+  return subs[Math.floor(Math.random() * subs.length)];
+}
+
 export default async function seedProducts(prisma, wholesalers) {
   console.log('📦 Seeding Products (Scaling to 2000+ items)...');
 
@@ -1426,7 +1568,13 @@ export default async function seedProducts(prisma, wholesalers) {
     },
   ];
 
-  await prisma.product.createMany({ data: hardcodedProducts });
+  const hardcodedProductsWithActual = hardcodedProducts.map((p) => ({
+    ...p,
+    actualPrice: Math.round(p.price * 1.25 * 100) / 100,
+    subcategory: getRandomSubcategory(p.category),
+  }));
+
+  await prisma.product.createMany({ data: hardcodedProductsWithActual });
 
   // 2. Generate 180 realistic products per category for the 11 categories (11 * 180 = 1980 products)
   console.log('  - Programmatically generating 1,980 products (180 per category)...');
@@ -1848,6 +1996,7 @@ export default async function seedProducts(prisma, wholesalers) {
 
       const finalPrice = faker.number.float({ min: priceMin, max: priceMax, fractionDigits: 2 });
       const finalCostPrice = Math.round(finalPrice * (0.55 + Math.random() * 0.1) * 100) / 100;
+      const finalActualPrice = Math.round(finalPrice * (1.15 + Math.random() * 0.15) * 100) / 100;
 
       let sizes;
       if (category === 'Apparel') {
@@ -1871,9 +2020,11 @@ export default async function seedProducts(prisma, wholesalers) {
         description: `Highly reliable ${faker.commerce.productAdjective().toLowerCase()} product. Built with durable ${faker.commerce.productMaterial().toLowerCase()} materials.`,
         price: finalPrice,
         costPrice: finalCostPrice,
+        actualPrice: finalActualPrice,
         sku,
         imageUrl,
         category,
+        subcategory: getRandomSubcategory(category),
         sizes,
         currentStock,
         minStock,

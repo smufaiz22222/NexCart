@@ -2,18 +2,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { getPrismaClient, setPrismaClient } from '../config/db.js';
-import { login, register } from './authController.js';
+import { login, register, updateProfile } from './authController.js';
 
 const createMockResponse = () => {
   const response = {
     statusCode: 200,
     body: null,
+    cookies: [],
+    clearedCookies: [],
     status(code) {
       this.statusCode = code;
       return this;
     },
     json(payload) {
       this.body = payload;
+      return this;
+    },
+    cookie(name, value, options) {
+      this.cookies.push({ name, value, options });
+      return this;
+    },
+    clearCookie(name, options) {
+      this.clearedCookies.push({ name, options });
       return this;
     },
   };
@@ -23,10 +33,24 @@ const createMockResponse = () => {
 
 const createRegisterPrismaMock = ({ existingUser = null, createError = null } = {}) => {
   const createdUsers = [];
+  const seededPlans = new Map();
+  const createdOtps = [];
 
   return {
-    state: { createdUsers },
+    state: { createdUsers, seededPlans, createdOtps },
     client: {
+      subscriptionPlan: {
+        upsert: async ({ where, update, create }) => {
+          const code = where?.code;
+          const existingPlan = seededPlans.get(code);
+          const nextPlan = existingPlan
+            ? { ...existingPlan, ...update }
+            : { id: `plan-${seededPlans.size + 1}`, ...create };
+
+          seededPlans.set(code, nextPlan);
+          return nextPlan;
+        },
+      },
       user: {
         findFirst: async ({ where }) => {
           const candidate = where?.email?.equals;
@@ -53,7 +77,11 @@ const createRegisterPrismaMock = ({ existingUser = null, createError = null } = 
             id: `user-${createdUsers.length + 1}`,
             ...data,
             wholesalerProfile: data.wholesalerProfile?.create
-              ? { id: `wholesaler-${createdUsers.length + 1}`, ...data.wholesalerProfile.create }
+              ? {
+                  id: `wholesaler-${createdUsers.length + 1}`,
+                  subscriptions: [],
+                  ...data.wholesalerProfile.create,
+                }
               : null,
           };
 
@@ -64,6 +92,21 @@ const createRegisterPrismaMock = ({ existingUser = null, createError = null } = 
           }
 
           return createdUser;
+        },
+      },
+      otpRateLimit: {
+        findUnique: async () => null,
+        create: async ({ data }) => ({ id: 'rate-limit-id', ...data }),
+        update: async ({ where: _where, data }) => ({ id: 'rate-limit-id', ...data }),
+      },
+      emailOTP: {
+        upsert: async ({ where: _where, update: _update, create }) => {
+          if (createError) {
+            throw createError;
+          }
+          const otp = { id: 'otp-id', ...create };
+          createdOtps.push(otp);
+          return otp;
         },
       },
     },
@@ -106,12 +149,17 @@ test('register creates a customer account with normalized email', async () => {
     await register(req, res);
 
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.message, 'Registration successful. Please log in.');
-    assert.equal(state.createdUsers.length, 1);
-    assert.equal(state.createdUsers[0].name, 'Jane Doe');
-    assert.equal(state.createdUsers[0].email, 'jane.doe@example.com');
-    assert.equal(state.createdUsers[0].role, 'CUSTOMER');
-    assert.notEqual(state.createdUsers[0].password, 'Valid@123');
+    assert.equal(
+      res.body.message,
+      'Verification code sent. Please verify your email to complete registration.'
+    );
+    assert.equal(state.createdUsers.length, 0); // User is not created until verification
+    assert.equal(state.createdOtps.length, 1);
+    const reg = JSON.parse(state.createdOtps[0].pendingData);
+    assert.equal(reg.name, 'Jane Doe');
+    assert.equal(reg.email, 'jane.doe@example.com');
+    assert.equal(reg.role, 'CUSTOMER');
+    assert.notEqual(reg.password, 'Valid@123');
   } finally {
     setPrismaClient(originalClient);
   }
@@ -131,6 +179,8 @@ test('register creates a wholesaler account when business name is provided', asy
         password: 'Strong@123',
         role: 'WHOLESALER',
         businessName: '  Seller Hub  ',
+        businessPhone: '9876543210',
+        businessAddress: '221 Market Road, Pune',
       },
     };
     const res = createMockResponse();
@@ -138,8 +188,14 @@ test('register creates a wholesaler account when business name is provided', asy
     await register(req, res);
 
     assert.equal(res.statusCode, 201);
-    assert.equal(state.createdUsers[0].role, 'WHOLESALER');
-    assert.equal(state.createdUsers[0].wholesalerProfile.businessName, 'Seller Hub');
+    assert.equal(res.body.applicationSubmitted, true);
+    assert.equal(state.createdUsers.length, 0); // Defer database creation
+    assert.equal(state.createdOtps.length, 1);
+    const reg = JSON.parse(state.createdOtps[0].pendingData);
+    assert.equal(reg.role, 'WHOLESALER');
+    assert.equal(reg.businessName, 'Seller Hub');
+    assert.equal(reg.businessPhone, '9876543210');
+    assert.equal(reg.businessAddress, '221 Market Road, Pune');
   } finally {
     setPrismaClient(originalClient);
   }
@@ -380,6 +436,7 @@ test('login allows differently cased email input after normalization', async () 
       email: 'jane.doe@example.com',
       password: hashedPassword,
       role: 'CUSTOMER',
+      emailVerified: true,
       wholesalerProfile: null,
     },
   });
@@ -402,9 +459,176 @@ test('login allows differently cased email input after normalization', async () 
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.user.email, 'jane.doe@example.com');
-    assert.equal(typeof res.body.token, 'string');
+    assert.equal(res.cookies.length, 1);
+    assert.equal(typeof res.cookies[0].value, 'string');
   } finally {
     process.env.JWT_SECRET = originalSecret;
+    setPrismaClient(originalClient);
+  }
+});
+
+test('updateProfile updates name successfully', async () => {
+  const originalClient = getPrismaClient();
+  let updatedData = null;
+  const userRecord = {
+    id: 'user-123',
+    name: 'Old Name',
+    email: 'jane@example.com',
+    password: 'hashedpassword',
+    role: 'CUSTOMER',
+    wholesalerProfile: null,
+    businessProfile: null,
+  };
+
+  const client = {
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.id === 'user-123') return userRecord;
+        return null;
+      },
+      update: async ({ where, data }) => {
+        if (where.id === 'user-123') {
+          updatedData = { ...userRecord, ...data };
+          return updatedData;
+        }
+        return null;
+      },
+    },
+  };
+
+  try {
+    setPrismaClient(client);
+    const req = {
+      user: { userId: 'user-123' },
+      body: { name: 'New Name' },
+    };
+    const res = createMockResponse();
+
+    await updateProfile(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.user.name, 'New Name');
+    assert.equal(updatedData.name, 'New Name');
+  } finally {
+    setPrismaClient(originalClient);
+  }
+});
+
+test('updateProfile blocks direct email updates and redirects to email change flow', async () => {
+  const originalClient = getPrismaClient();
+  const userRecord = {
+    id: 'user-123',
+    name: 'Jane',
+    email: 'jane@example.com',
+    password: 'hashedpassword',
+    role: 'CUSTOMER',
+    wholesalerProfile: null,
+    businessProfile: null,
+  };
+
+  const client = {
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.id === 'user-123') return userRecord;
+        return null;
+      },
+    },
+  };
+
+  try {
+    setPrismaClient(client);
+
+    // Scenario 1: Attempt direct update to a different email
+    const req1 = {
+      user: { userId: 'user-123' },
+      body: { email: 'newemail@example.com' },
+    };
+    const res1 = createMockResponse();
+    await updateProfile(req1, res1);
+
+    assert.equal(res1.statusCode, 400);
+    assert.equal(
+      res1.body.error,
+      'Email changes require OTP verification. Please use the email change flow.'
+    );
+
+    // Scenario 2: Direct update to the same email casing-insensitive (should proceed as no-op)
+    const req2 = {
+      user: { userId: 'user-123' },
+      body: { email: '  JANE@example.com ' },
+    };
+    const res2 = createMockResponse();
+    await updateProfile(req2, res2);
+
+    assert.equal(res2.statusCode, 200);
+    assert.equal(res2.body.message, 'No changes made');
+  } finally {
+    setPrismaClient(originalClient);
+  }
+});
+
+test('updateProfile updates password successfully with valid current password', async () => {
+  const originalClient = getPrismaClient();
+  let updatedData = null;
+  const plainPassword = 'OldPassword@123';
+  const hashedPassword = await bcrypt.hash(plainPassword, 10);
+  const userRecord = {
+    id: 'user-123',
+    name: 'Jane',
+    email: 'jane@example.com',
+    password: hashedPassword,
+    role: 'CUSTOMER',
+    wholesalerProfile: null,
+    businessProfile: null,
+  };
+
+  const client = {
+    user: {
+      findUnique: async ({ where }) => {
+        if (where.id === 'user-123') return userRecord;
+        return null;
+      },
+      update: async ({ where, data }) => {
+        if (where.id === 'user-123') {
+          updatedData = { ...userRecord, ...data };
+          return updatedData;
+        }
+        return null;
+      },
+    },
+  };
+
+  try {
+    setPrismaClient(client);
+
+    // Scenario 1: Correct current password, valid new password
+    const req1 = {
+      user: { userId: 'user-123' },
+      body: {
+        currentPassword: 'OldPassword@123',
+        newPassword: 'NewPassword@123',
+      },
+    };
+    const res1 = createMockResponse();
+    await updateProfile(req1, res1);
+
+    assert.equal(res1.statusCode, 200);
+    assert.ok(await bcrypt.compare('NewPassword@123', updatedData.password));
+
+    // Scenario 2: Incorrect current password
+    const req2 = {
+      user: { userId: 'user-123' },
+      body: {
+        currentPassword: 'WrongPassword@123',
+        newPassword: 'NewPassword@123',
+      },
+    };
+    const res2 = createMockResponse();
+    await updateProfile(req2, res2);
+
+    assert.equal(res2.statusCode, 400);
+    assert.equal(res2.body.error, 'Incorrect current password');
+  } finally {
     setPrismaClient(originalClient);
   }
 });

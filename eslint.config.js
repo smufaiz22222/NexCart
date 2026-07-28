@@ -6,12 +6,12 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 export default [
   {
     ignores: [
-      'node_modules',
-      'dist',
-      'client',
-      'ai-service',
+      'node_modules/',
+      'dist/',
+      'client/',
+      'ai-service/',
       'src/generated/',
-      'coverage',
+      'coverage/',
       '.eslintcache',
     ],
   },

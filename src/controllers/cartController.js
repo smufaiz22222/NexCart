@@ -55,7 +55,11 @@ const getHydratedCart = async (userId) => {
           product: {
             include: {
               wholesaler: {
-                select: { businessName: true },
+                select: {
+                  businessName: true,
+                  deliveryFee: true,
+                  freeDeliveryThreshold: true,
+                },
               },
             },
           },
@@ -65,27 +69,31 @@ const getHydratedCart = async (userId) => {
     },
   });
 
-  const items = (cart?.items || []).map((item) => ({
-    id: item.id,
-    productId: item.productId,
-    name: item.product.name,
-    imageUrl: item.product.imageUrl,
-    price: Number(item.product.price),
-    wholesaler: item.product.wholesaler,
-    selectedSize: item.selectedSize || null,
-    quantity: item.quantity,
-    currentStock: item.product.currentStock,
-    product: item.product,
-    lineTotal: Number(item.product.price) * item.quantity,
-    productSnapshot: {
-      id: item.product.id,
-      imageUrl: item.product.imageUrl,
+  const items = (cart?.items || []).map((item) => {
+    const price = Number(item.product.price);
+
+    return {
+      id: item.id,
+      productId: item.productId,
       name: item.product.name,
-      seller: item.product.wholesaler?.businessName || 'Unknown shop',
-      category: item.product.category,
-      price: Number(item.product.price),
-    },
-  }));
+      imageUrl: item.product.imageUrl,
+      price: price,
+      wholesaler: item.product.wholesaler,
+      selectedSize: item.selectedSize || null,
+      quantity: item.quantity,
+      currentStock: item.product.currentStock,
+      product: item.product,
+      lineTotal: price * item.quantity,
+      productSnapshot: {
+        id: item.product.id,
+        imageUrl: item.product.imageUrl,
+        name: item.product.name,
+        seller: item.product.wholesaler?.businessName || 'Unknown shop',
+        category: item.product.category,
+        price: price,
+      },
+    };
+  });
 
   return {
     id: cart?.id || null,

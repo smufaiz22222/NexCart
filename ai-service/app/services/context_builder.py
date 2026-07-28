@@ -5,7 +5,9 @@ def build_context_paragraph(ctx: dict) -> str:
     lines = []
 
     sales = ctx.get("monthlySales", 0)
-    lines.append(f"This month the seller has generated {sales:,} in total sales revenue.")
+    lines.append(
+        f"This month the seller has generated {sales:,} in total sales revenue."
+    )
 
     low_stock = ctx.get("lowStockProducts", 0)
     if low_stock > 0:
