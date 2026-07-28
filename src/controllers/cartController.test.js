@@ -1,3 +1,4 @@
+// Unit tests for cartController's validateQuantity and validateSelectedSize helper functions.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateQuantity, validateSelectedSize } from './cartController.js';

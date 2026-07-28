@@ -1,3 +1,10 @@
+// registerB2BProfile / adminApproveB2B	Business buyer onboarding and admin verification
+// createRfq / respondToRfq / buyerRespondToRfq / acceptQuote	RFQ (custom quote) negotiation between buyer and seller
+// getRfqs	Lists RFQs for the current user's role (buyer/wholesaler/admin) with matched order status
+// addProductPriceTiers	Wholesaler sets bulk-quantity price tiers for a product
+// getBusinessApplications	Admin view of all B2B onboarding applications
+// getWholesalerBuyers / getBuyerCreditStatus	Ledger-based credit balances between wholesalers and B2B buyers
+// updateWholesalerBankDetails / getWholesalerProfile	Wholesaler bank, UPI and delivery-fee settings
 import { prisma } from '../config/db.js';
 import {
   createNotification,

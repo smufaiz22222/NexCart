@@ -1,3 +1,5 @@
+// Unit tests for authController's register, login and updateProfile handlers,
+// using an in-memory mocked Prisma client (no real database required).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';

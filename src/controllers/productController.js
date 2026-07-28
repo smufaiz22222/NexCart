@@ -1,3 +1,9 @@
+// createProduct	Wholesaler creates a new product listing
+// getProducts	Lists all products owned by the logged-in wholesaler
+// getMarketplaceProducts	Public, paginated/searchable/sortable product catalog for shoppers
+// getProductById	Fetches a single product's full details, reviews and price tiers
+// updateProduct	Wholesaler edits a product and logs any resulting stock change
+// addReview	Customer submits a rating/review for a product (one per user)
 import { prisma } from '../config/db.js';
 import { queueProductRecommendationUpdate } from '../services/contentRecommendationService.js';
 import { checkAndNotifyLowStock } from '../services/notificationService.js';

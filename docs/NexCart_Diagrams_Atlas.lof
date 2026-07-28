@@ -1,0 +1,29 @@
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {1.1}{\ignorespaces NexCart Three-Tier Architecture with AI Sidecar}}{2}{figure.caption.3}%
+\contentsline {figure}{\numberline {1.2}{\ignorespaces Monorepo Structure and Docker Deployment}}{2}{figure.caption.4}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces NexCart Layered Security Architecture}}{4}{figure.caption.5}%
+\contentsline {figure}{\numberline {2.2}{\ignorespaces Express Middleware and Security Pipeline}}{4}{figure.caption.6}%
+\contentsline {figure}{\numberline {2.3}{\ignorespaces JWT Authentication and Token Blacklisting Flow}}{5}{figure.caption.7}%
+\contentsline {figure}{\numberline {2.4}{\ignorespaces Multi-Layer Rate Limiting Architecture}}{5}{figure.caption.8}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Database Schema --- Identity and Roles Domain}}{7}{figure.caption.9}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Database Schema --- Commerce Domain}}{7}{figure.caption.10}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Database Schema --- Financial and Accounting Domain}}{7}{figure.caption.11}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Database Schema --- Recommendation and AI Attribution Domain}}{7}{figure.caption.12}%
+\contentsline {figure}{\numberline {3.5}{\ignorespaces Database Schema --- Security and Session Domain}}{8}{figure.caption.13}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Concurrency Control Patterns}}{10}{figure.caption.14}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces B2C Order Checkout Flow (COD and Prepaid)}}{12}{figure.caption.15}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces B2B RFQ Negotiation Workflow}}{12}{figure.caption.16}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {6.1}{\ignorespaces Hybrid Recommendation Score Fusion Pipeline}}{14}{figure.caption.17}%
+\contentsline {figure}{\numberline {6.2}{\ignorespaces Offline Recommendation Job Pipeline}}{14}{figure.caption.18}%
+\contentsline {figure}{\numberline {6.3}{\ignorespaces AI Business Advisor RAG Pipeline}}{14}{figure.caption.19}%
+\contentsline {figure}{\numberline {6.4}{\ignorespaces AI Khatta Vision OCR Digitisation Flow}}{15}{figure.caption.20}%
+\contentsline {figure}{\numberline {6.5}{\ignorespaces Two-Step OTP Registration and Login Security Flow}}{15}{figure.caption.21}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {7.1}{\ignorespaces Frontend Application Architecture}}{17}{figure.caption.22}%
+\contentsline {figure}{\numberline {7.2}{\ignorespaces Role-Based Access Control Matrix}}{17}{figure.caption.23}%
+\contentsline {figure}{\numberline {7.3}{\ignorespaces Razorpay Webhook Security and Idempotent Processing}}{17}{figure.caption.24}%

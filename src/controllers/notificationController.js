@@ -1,3 +1,6 @@
+// getNotifications	Lists the current user's notifications plus unread count
+// markAsRead / markAllAsRead	Marks one or all of the user's notifications as read
+// deleteNotification	Removes a notification belonging to the current user
 import * as notificationService from '../services/notificationService.js';
 
 export const getNotifications = async (req, res) => {

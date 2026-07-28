@@ -1,3 +1,12 @@
+// register	Signs up a new user — sends OTP email before creating account
+// login	Logs in — checks password, checks if email verified, returns JWT token
+// logout	Logs out — blacklists the token so it can't be reused
+// getProfile	Fetches the logged-in user's full profile
+// updateProfile	Changes name or password (email change needs OTP separately)
+// sendOtp	Sends a one-time code to email
+// verifyOtp	Checks if the OTP code is correct, creates the user account on success
+// forgotPasswordSendOtp	Sends OTP for password reset
+// resetPassword	Sets new password using the reset token
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';

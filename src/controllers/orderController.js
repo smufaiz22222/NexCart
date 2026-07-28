@@ -1,3 +1,11 @@
+// checkout / createPrepaidOrder / verifyPrepaidOrder	COD and Razorpay prepaid marketplace checkout flows
+// getOrders	Lists orders for the logged-in customer or wholesaler
+// updateOrderStatus	Wholesaler updates an order's fulfillment status (auto-settles COD payment on delivery)
+// createOrderIssue / updateOrderIssue	Customer opens a refund/replacement issue; wholesaler resolves it
+// createItemDispute / updateDisputeStatus / resolveOrderItemDispute / createDisputeSellerNote	Per-item dispute workflow between buyer and seller
+// cancelOrderItem / retryOrderItemRefund	Customer cancels an order item and retries a failed refund
+// requestReturn / approveReturn / rejectReturn / receiveReturn / settleReturnRefund / retryReturnRefund	Return-to-seller workflow with refund settlement
+// verifyBankPayment	Wholesaler confirms receipt of a manual bank-transfer payment
 import { prisma } from '../config/db.js';
 import { createPurchaseInteractions } from '../services/interactionService.js';
 import {

@@ -1,3 +1,7 @@
+// processKhattaImage	Sends a photo of a handwritten ledger/khatta book to Gemini Vision and returns
+// extracted customer credit/debit entries as structured JSON
+// saveKhattaEntries	Persists AI-extracted entries as LedgerEntry records, matching customers by email
+// processPurchaseInvoice	Extracts supplier, totals and line items from a photographed purchase invoice
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { prisma } from '../config/db.js';
 

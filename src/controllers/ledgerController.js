@@ -1,3 +1,11 @@
+// recordPayment	Wholesaler manually records a payment/credit for an existing marketplace buyer
+// getCustomerLedger / getAllLedgerEntries	Ledger entries and running balance for one customer or all customers
+// getLedgerHub	Aggregated accounting hub view (accounts, parties, instruments) for a wholesaler
+// createParty / getPartyDetails	Manage offline business parties (suppliers/customers) and view their ledger
+// createOfflineSaleEntry / createOfflinePurchaseEntry	Record offline (non-marketplace) sales and purchases
+// recordPartySettlement / reconcileInstrumentEntry	Settle a party balance or reconcile a payment instrument (cheque/UPI)
+// getMyLedger	Customer's own ledger statement across all wholesalers
+// getAccountEntries	Lists journal entries for a specific accounting account
 import { prisma } from '../config/db.js';
 import {
   createBusinessParty,

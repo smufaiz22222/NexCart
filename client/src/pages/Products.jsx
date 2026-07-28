@@ -44,9 +44,13 @@ export default function Products() {
   const setPagination = (updater) => {
     const next = typeof updater === 'function' ? updater(pagination) : updater;
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('page', String(next.pageIndex + 1));
-    nextParams.set('pageSize', String(next.pageSize));
-    setSearchParams(nextParams, { replace: true });
+    const newPage = String(next.pageIndex + 1);
+    const newPageSize = String(next.pageSize);
+    if (searchParams.get('page') !== newPage || searchParams.get('pageSize') !== newPageSize) {
+      nextParams.set('page', newPage);
+      nextParams.set('pageSize', newPageSize);
+      setSearchParams(nextParams, { replace: true });
+    }
   };
 
   const setSorting = (updater) => {

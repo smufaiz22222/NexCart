@@ -1,4 +1,4 @@
-import React, { useMemo, Suspense } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -12,24 +12,21 @@ import {
   ShoppingBag,
   UserRound,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import apiClient from '../api/axios';
-
-const Area = React.lazy(() => import('recharts').then((m) => ({ default: m.Area })));
-const AreaChart = React.lazy(() => import('recharts').then((m) => ({ default: m.AreaChart })));
-const Bar = React.lazy(() => import('recharts').then((m) => ({ default: m.Bar })));
-const BarChart = React.lazy(() => import('recharts').then((m) => ({ default: m.BarChart })));
-const CartesianGrid = React.lazy(() =>
-  import('recharts').then((m) => ({ default: m.CartesianGrid }))
-);
-const Cell = React.lazy(() => import('recharts').then((m) => ({ default: m.Cell })));
-const Pie = React.lazy(() => import('recharts').then((m) => ({ default: m.Pie })));
-const PieChart = React.lazy(() => import('recharts').then((m) => ({ default: m.PieChart })));
-const ResponsiveContainer = React.lazy(() =>
-  import('recharts').then((m) => ({ default: m.ResponsiveContainer }))
-);
-const Tooltip = React.lazy(() => import('recharts').then((m) => ({ default: m.Tooltip })));
-const XAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.XAxis })));
-const YAxis = React.lazy(() => import('recharts').then((m) => ({ default: m.YAxis })));
 import Panel from '../components/admin/Panel';
 import MetricCard from '../components/admin/MetricCard';
 import PageHeader from '../components/admin/PageHeader';
@@ -39,6 +36,13 @@ const TICK_STYLE_12 = { fill: '#848E9C', fontSize: 12 };
 const TICK_STYLE_11 = { fill: '#848E9C', fontSize: 11 };
 const BAR_RADIUS = [0, 4, 4, 0];
 const CHART_MARGIN = { left: 16, right: 8 };
+const TOOLTIP_CONTENT_STYLE = {
+  borderRadius: '8px',
+  border: '1px solid #2B3139',
+  backgroundColor: '#1E2329',
+  color: '#EAECEF',
+};
+const TOOLTIP_LABEL_STYLE = { color: '#848E9C' };
 
 const statusColors = ['#F0B90B', '#0ECB81', '#1E9CF1', '#F6465D', '#B7BDC6', '#7B61FF'];
 
@@ -104,6 +108,10 @@ export default function AdminOverview() {
       },
     ];
   }, [overview]);
+
+  const monthlyRevenue = overview?.charts?.monthlyRevenue ?? EMPTY_ARRAY;
+  const orderStatus = overview?.charts?.orderStatus ?? EMPTY_ARRAY;
+  const topWholesalers = overview?.topWholesalers ?? EMPTY_ARRAY;
 
   if (isLoading) {
     return (
@@ -172,124 +180,101 @@ export default function AdminOverview() {
       </section>
 
       {/* Charts */}
-      <Suspense fallback={<div className="h-96 w-full bg-white/5 animate-pulse rounded-2xl" />}>
-        <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-          <Panel title="Revenue Trend" eyebrow="Last 6 months" icon={Activity}>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={overview?.charts?.monthlyRevenue || EMPTY_ARRAY}>
-                  <defs>
-                    <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F0B90B" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#F0B90B" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#2B3139" vertical={false} />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={TICK_STYLE_12} />
-                  <YAxis axisLine={false} tickLine={false} tick={TICK_STYLE_12} />
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value)}
-                    contentStyle={{
-                      borderRadius: '8px',
-                      border: '1px solid #2B3139',
-                      backgroundColor: '#1E2329',
-                      color: '#EAECEF',
-                    }}
-                    labelStyle={{ color: '#848E9C' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#F0B90B"
-                    strokeWidth={2}
-                    fill="url(#revFill)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Panel>
-
-          <Panel title="Order Status" eyebrow="Distribution" icon={ShoppingBag}>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={overview?.charts?.orderStatus || EMPTY_ARRAY}
-                    dataKey="count"
-                    nameKey="status"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={3}
-                  >
-                    {(overview?.charts?.orderStatus || EMPTY_ARRAY).map((entry, index) => (
-                      <Cell key={entry.status} fill={statusColors[index % statusColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '8px',
-                      border: '1px solid #2B3139',
-                      backgroundColor: '#1E2329',
-                      color: '#EAECEF',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
-              {(overview?.charts?.orderStatus || EMPTY_ARRAY).map((item, index) => (
-                <div
-                  key={item.status}
-                  className="flex items-center justify-between rounded-md bg-[#1E2329] px-3 py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: statusColors[index % statusColors.length] }}
-                    />
-                    <span className="text-xs text-[#848E9C]">{item.status}</span>
-                  </div>
-                  <span className="text-xs font-bold text-[#EAECEF]">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </section>
-
-        {/* Top Wholesalers */}
-        <Panel title="Revenue Leaders" eyebrow="Top sellers" icon={ReceiptText}>
-          <div className="h-64">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+        <Panel title="Revenue Trend" eyebrow="Last 6 months" icon={Activity} className="min-w-0">
+          <div className="h-64 min-w-0 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={overview?.topWholesalers || EMPTY_ARRAY}
-                layout="vertical"
-                margin={CHART_MARGIN}
-              >
-                <CartesianGrid stroke="#2B3139" horizontal={false} />
-                <XAxis type="number" axisLine={false} tickLine={false} tick={TICK_STYLE_12} />
-                <YAxis
-                  type="category"
-                  dataKey="businessName"
-                  axisLine={false}
-                  tickLine={false}
-                  width={100}
-                  tick={TICK_STYLE_11}
-                />
+              <AreaChart data={monthlyRevenue}>
+                <defs>
+                  <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F0B90B" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#F0B90B" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#2B3139" vertical={false} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={TICK_STYLE_12} />
+                <YAxis axisLine={false} tickLine={false} tick={TICK_STYLE_12} />
                 <Tooltip
                   formatter={(value) => formatCurrency(value)}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: '1px solid #2B3139',
-                    backgroundColor: '#1E2329',
-                    color: '#EAECEF',
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
+                  labelStyle={TOOLTIP_LABEL_STYLE}
                 />
-                <Bar dataKey="revenue" fill="#F0B90B" radius={BAR_RADIUS} />
-              </BarChart>
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#F0B90B"
+                  strokeWidth={2}
+                  fill="url(#revFill)"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </Panel>
-      </Suspense>
+
+        <Panel title="Order Status" eyebrow="Distribution" icon={ShoppingBag} className="min-w-0">
+          <div className="h-52 min-w-0 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={orderStatus}
+                  dataKey="count"
+                  nameKey="status"
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={3}
+                >
+                  {orderStatus.map((entry, index) => (
+                    <Cell key={entry.status} fill={statusColors[index % statusColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+            {orderStatus.map((item, index) => (
+              <div
+                key={item.status}
+                className="flex items-center justify-between rounded-md bg-[#1E2329] px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: statusColors[index % statusColors.length] }}
+                  />
+                  <span className="text-xs text-[#848E9C]">{item.status}</span>
+                </div>
+                <span className="text-xs font-bold text-[#EAECEF]">{item.count}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </section>
+
+      {/* Top Wholesalers */}
+      <Panel title="Revenue Leaders" eyebrow="Top sellers" icon={ReceiptText} className="min-w-0">
+        <div className="h-64 min-w-0 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={topWholesalers} layout="vertical" margin={CHART_MARGIN}>
+              <CartesianGrid stroke="#2B3139" horizontal={false} />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={TICK_STYLE_12} />
+              <YAxis
+                type="category"
+                dataKey="businessName"
+                axisLine={false}
+                tickLine={false}
+                width={100}
+                tick={TICK_STYLE_11}
+              />
+              <Tooltip
+                formatter={(value) => formatCurrency(value)}
+                contentStyle={TOOLTIP_CONTENT_STYLE}
+              />
+              <Bar dataKey="revenue" fill="#F0B90B" radius={BAR_RADIUS} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Panel>
     </div>
   );
 }

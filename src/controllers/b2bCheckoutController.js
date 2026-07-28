@@ -1,3 +1,5 @@
+// b2bCheckout	Bank-transfer checkout for approved B2B buyers; creates orders per seller from the
+// B2B cart, decrements stock, links any negotiated RFQs, and clears the cart on success.
 import { prisma } from '../config/db.js';
 import { createPurchaseInteractions } from '../services/interactionService.js';
 import { formatShippingAddress } from '../utils/addressUtils.js';

@@ -1,7 +1,28 @@
-import { MessageSquare, ArrowRight, FileText, AlertTriangle } from 'lucide-react';
+import { MessageSquare, ArrowRight, FileText, AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import SellerCounterForm from './SellerCounterForm';
 import BuyerCounterForm from './BuyerCounterForm';
+
+const toMoney = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+};
+
+const getActiveOffer = (rfq) => {
+  const isCounter = rfq.status === 'COUNTER_OFFERED';
+  const unitPrice = isCounter
+    ? Number(rfq.counterPrice ?? rfq.targetPrice)
+    : Number(rfq.targetPrice);
+  const quantity =
+    isCounter && rfq.counterQuantity !== null && rfq.counterQuantity !== undefined
+      ? Number(rfq.counterQuantity)
+      : Number(rfq.quantity);
+  return {
+    isCounter,
+    unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+    quantity: Number.isFinite(quantity) ? quantity : 0,
+  };
+};
 
 const getStatusBadge = (status, isWholesalerPath) => {
   const maps = isWholesalerPath
@@ -97,6 +118,9 @@ function RfqCardHeader({ rfq, isWholesaler, isWholesalerPath }) {
 }
 
 function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
+  const offer = getActiveOffer(rfq);
+  const catalogPrice = Number(rfq.product?.price);
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div
@@ -119,7 +143,7 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-zinc-300' : 'text-[#16171a]'
           )}
         >
-          ₹{rfq.product?.price?.toFixed(2) || 'N/A'}
+          {Number.isFinite(catalogPrice) ? `₹${toMoney(catalogPrice)}` : 'N/A'}
         </p>
       </div>
 
@@ -135,7 +159,7 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
           )}
         >
-          Target Price Bid
+          {offer.isCounter ? 'Merchant Counter Price' : 'Target Price Bid'}
         </p>
         <p
           className={cn(
@@ -143,8 +167,18 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-amber-400' : 'text-[#0047AB]'
           )}
         >
-          ₹{rfq.targetPrice?.toFixed(2)}
+          ₹{toMoney(offer.unitPrice)}
         </p>
+        {offer.isCounter && (
+          <p
+            className={cn(
+              'text-[10px] mt-1 font-mono',
+              isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+            )}
+          >
+            Buyer bid was ₹{toMoney(rfq.targetPrice)}
+          </p>
+        )}
       </div>
 
       <div
@@ -159,7 +193,7 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
           )}
         >
-          Requested Quantity
+          {offer.isCounter ? 'Counter Quantity' : 'Requested Quantity'}
         </p>
         <p
           className={cn(
@@ -167,8 +201,21 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
           )}
         >
-          {rfq.quantity} units
+          {offer.quantity} units
         </p>
+        {offer.isCounter &&
+          rfq.counterQuantity !== null &&
+          rfq.counterQuantity !== undefined &&
+          Number(rfq.counterQuantity) !== Number(rfq.quantity) && (
+            <p
+              className={cn(
+                'text-[10px] mt-1 font-mono',
+                isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
+              )}
+            >
+              Original request: {rfq.quantity} units
+            </p>
+          )}
       </div>
 
       <div
@@ -183,7 +230,7 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-zinc-500' : 'text-[#6C757D]'
           )}
         >
-          Total Projected Deal
+          {offer.isCounter ? 'Counter Deal Total' : 'Total Projected Deal'}
         </p>
         <p
           className={cn(
@@ -191,9 +238,88 @@ function RfqCardNegotiationGrid({ rfq, isWholesalerPath }) {
             isWholesalerPath ? 'text-zinc-200' : 'text-[#16171a]'
           )}
         >
-          ₹{(rfq.targetPrice * rfq.quantity).toFixed(2)}
+          ₹{toMoney(offer.unitPrice * offer.quantity)}
         </p>
       </div>
+    </div>
+  );
+}
+
+function RfqCounterOfferPanel({ rfq, isWholesaler, isWholesalerPath }) {
+  if (rfq.status !== 'COUNTER_OFFERED') return null;
+
+  const offer = getActiveOffer(rfq);
+
+  return (
+    <div
+      className={cn(
+        'p-4 rounded-xl border space-y-3',
+        isWholesalerPath
+          ? 'bg-amber-500/10 border-amber-500/20 text-amber-100'
+          : 'bg-[#eef4ff] border-[#b7c9ef] text-[#16171a]'
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <MessageSquare className="w-3.5 h-3.5" />
+            {isWholesaler ? 'Your Counter Offer Sent' : 'Counter Offer Received'}
+          </span>
+          <p
+            className={cn(
+              'text-[11px] mt-1',
+              isWholesalerPath ? 'text-amber-200/80' : 'text-[#0047AB]'
+            )}
+          >
+            {isWholesaler
+              ? 'Waiting for the buyer to accept, counter back, or decline.'
+              : 'Review the merchant terms below, then accept, counter back, or decline.'}
+          </p>
+        </div>
+        <span className="text-sm font-mono font-bold">
+          ₹{toMoney(offer.unitPrice)} / unit · {offer.quantity} units
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div
+          className={cn(
+            'rounded-lg border px-3 py-2',
+            isWholesalerPath ? 'border-amber-500/20 bg-black/20' : 'border-[#c5d4f2] bg-white'
+          )}
+        >
+          <p className={cn('uppercase tracking-wider mb-1', isWholesalerPath ? 'text-amber-200/70' : 'text-[#6C757D]')}>
+            Unit Price
+          </p>
+          <p className="font-mono font-bold">₹{toMoney(offer.unitPrice)}</p>
+        </div>
+        <div
+          className={cn(
+            'rounded-lg border px-3 py-2',
+            isWholesalerPath ? 'border-amber-500/20 bg-black/20' : 'border-[#c5d4f2] bg-white'
+          )}
+        >
+          <p className={cn('uppercase tracking-wider mb-1', isWholesalerPath ? 'text-amber-200/70' : 'text-[#6C757D]')}>
+            Quantity
+          </p>
+          <p className="font-mono font-bold">{offer.quantity} units</p>
+        </div>
+        <div
+          className={cn(
+            'rounded-lg border px-3 py-2',
+            isWholesalerPath ? 'border-amber-500/20 bg-black/20' : 'border-[#c5d4f2] bg-white'
+          )}
+        >
+          <p className={cn('uppercase tracking-wider mb-1', isWholesalerPath ? 'text-amber-200/70' : 'text-[#6C757D]')}>
+            Deal Total
+          </p>
+          <p className="font-mono font-bold">₹{toMoney(offer.unitPrice * offer.quantity)}</p>
+        </div>
+      </div>
+
+      {rfq.sellerNotes && (
+        <p className="text-xs italic opacity-90 font-sans">&quot;{rfq.sellerNotes}&quot;</p>
+      )}
     </div>
   );
 }
@@ -375,6 +501,18 @@ function RfqCardActions({
               {rfq.status === 'REJECTED' ? 'Send Another Offer' : 'Counter Offer'}
             </button>
           )}
+          {rfq.status === 'COUNTER_OFFERED' && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider px-3 py-2 rounded-md border',
+                isWholesalerPath
+                  ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+                  : 'border-[#C0C0C0] bg-[#EFEFEF] text-[#0047AB]'
+              )}
+            >
+              <Clock className="w-3.5 h-3.5" /> Awaiting buyer response
+            </span>
+          )}
         </div>
       ) : (
         <div className="flex gap-2">
@@ -470,29 +608,11 @@ export default function RfqCard({
 
       <RfqCardNegotiationGrid rfq={rfq} isWholesalerPath={isWholesalerPath} />
 
-      {/* Counter Offer Details (If present) */}
-      {rfq.status === 'COUNTER_OFFERED' && (
-        <div
-          className={cn(
-            'p-4 rounded-xl border space-y-2',
-            isWholesalerPath
-              ? 'bg-amber-500/10 border-amber-500/20 text-amber-200'
-              : 'bg-[#fbfaf7] border-[#ddd7cc] text-[#16171a]'
-          )}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5" /> Latest Counter Offer from Merchant
-            </span>
-            <span className="text-xs font-mono font-bold">
-              ₹{(rfq.counterPrice || rfq.targetPrice).toFixed(2)} / unit
-            </span>
-          </div>
-          {rfq.sellerNotes && (
-            <p className="text-xs italic opacity-90 font-sans">&quot;{rfq.sellerNotes}&quot;</p>
-          )}
-        </div>
-      )}
+      <RfqCounterOfferPanel
+        rfq={rfq}
+        isWholesaler={isWholesaler}
+        isWholesalerPath={isWholesalerPath}
+      />
 
       {/* Counter Offer Form (Seller) */}
       {isCounterOpen && (
@@ -527,7 +647,7 @@ export default function RfqCard({
               notes: '',
             })
           }
-          onSubmit={handleResponse}
+          onSubmit={handleBuyerResponse}
         />
       )}
 

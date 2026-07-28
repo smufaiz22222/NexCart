@@ -1,3 +1,8 @@
+// getCart	Returns the current customer's hydrated marketplace cart
+// addCartItem	Adds a product to the cart, validating stock, size and recommendation attribution
+// updateCartItem	Changes the quantity of an existing cart line item
+// removeCartItem	Removes a single item from the cart
+// clearCart	Empties the current customer's cart
 import { prisma } from '../config/db.js';
 import { validateRecommendationAttribution } from '../services/interactionService.js';
 

@@ -647,21 +647,81 @@ const QUALITY_MODIFIERS = [
 ];
 
 const WHOLESALER_DEFINITIONS = [
-  { name: 'Sheikh Tech Imports', email: 'sheikh.tech@nexcart.com', businessName: 'Sheikh Tech & Electronics Wholesale' },
-  { name: 'Sheikh Apparel House', email: 'sheikh.apparel@nexcart.com', businessName: 'Sheikh Textiles & Fashion Hub' },
-  { name: 'Sheikh Home Depot', email: 'sheikh.home@nexcart.com', businessName: 'Sheikh Home & Kitchen Supplies' },
-  { name: 'Sheikh Beauty Care', email: 'sheikh.beauty@nexcart.com', businessName: 'Sheikh Cosmetics & Beauty Traders' },
-  { name: 'Sheikh Active Sports', email: 'sheikh.sports@nexcart.com', businessName: 'Sheikh Sports & Fitness Gear' },
-  { name: 'Sheikh Book Emporium', email: 'sheikh.books@nexcart.com', businessName: 'Sheikh Publishers & Books Wholesale' },
-  { name: 'Sheikh Toy World', email: 'sheikh.toys@nexcart.com', businessName: 'Sheikh Toyland & Games Distributors' },
-  { name: 'Sheikh Fresh Groceries', email: 'sheikh.grocery@nexcart.com', businessName: 'Sheikh Daily Essentials & Grocery' },
-  { name: 'Sheikh Auto Spares', email: 'sheikh.auto@nexcart.com', businessName: 'Sheikh Motors & Automotive Wholesale' },
-  { name: 'Sheikh Pet Palace', email: 'sheikh.pets@nexcart.com', businessName: 'Sheikh Pet Care & Food Wholesale' },
-  { name: 'Sheikh Office Express', email: 'sheikh.office@nexcart.com', businessName: 'Sheikh Stationery & Office Mart' },
-  { name: 'Sheikh Global Enterprise', email: 'sheikh.global@nexcart.com', businessName: 'Sheikh Global Multi-Category Wholesale' },
-  { name: 'Sheikh Metro Wholesale', email: 'sheikh.metro@nexcart.com', businessName: 'Sheikh Metro B2B Superstore' },
-  { name: 'Sheikh Prime Traders', email: 'sheikh.prime@nexcart.com', businessName: 'Sheikh Prime Bulk Merchants' },
-  { name: 'Sheikh Apex Logistics', email: 'sheikh.apex@nexcart.com', businessName: 'Sheikh Apex Commercial Goods' },
+  {
+    name: 'Sheikh Tech Imports',
+    email: 'sheikh.tech@nexcart.com',
+    businessName: 'Sheikh Tech & Electronics Wholesale',
+  },
+  {
+    name: 'Sheikh Apparel House',
+    email: 'sheikh.apparel@nexcart.com',
+    businessName: 'Sheikh Textiles & Fashion Hub',
+  },
+  {
+    name: 'Sheikh Home Depot',
+    email: 'sheikh.home@nexcart.com',
+    businessName: 'Sheikh Home & Kitchen Supplies',
+  },
+  {
+    name: 'Sheikh Beauty Care',
+    email: 'sheikh.beauty@nexcart.com',
+    businessName: 'Sheikh Cosmetics & Beauty Traders',
+  },
+  {
+    name: 'Sheikh Active Sports',
+    email: 'sheikh.sports@nexcart.com',
+    businessName: 'Sheikh Sports & Fitness Gear',
+  },
+  {
+    name: 'Sheikh Book Emporium',
+    email: 'sheikh.books@nexcart.com',
+    businessName: 'Sheikh Publishers & Books Wholesale',
+  },
+  {
+    name: 'Sheikh Toy World',
+    email: 'sheikh.toys@nexcart.com',
+    businessName: 'Sheikh Toyland & Games Distributors',
+  },
+  {
+    name: 'Sheikh Fresh Groceries',
+    email: 'sheikh.grocery@nexcart.com',
+    businessName: 'Sheikh Daily Essentials & Grocery',
+  },
+  {
+    name: 'Sheikh Auto Spares',
+    email: 'sheikh.auto@nexcart.com',
+    businessName: 'Sheikh Motors & Automotive Wholesale',
+  },
+  {
+    name: 'Sheikh Pet Palace',
+    email: 'sheikh.pets@nexcart.com',
+    businessName: 'Sheikh Pet Care & Food Wholesale',
+  },
+  {
+    name: 'Sheikh Office Express',
+    email: 'sheikh.office@nexcart.com',
+    businessName: 'Sheikh Stationery & Office Mart',
+  },
+  {
+    name: 'Sheikh Global Enterprise',
+    email: 'sheikh.global@nexcart.com',
+    businessName: 'Sheikh Global Multi-Category Wholesale',
+  },
+  {
+    name: 'Sheikh Metro Wholesale',
+    email: 'sheikh.metro@nexcart.com',
+    businessName: 'Sheikh Metro B2B Superstore',
+  },
+  {
+    name: 'Sheikh Prime Traders',
+    email: 'sheikh.prime@nexcart.com',
+    businessName: 'Sheikh Prime Bulk Merchants',
+  },
+  {
+    name: 'Sheikh Apex Logistics',
+    email: 'sheikh.apex@nexcart.com',
+    businessName: 'Sheikh Apex Commercial Goods',
+  },
 ];
 
 function getRandomItem(arr) {
@@ -730,15 +790,18 @@ const CATEGORY_FALLBACK_IMAGES = {
 // Function to generate unique, relevant image URL for each product
 function getProductImageUrl(category, subcategory, productIndex) {
   const images = SUBCATEGORY_IMAGES[subcategory];
-  const basePhoto = (images && images.length > 0)
-    ? images[productIndex % images.length]
-    : (CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.Electronics);
+  const basePhoto =
+    images && images.length > 0
+      ? images[productIndex % images.length]
+      : CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.Electronics;
 
   return `${basePhoto}?w=600&auto=format&fit=crop&q=80&sig=${productIndex}`;
 }
 
 async function main() {
-  console.log('🚀 Initializing database reset & 8,000 product seeding with subcategory-level unique images...');
+  console.log(
+    '🚀 Initializing database reset & 8,000 product seeding with subcategory-level unique images...'
+  );
   const startTime = Date.now();
 
   // 1. Truncate all tables safely
@@ -886,7 +949,9 @@ async function main() {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log(`\n🎉 RE-SEEDING COMPLETE in ${duration}s!`);
-  console.log(`   - 15 Wholesalers & All Products updated with subcategory-specific unique images.`);
+  console.log(
+    `   - 15 Wholesalers & All Products updated with subcategory-specific unique images.`
+  );
 }
 
 main()

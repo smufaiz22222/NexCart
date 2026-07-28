@@ -1,3 +1,7 @@
+// getB2BCart	Returns the current B2B buyer's hydrated cart
+// addB2BCartItem	Adds a product (optionally at an accepted RFQ price) to the B2B cart, enforcing single-seller carts
+// updateB2BCartItem	Updates the quantity of a non-RFQ cart item
+// removeB2BCartItem / clearB2BCart	Removes one or all items from the B2B cart
 import { prisma } from '../config/db.js';
 
 const buildError = (message, statusCode = 400) => {

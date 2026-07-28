@@ -112,15 +112,22 @@ export default function SellerCounterForm({
         </button>
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
+            const price = parseFloat(counterState.counterPrice);
+            if (!Number.isFinite(price) || price <= 0) {
+              return;
+            }
             onSubmit(rfq.id, 'COUNTER_OFFERED', {
-              counterPrice: counterState.counterPrice,
-              counterQuantity: counterState.counterQuantity,
-              sellerNotes: counterState.sellerNotes,
-            })
-          }
+              counterPrice: price,
+              counterQuantity: counterState.counterQuantity
+                ? parseInt(counterState.counterQuantity, 10)
+                : undefined,
+              sellerNotes: counterState.sellerNotes || undefined,
+            });
+          }}
+          disabled={!counterState.counterPrice || parseFloat(counterState.counterPrice) <= 0}
           className={cn(
-            'px-4 py-2 rounded-md text-xs font-bold transition-all',
+            'px-4 py-2 rounded-md text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed',
             isWholesalerPath
               ? 'bg-amber-500 hover:bg-amber-400 text-black font-bold'
               : 'bg-[#0047AB] text-white hover:bg-[#003B91]'

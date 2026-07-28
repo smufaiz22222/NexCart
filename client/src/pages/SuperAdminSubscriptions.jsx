@@ -207,9 +207,9 @@ export default function SuperAdminSubscriptions() {
                     couponGlobalFilter={couponGlobalFilter}
                     setCouponGlobalFilter={setCouponGlobalFilter}
                     couponColumnVisibility={couponColumnVisibility}
-                    setColumnVisibility={setCouponColumnVisibility}
+                    setCouponColumnVisibility={setCouponColumnVisibility}
                     couponRowSelection={couponRowSelection}
-                    setRowSelection={setCouponRowSelection}
+                    setCouponRowSelection={setCouponRowSelection}
                   />
                 )}
 

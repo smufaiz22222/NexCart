@@ -1,3 +1,7 @@
+// getWholesalerPayoutSummary / getWholesalerPayoutRequests	Wholesaler's earnings summary and payout request history
+// createWholesalerPayoutRequest	Wholesaler requests a payout of available earnings
+// adminGetAllPayoutRequests / adminApprovePayoutRequest / adminRejectPayoutRequest	Admin review workflow for payout requests
+// updateWholesalerPayoutSettings	Wholesaler configures bank/UPI details used for settlements
 import * as payoutService from '../services/payoutService.js';
 
 export const getWholesalerPayoutSummary = async (req, res) => {

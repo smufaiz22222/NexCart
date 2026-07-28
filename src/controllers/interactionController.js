@@ -1,3 +1,8 @@
+// createInteraction	Logs a raw user interaction (view/cart/purchase/etc.) for recommendation training
+// createRecommendationEvent	Logs a single funnel event (impression/click/cart) for a recommendation
+// createRecommendationEvents	Bulk-logs multiple recommendation funnel events at once
+// getWishlist	Returns the current user's wishlisted products
+// toggleWishlist	Adds or removes a product from the current user's wishlist
 import {
   logInteraction,
   logRecommendationEvent,

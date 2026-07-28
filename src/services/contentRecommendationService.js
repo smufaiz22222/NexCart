@@ -97,10 +97,28 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
     )
   );
 
+  // Build inverted index: term -> list of vectors containing term
+  const invertedIndex = new Map();
+  vectors.forEach((vec) => {
+    for (const term of Object.keys(vec.vector)) {
+      if (!invertedIndex.has(term)) invertedIndex.set(term, []);
+      invertedIndex.get(term).push(vec);
+    }
+  });
+
   const similarityRows = [];
   for (const source of vectors) {
-    const ranked = vectors
-      .filter((candidate) => candidate.productId !== source.productId)
+    const candidatesSet = new Set();
+    for (const term of Object.keys(source.vector)) {
+      const matches = invertedIndex.get(term) || [];
+      for (const candidate of matches) {
+        if (candidate.productId !== source.productId) {
+          candidatesSet.add(candidate);
+        }
+      }
+    }
+
+    const ranked = [...candidatesSet]
       .map((candidate) => ({
         productId: source.productId,
         similarProductId: candidate.productId,
@@ -118,17 +136,15 @@ export const buildContentRecommendations = async ({ topK = 10 } = {}) => {
     similarityRows.push(...ranked);
   }
 
-  await prisma.$transaction(
-    async (tx) => {
-      await tx.productSimilarity.deleteMany({ where: { method: 'CONTENT' } });
-      if (similarityRows.length > 0) {
-        await tx.productSimilarity.createMany({ data: similarityRows });
-      }
-    },
-    { timeout: 60000 }
-  );
+  await prisma.productSimilarity.deleteMany({ where: { method: 'CONTENT' } });
 
-  const similaritiesCreated = vectors.length * Math.min(topK, Math.max(products.length - 1, 0));
+  const BATCH_SIZE = 5000;
+  for (let i = 0; i < similarityRows.length; i += BATCH_SIZE) {
+    const chunk = similarityRows.slice(i, i + BATCH_SIZE);
+    await prisma.productSimilarity.createMany({ data: chunk });
+  }
+
+  const similaritiesCreated = similarityRows.length;
   return { productsProcessed: products.length, similaritiesCreated };
 };
 

@@ -1,3 +1,9 @@
+// getUpgradeDetails / getSubscriptionPlans	Plan browsing and upgrade pricing for the current wholesaler
+// getSubscriptionSummary	Current plan, feature access and trial state (auto-expires stale subscriptions)
+// getSubscriptionPayments	Billing/payment history for the wholesaler
+// createSubscriptionCheckout / verifySubscriptionCheckout	Razorpay checkout flow for purchasing a plan
+// startSubscriptionTrial	Activates the wholesaler's one-time free trial
+// validateCoupon / activateCoupon	Coupon code validation and redemption for subscriptions
 import { prisma } from '../config/db.js';
 import {
   buildSellerPlansResponse,

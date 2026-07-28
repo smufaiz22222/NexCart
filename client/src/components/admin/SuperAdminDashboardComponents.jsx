@@ -286,7 +286,7 @@ export function SuperAdminCharts({ monthlyRevenue, orderStatus, formatCurrency }
           <Suspense
             fallback={<div className="h-full w-full bg-[#fcf7f0] animate-pulse rounded-[24px]" />}
           >
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height="100%">
               <AreaChart data={monthlyRevenue || EMPTY_ARRAY}>
                 <defs>
                   <linearGradient id="adminRevenueFill" x1="0" y1="0" x2="0" y2="1">
@@ -328,7 +328,7 @@ export function SuperAdminCharts({ monthlyRevenue, orderStatus, formatCurrency }
           <Suspense
             fallback={<div className="h-full w-full bg-[#fcf7f0] animate-pulse rounded-[24px]" />}
           >
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height="100%">
               <PieChart>
                 <Pie
                   data={orderStatus || EMPTY_ARRAY}
@@ -389,7 +389,7 @@ export function SuperAdminWholesalerLeaders({
           <Suspense
             fallback={<div className="h-full w-full bg-[#fcf7f0] animate-pulse rounded-[24px]" />}
           >
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height="100%">
               <BarChart data={topWholesalers} layout="vertical" margin={{ left: 16, right: 8 }}>
                 <CartesianGrid stroke="#eadfce" horizontal={false} />
                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#6b6155' }} />

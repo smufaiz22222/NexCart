@@ -128,7 +128,10 @@ async function runE2ETests() {
   assert(mktRes.ok, `GET /products/marketplace failed with status ${mktRes.status}`);
   const mktData = await mktRes.json();
   assert(Array.isArray(mktData.products), 'Marketplace products response must contain array');
-  log('MARKETPLACE', `Retrieved ${mktData.products.length} marketplace products (total: ${mktData.total})`);
+  log(
+    'MARKETPLACE',
+    `Retrieved ${mktData.products.length} marketplace products (total: ${mktData.total})`
+  );
 
   log('WHOLESALER PRODUCTS', 'Testing seller inventory products API...');
   const sellerProdRes = await fetch(`${SERVER_BASE}/products`, {
@@ -136,7 +139,10 @@ async function runE2ETests() {
   });
   assert(sellerProdRes.ok, `GET /products failed with status ${sellerProdRes.status}`);
   const sellerProdData = await sellerProdRes.json();
-  log('WHOLESALER PRODUCTS', `Seller inventory returned: ${sellerProdData.products?.length || 0} products`);
+  log(
+    'WHOLESALER PRODUCTS',
+    `Seller inventory returned: ${sellerProdData.products?.length || 0} products`
+  );
 
   // 2. Recommendations API
   log('RECOMMENDATIONS', 'Testing recommendation endpoints...');

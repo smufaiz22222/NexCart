@@ -1,3 +1,9 @@
+// getAddresses	Lists all your saved addresses
+// createAddress	Saves a new address (validates Indian phone, pincode, 10 address max)
+// updateAddress	Edits an existing address
+// deleteAddress	Removes an address (auto-reassigns default if needed)
+// setDefaultAddress	Marks one address as the default
+// lookupPincode	Given a 6-digit pincode, returns the city/state/locality
 import { prisma } from '../config/db.js';
 import { lookupIndianPincode } from '../services/pincodeLookupService.js';
 import {

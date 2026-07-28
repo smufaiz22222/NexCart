@@ -1,3 +1,5 @@
+// adjustStock	Manually adjusts a product's stock level and records an InventoryLog entry
+// getInventoryLogs	Lists inventory change history for a wholesaler (optionally filtered by product)
 import { prisma } from '../config/db.js';
 import { checkAndNotifyLowStock } from '../services/notificationService.js';
 

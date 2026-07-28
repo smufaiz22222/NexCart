@@ -1,3 +1,9 @@
+// getSimilarProducts	Content/collaborative "similar products" recommendations for a given product
+// getUserRecommendations	Personalized hybrid recommendations for the current user/session
+// getPopularRecommendations	Trending or all-time popularity-based recommendations
+// getRecommendationAnalytics	CTR, cart-rate, conversion and top-product recommendation metrics
+// getRecommendationEvaluation / getRecommendationHealth	Offline precision/recall evaluation and pipeline health status
+// clearRecommendationLogs / resetRecommendationAnalytics / resetRecommendationEvaluation	Admin utilities to wipe recommendation logs/reports
 import { prisma } from '../config/db.js';
 import { evaluateRecommendations } from '../services/evaluationService.js';
 import {

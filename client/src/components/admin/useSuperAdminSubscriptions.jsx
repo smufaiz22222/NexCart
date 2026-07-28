@@ -167,9 +167,16 @@ export function useSuperAdminSubscriptions() {
   const setCouponPagination = (updater) => {
     const next = typeof updater === 'function' ? updater(couponPagination) : updater;
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('coupon_page', String(next.pageIndex + 1));
-    nextParams.set('coupon_pageSize', String(next.pageSize));
-    setSearchParams(nextParams, { replace: true });
+    const newPage = String(next.pageIndex + 1);
+    const newPageSize = String(next.pageSize);
+    if (
+      searchParams.get('coupon_page') !== newPage ||
+      searchParams.get('coupon_pageSize') !== newPageSize
+    ) {
+      nextParams.set('coupon_page', newPage);
+      nextParams.set('coupon_pageSize', newPageSize);
+      setSearchParams(nextParams, { replace: true });
+    }
   };
 
   const setCouponSorting = (updater) => {

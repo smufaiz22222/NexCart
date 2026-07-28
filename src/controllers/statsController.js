@@ -1,3 +1,7 @@
+// getWholesalerSummary	Quick ledger totals (collections/debt) for the wholesaler dashboard header
+// getAdvisorContext	Compact business snapshot fed into the AI Business Advisor (RAG)
+// getAdvancedSummary	Revenue/profit chart data and top products bucketed by day/month/year
+// getAnalyticsOverview	Full analytics payload built from raw product/order data via analyticsOverviewService
 import { prisma } from '../config/db.js';
 import { buildAnalyticsOverview } from '../services/analyticsOverviewService.js';
 

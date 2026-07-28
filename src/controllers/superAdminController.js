@@ -1,3 +1,13 @@
+// getGlobalStats	Returns cached platform-wide totals, charts, top wholesalers and pending applications
+// getAllWholesalers	Paginated, searchable list of every wholesaler with computed stats
+// getTenantData	Full drill-down profile for a single wholesaler (products, orders, ledger, subscriptions)
+// getPendingWholesalerApplications	Lists wholesaler onboarding applications awaiting review
+// approveWholesalerApplication	Approves a wholesaler's onboarding application and emails them
+// rejectWholesalerApplication	Rejects a wholesaler's onboarding application with a reason
+// updateWholesalerLifecycle	Suspends or reactivates an existing wholesaler account
+// getAdminSubscriptionPlans	Lists active subscription plans formatted with purchase-option pricing
+// getCoupons / createCoupon / deleteCoupon	Manage subscription discount coupons
+// getAdminOrders	Paginated, searchable/filterable list of all marketplace orders
 import { prisma } from '../config/db.js';
 import {
   computePlanPricing,
@@ -937,15 +947,7 @@ export const getAdminOrders = async (req, res) => {
         include: {
           buyer: { select: { id: true, name: true, email: true } },
           seller: { select: { id: true, businessName: true } },
-          items: {
-            select: {
-              id: true,
-              quantity: true,
-              unitPrice: true,
-              status: true,
-              product: { select: { id: true, name: true, imageUrl: true } },
-            },
-          },
+          _count: { select: { items: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -965,7 +967,7 @@ export const getAdminOrders = async (req, res) => {
         paymentStatus: order.paymentStatus,
         totalAmount: Number(order.totalAmount),
         deliveryFee: Number(order.deliveryFee),
-        itemCount: order.items.length,
+        itemCount: order._count.items,
         createdAt: order.createdAt,
       })),
       pagination: {

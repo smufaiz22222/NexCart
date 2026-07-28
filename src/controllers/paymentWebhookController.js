@@ -1,3 +1,4 @@
+// receiveRazorpayWebhook	Verifies and processes incoming Razorpay payment webhook events
 import { handleRazorpayWebhook } from '../services/razorpayWebhookService.js';
 
 export const receiveRazorpayWebhook = async (req, res) => {

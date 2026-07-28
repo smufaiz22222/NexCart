@@ -17,6 +17,8 @@ const testUrls = [
 console.log('Testing Picsum seed URLs...');
 for (const url of testUrls) {
   https.get(url, (res) => {
-    console.log(`Status ${res.statusCode} (Redirect to ${res.headers.location ? 'Image CDN' : 'Direct'}) - ${url}`);
+    console.log(
+      `Status ${res.statusCode} (Redirect to ${res.headers.location ? 'Image CDN' : 'Direct'}) - ${url}`
+    );
   });
 }

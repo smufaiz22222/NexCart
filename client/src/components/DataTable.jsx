@@ -166,6 +166,7 @@ export default function DataTable({
     manualPagination: manualPagination,
     manualSorting: manualSorting,
     manualFiltering: manualFiltering,
+    autoResetPageIndex: !setPagination,
   });
 
   const selectedRowsCount = Object.keys(tableState.rowSelection).length;

@@ -9,7 +9,6 @@ export default function ProductImage({
   alt = 'Product image',
   className = 'h-full w-full object-contain',
   fallbackSrc = DEFAULT_FALLBACK_IMAGE,
-  category = 'General',
   loading = 'lazy',
   ...props
 }) {

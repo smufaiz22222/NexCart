@@ -1,3 +1,5 @@
+// Unit tests for orderController's buildOrdersBySeller and validateSelectedSize helpers,
+// covering per-seller grouping, purchase snapshots and delivery-fee threshold logic.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildOrdersBySeller, validateSelectedSize } from './orderController.js';
